@@ -53,3 +53,8 @@ This project is used through 2 notebooks, `nb_transcription.ipynb` and `nb_trans
 
 - `nb_translate.ipynb`
 
+    1. Run cells one and two to load the model. You will be asked to provide you **OpenAI API Key**.
+
+    2. In cell three, update the text variable with what you want to translate and run the cell.
+    It will give five different answers in no specific order.
+
