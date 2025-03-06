@@ -20,15 +20,34 @@ venv/scripts/activate
 pip install -r requirements.txt
 ```
 
+### CUDA Support
+
+If you have a CUDA GPU with large enough VRAM, you can install PyTorch with CUDA support for faster transcribing.
+
+|  Size  | Parameters | English-only model | Multilingual model | Required VRAM | Relative speed |
+|:------:|:----------:|:------------------:|:------------------:|:-------------:|:--------------:|
+|  tiny  |    39 M    |     `tiny.en`      |       `tiny`       |     ~1 GB     |      ~10x      |
+|  base  |    74 M    |     `base.en`      |       `base`       |     ~1 GB     |      ~7x       |
+| small  |   244 M    |     `small.en`     |      `small`       |     ~2 GB     |      ~4x       |
+| medium |   769 M    |    `medium.en`     |      `medium`      |     ~5 GB     |      ~2x       |
+| large  |   1550 M   |        N/A         |      `large`       |    ~10 GB     |       1x       |
+| turbo  |   809 M    |        N/A         |      `turbo`       |     ~6 GB     |      ~8x       |
+
+Check the version of CUDA you have installed then install it [here](https://pytorch.org/get-started/locally/). If you can't find your CUDA version, you can check the archive [here](https://pytorch.org/get-started/previous-versions/)
+
+```bash
+nvcc --version
+```
+
 ## Usage
 
 This project is used through 2 notebooks, `nb_transcription.ipynb` and `nb_translate.ipynb`.
 
 - `nb_transcription.ipynb` 
 
-    1. Run cells one and two to set up the libraries and install OpenAI's whisper model (this part may take a while).
+    1. Run cells one, two, and three to set up the libraries and install OpenAI's whisper model (this part may take a while). **By default, the large model is used**, but you can change this to any of the smaller models at the cost of accuracy.
 
-    2. Set the path to the file you want to transcribe in cell three (This path is relative).
+    2. Set the path to the file you want to transcribe in cell four (This path is relative).
 
     3. Run the cell.
 
