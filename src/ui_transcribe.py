@@ -4,13 +4,19 @@ import tempfile
 import os
 import time
 
+# To remove FutureWarning
+import functools
+whisper.torch.load = functools.partial(whisper.torch.load, weights_only=True)
+
 from src.transcribe import transcribe
+
 
 def load_whisper_model(selected_model: str = None): 
     if selected_model is not None:
         st.session_state.selected_model_transcribe = selected_model
     with st.spinner("Loading Whisper model... This may take a while."):
-        st.session_state.whisper_model = whisper.load_model(st.session_state.selected_model_transcribe, device=st.session_state.device)  # Force CPU usage
+        st.session_state.whisper_model = whisper.load_model(st.session_state.selected_model_transcribe, 
+                                                            device=st.session_state.device)
         
 def create_temp_audio_file(uploaded_file):
     with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[-1]) as temp_file:

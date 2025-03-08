@@ -3,6 +3,13 @@ from src.ui_transcribe import render_transcribe, load_whisper_model
 from src.ui_translate import render_translate
 from src.ui_grade import render_grade
 
+# fix RuntimeError: Tried to instantiate class '__path__._path', but it does not exist! Ensure that it is registered via torch::class_
+import torch
+torch.classes.__path__ = []
+
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+
 def create_sessions_var():
     # Initialize session state for settings if not set
     if "selected_model_transcribe" not in st.session_state:
