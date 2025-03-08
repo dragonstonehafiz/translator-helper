@@ -1,13 +1,17 @@
 import openai
 
-def create_client():
-    api_key = input("Please enter your API key:")
+def create_client(api_key: str = None):
+    if api_key is None:
+        api_key = input("Please enter your API key:")
     client = openai.OpenAI(api_key=api_key)
     return client
 
 def translate(client: openai.OpenAI, text:str, 
               model: str = "gpt-4o-mini", 
-              input_lang: str = "ja", target_lang: str = "en"):
+              input_lang: str = "ja", target_lang: str = "en",
+              temperature = 1.0, top_p = 1.0):
+    # read about temp and top_p here:
+    # https://www.codecademy.com/learn/intro-to-open-ai-gpt-api/modules/intro-to-open-ai-gpt-api/cheatsheet
     
     system_message = f"""
     # Role
@@ -27,7 +31,7 @@ def translate(client: openai.OpenAI, text:str,
     # Output Format
     
     - Return only the translated text in {target_lang} without any additional information.
-    - Provide multiple lines (at most 5) that represent different interpretations. Each line should be seperated by a newline.
+    - Provide multiple lines (at most 3) that represent different interpretations. Each line should be seperated by a newline.
     - The output should ONLY be in the {target_lang}
     
     DO NOT INCLUDE ANY EXTRA INFORMATION OR EXPLANATION.
@@ -39,12 +43,13 @@ def translate(client: openai.OpenAI, text:str,
             {"role": "system", "content": system_message},
             {"role": "user", "content": text}
         ],
-        max_tokens=500)
+        max_tokens=500,
+        temperature=temperature, top_p=top_p)
     
     return response.choices[0].message.content
 
 
-def grade(client: openai.OpenAI, original_text: str, translated_text: str,
+def grade(client: openai.OpenAI, original_text: str, translated_text: str,#
           model: str = "gpt-4o-mini",
           input_lang: str = "ja", target_lang: str = "en"):
     system_message = f"""

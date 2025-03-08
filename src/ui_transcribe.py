@@ -1,22 +1,10 @@
 import streamlit as st
-import whisper
 import tempfile
 import os
 import time
-
-# To remove FutureWarning
-import functools
-whisper.torch.load = functools.partial(whisper.torch.load, weights_only=True)
-
 from src.transcribe import transcribe
+from src.ui_config import load_whisper_model, render_audio_config
 
-
-def load_whisper_model(selected_model: str = None): 
-    if selected_model is not None:
-        st.session_state.selected_model_transcribe = selected_model
-    with st.spinner("Loading Whisper model... This may take a while."):
-        st.session_state.whisper_model = whisper.load_model(st.session_state.selected_model_transcribe, 
-                                                            device=st.session_state.device)
         
 def create_temp_audio_file(uploaded_file):
     with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[-1]) as temp_file:
@@ -26,24 +14,14 @@ def create_temp_audio_file(uploaded_file):
 def render_transcribe():
     st.header("Transcribe")
     
-    leftcol, rightcol = st.columns(2)
+    st.subheader("Config")
+    render_audio_config("transcribe page")
     
-    # Model Selection
-    with leftcol:
-        model_options = ["tiny", "base", "small", "medium", "large"]
-        selected_model = st.selectbox("Select Whisper Model:", model_options, 
-                                      index=model_options.index(st.session_state.selected_model_transcribe))
-        if selected_model != st.session_state.selected_model_transcribe:
-            load_whisper_model(selected_model)
-    
-    # Language Selection
-    with rightcol:
-        st.session_state.input_lang = st.text_input("Input Language", 
-                                                   st.session_state.input_lang)
-        
-    # File Uploader
-    st.subheader("Upload an MP3 or WAV file:")
+    st.subheader("Upload an Audio File")
     uploaded_file = st.file_uploader("Choose a file", type=["mp3", "wav"])
+    # Audio Preview
+    if uploaded_file:
+        st.audio(uploaded_file)
     
     # Transcription Button
     if uploaded_file and st.button("Transcribe"):
