@@ -2,6 +2,7 @@ import streamlit as st
 import whisper
 import openai
 from src.translate import create_client
+import torch
 
 # To remove FutureWarning
 import functools
@@ -10,13 +11,13 @@ whisper.torch.load = functools.partial(whisper.torch.load, weights_only=True)
 def create_sessions_var():
     # Audio Transcription
     if "selected_model_transcribe" not in st.session_state:
-        st.session_state.selected_model_transcribe = "tiny"
+        st.session_state.selected_model_transcribe = "medium"
     if "input_lang" not in st.session_state:
         st.session_state.input_lang = "ja"
-    if "device" not in st.session_state:
-        st.session_state.device = "cpu"
+    if "enable_cuda" not in st.session_state:
+        st.session_state.enable_cuda = False 
     if "whisper_model" not in st.session_state:
-        load_whisper_model()
+        st.session_state.whisper_model = None  # Now requires manual loading
     # Translation
     if "openai_api_key" not in st.session_state:
         st.session_state.openai_api_key = ""
@@ -39,27 +40,39 @@ def create_sessions_var():
 def load_whisper_model(selected_model: str = None): 
     if selected_model is not None:
         st.session_state.selected_model_transcribe = selected_model
-    with st.spinner("Loading Whisper model... This may take a while."):
-        st.session_state.whisper_model = whisper.load_model(st.session_state.selected_model_transcribe, 
-                                                            device=st.session_state.device)
+    device = "cuda" if st.session_state.enable_cuda else "cpu"
+    try:
+        with st.spinner("Loading Whisper model... This may take a while. Your first time using a model will take longer to load as it need to be downloaded."):
+            st.session_state.whisper_model = whisper.load_model(st.session_state.selected_model_transcribe, device=device)
+    except torch.cuda.OutOfMemoryError:
+        st.error("CUDA ran out of memory. Try using a smaller model or disabling CUDA.")
+        st.session_state.enable_cuda = False 
         
 def render_audio_config(page_name: str):
+    
     leftcol, rightcol = st.columns(2)
     
     # Model Selection
     with leftcol:
         model_options = ["tiny", "base", "small", "medium", "large"]
-        selected_model = st.selectbox("Select Whisper Model:", model_options, 
+        st.session_state.selected_model_transcribe = st.selectbox("Select Whisper Model:", model_options, 
                                       index=model_options.index(st.session_state.selected_model_transcribe),
                                       key=f"{page_name} whisper model")
-        if selected_model != st.session_state.selected_model_transcribe:
-            load_whisper_model(selected_model)
     
     # Language Selection
     with rightcol:
         st.session_state.input_lang = st.text_input("Input Language", 
                                                     st.session_state.input_lang, 
                                                     key=f"{page_name} input lang")
+    
+    # Enable CUDA Option
+    st.session_state.enable_cuda = st.checkbox("Enable GPU Acceleration", st.session_state.enable_cuda, key=f"{page_name} enable cuda")
+    st.warning("You must reload the model when enabling/disabling.")
+    st.warning("Check [here](https://github.com/openai/whisper) to make sure you have enough VRAM for the model you want to use.")
+    
+    # Load Model
+    if st.button("Load Whisper Model", key=f"{page_name} load whisper model"):
+        load_whisper_model()
 
 def test_api_key(api_key):
     with st.spinner("Checking API Key"):

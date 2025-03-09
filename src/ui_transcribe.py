@@ -18,18 +18,22 @@ def render_transcribe():
     render_audio_config("transcribe page")
     
     st.subheader("Upload an Audio File")
-    uploaded_file = st.file_uploader("Choose a file", type=["mp3", "wav"])
-    # Audio Preview
-    if uploaded_file:
-        st.audio(uploaded_file)
     
-    # Transcription Button
-    if uploaded_file and st.button("Transcribe"):
-        startTime = time.time()
-        with st.spinner("Transcribing... This may take a while."):
-            file_path = create_temp_audio_file(uploaded_file)
-            transcript = transcribe(st.session_state.whisper_model, file_path, st.session_state.input_lang)
-            endTime = time.time()
-            st.write(f"Time Taken: {endTime-startTime:0.2f}s")
-            st.code(transcript, language='plaintext')
+    if st.session_state.whisper_model is None:
+        st.error("Whisper model not loaded.")
+    else:
+        uploaded_file = st.file_uploader("Choose a file", type=["mp3", "wav"])
+        # Audio Preview
+        if uploaded_file:
+            st.audio(uploaded_file)
+        
+        # Transcription Button
+        if uploaded_file and st.button("Transcribe"):
+            startTime = time.time()
+            with st.spinner("Transcribing... This may take a while."):
+                file_path = create_temp_audio_file(uploaded_file)
+                transcript = transcribe(st.session_state.whisper_model, file_path, st.session_state.input_lang)
+                endTime = time.time()
+                st.write(f"Time Taken: {endTime-startTime:0.2f}s")
+                st.code(transcript, language='plaintext')
             

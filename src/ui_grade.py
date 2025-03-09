@@ -10,7 +10,7 @@ def render_grade():
 
     st.subheader("Provide Input")
     if st.session_state.openai_api_client is None:
-        st.error("OpenAI API client not loaded")
+        st.error("OpenAI API client not loaded.")
     else:
         # Text Inputs
         original_text = st.text_area("Enter Original Text:")
