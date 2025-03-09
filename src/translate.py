@@ -26,15 +26,27 @@ def translate(client: openai.OpenAI, text:str,
     - Use natural expressions in {target_lang} while ensuring fidelity to the original meaning.
     - Adapt cultural references only when necessary to improve comprehension.
     - If the dialogue contains slang, idioms, or jokes, translate them in a way that makes sense in {target_lang}.
-    - Do not add explanations—only return the translated text.
+    - You must include three translations, one which is casual, another respectful, and the third a direct translation of the original line.
     
     # Output Format
     
-    - Return only the translated text in {target_lang} without any additional information.
-    - Provide multiple lines (at most 3) that represent different interpretations. Each line should be seperated by a newline.
-    - The output should ONLY be in the {target_lang}
+    - Your output must be purely markdown.
+    - It must include the translation and an explanation that is only two sentences long.
+    - The translation must only be in {target_lang}.
     
-    DO NOT INCLUDE ANY EXTRA INFORMATION OR EXPLANATION.
+    # Example Output
+    Casual Translation
+    - TRANSLATED SENTENCE
+    - EXPLANATION
+        
+    Respectful Translation
+    - TRANSLATED SENTENCE
+    - EXPLANATION
+        
+    Direct Translation
+    - TRANSLATED SENTENCE
+    - EXPLANATION
+    
     """
     
     response = client.chat.completions.create(

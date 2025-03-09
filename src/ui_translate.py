@@ -11,7 +11,7 @@ def render_translate():
     st.subheader("Provide Input Sentence")
     
     if st.session_state.openai_api_client is None:
-        st.error("OpenAI API client not loaded")
+        st.error("OpenAI API client not loaded. Check configurations.")
     else:
         # Text Input for Translation
         text_to_translate = st.text_area("Enter Text to Translate:")
