@@ -86,14 +86,17 @@ def grade(client: openai.OpenAI, original_text: str, translated_text: str,#
     
     - Provide three individual scores (Accuracy, Fluency, Cultural Appropriateness) each with a one-sentence explanation.
     - Calculate and display the average score.
-    - The response should be structured as follows:
+    - The output should be written in markdown.
     
-    Accuracy: [score] - [one sentence explanation]
-    Fluency: [score] - [one sentence explanation]
-    Cultural Appropriateness: [score] - [one sentence explanation]
+    # Example Output
     
-    Average Score: [average score]
+    **Average Score**: [average score]
     
+    **Accuracy**: [score] - [one sentence explanation]
+    
+    **Fluency**: [score] - [one sentence explanation]
+    
+    **Cultural Appropriateness**: [score] - [one sentence explanation]
     """
     
     response = client.chat.completions.create(
