@@ -23,17 +23,17 @@ def create_sessions_var():
     if "openai_api_key_valid" not in st.session_state:
         st.session_state.openai_api_key_valid = False
     if "openai_api_client" not in st.session_state:
-        st.openai_api_client = None
+        st.session_state.openai_api_client = None
     if "source_lang_translate" not in st.session_state:
         st.session_state.source_lang_translate = "ja"
     if "target_lang_translate" not in st.session_state:
         st.session_state.target_lang_translate = "en"
     if "model_translate" not in st.session_state:
         st.session_state.model_translate = "gpt-4o-mini"
-    if "temperature_translate" not in st.session_state:
-        st.session_state.temperature_translate = 1.0
-    if "top_p_translate" not in st.session_state:
-        st.session_state.top_p_translate = 1.0
+    if "temperature" not in st.session_state:
+        st.session_state.temperature = 1.0
+    if "top_p" not in st.session_state:
+        st.session_state.top_p = 1.0
     
 
 def load_whisper_model(selected_model: str = None): 
@@ -102,21 +102,26 @@ def render_translate_config(page_name: str):
                                                     index=model_options.index(st.session_state.model_translate),
                                                     key=f"{page_name} translate model")
     
+    if st.button("Load OpenAI API client", 
+                 disabled=not st.session_state.openai_api_key_valid,
+                 key=f"{page_name} load client"):
+        st.session_state.openai_api_client = create_client(st.session_state.openai_api_key)
+    
     # Temperature and Top-p Selection
     temp_col, top_p_col = st.columns(2)
     with temp_col:
-        st.session_state.temperature_translate = st.number_input("Temperature (0 - 2):", 
-                                                                 min_value=0.0, max_value=2.0, 
-                                                                 value=st.session_state.temperature_translate, 
-                                                                 step=0.1,
-                                                                 key=f"{page_name} temperature")
+        st.session_state.temperature = st.number_input("Temperature (0 - 2):", 
+                                                        min_value=0.0, max_value=2.0, 
+                                                        value=st.session_state.temperature, 
+                                                        step=0.1,
+                                                        key=f"{page_name} temperature")
     with top_p_col:
-        st.session_state.top_p_translate = st.number_input("Top-p (0 - 2):", 
-                                                            min_value=0.0, max_value=2.0, 
-                                                            value=st.session_state.top_p_translate, 
-                                                            step=0.1,
-                                                            key=f"{page_name} top p")
-        
+        st.session_state.top_p = st.number_input("Top-p (0 - 2):", 
+                                                min_value=0.0, max_value=2.0, 
+                                                value=st.session_state.top_p, 
+                                                step=0.1,
+                                                key=f"{page_name} top p")
+
         
     # Language Selection
     leftcol, rightcol = st.columns(2)

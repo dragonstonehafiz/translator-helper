@@ -51,7 +51,8 @@ def translate(client: openai.OpenAI, text:str,
 
 def grade(client: openai.OpenAI, original_text: str, translated_text: str,#
           model: str = "gpt-4o-mini",
-          input_lang: str = "ja", target_lang: str = "en"):
+          input_lang: str = "ja", target_lang: str = "en",
+          temperature: float = 1, top_p: float = 1):
     system_message = f"""
     # Role
     
@@ -89,7 +90,9 @@ def grade(client: openai.OpenAI, original_text: str, translated_text: str,#
             {"role": "system", "content": system_message},
             {"role": "user", "content": f"Original text ({input_lang}):\n{original_text}\n\nTranslated text ({target_lang}):\n{translated_text}"}
         ],
-        max_tokens=500)
+        max_tokens=500,
+        temperature=temperature,
+        top_p=top_p)
     
     return response.choices[0].message.content
 
