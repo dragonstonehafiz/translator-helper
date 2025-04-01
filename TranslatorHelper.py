@@ -1,5 +1,5 @@
 import streamlit as st
-from src.ui_transcribe import render_transcribe, load_whisper_model
+from src.ui_transcribe import render_transcribe
 from src.ui_translate import render_translate
 from src.ui_grade import render_grade
 from src.ui_config import render_config, create_sessions_var

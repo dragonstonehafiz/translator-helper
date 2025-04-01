@@ -1,17 +1,11 @@
 import streamlit as st
-from src.ui_config import render_translate_config
 from src.translate import translate
 
 def render_translate():
     st.header("Translate")
     
-    st.subheader("Config")
-    render_translate_config("translate page")
-    
-    st.subheader("Provide Input Sentence")
-    
     if st.session_state.openai_api_client is None:
-        st.error("OpenAI API client not loaded.")
+        st.error("Whisper model not loaded. Please load it in the Configurations page.")
     else:
         # Text Input for Translation
         text_to_translate = st.text_area("Enter Text to Translate:")

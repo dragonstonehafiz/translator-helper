@@ -1,16 +1,11 @@
 import streamlit as st
-from src.ui_config import render_translate_config
 from src.translate import grade
 
 def render_grade():
     st.header("Grade")
-    
-    st.subheader("Configuration")
-    render_translate_config("grade page")
 
-    st.subheader("Provide Input")
     if st.session_state.openai_api_client is None:
-        st.error("OpenAI API client not loaded.")
+        st.error("OpenAI API client not loaded. Please load it in the Configurations page.")
     else:
         # Text Inputs
         original_text = st.text_area("Enter Original Text:")
