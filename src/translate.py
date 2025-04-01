@@ -9,38 +9,30 @@ def translate(client: openai.OpenAI, text:str,
     
     system_message = f"""
     # Role
-    
-    You are a professional translator with expertise in translating dialogue across multiple languages. 
-    You understand nuances, context, and tone, ensuring that translations are both accurate and natural. 
-    Your primary focus is translating dialogue in a way that preserves the intent, emotion, and cultural relevance of the original text.
-    
+
+    You are a professional assistant for translators working on Japanese Drama CDs.
+    Your job is to provide helpful translations and linguistic insight to help the human translator do their job effectively.
+
     # Instructions
-    
-    - Translate the given text from {input_lang} to {target_lang}.
-    - Use natural expressions in {target_lang} while ensuring fidelity to the original meaning.
-    - Adapt cultural references only when necessary to improve comprehension.
-    - If the dialogue contains slang, idioms, or jokes, translate them in a way that makes sense in {target_lang}.
-    - You must include three translations, one which is casual, another respectful, and the third a direct translation of the original line.
-    
-    # Output Format
-    
-    - Your output must be purely markdown.
-    - It must include the translation and an explanation that is only two sentences long.
-    - The translation must only be in {target_lang}.
-    
-    # Example Output
-    Casual Translation
-    - TRANSLATED SENTENCE
-    - EXPLANATION
-        
-    Respectful Translation
-    - TRANSLATED SENTENCE
-    - EXPLANATION
-        
-    Direct Translation
-    - TRANSLATED SENTENCE
-    - EXPLANATION
-    
+
+    Translate the following Japanese text into English, and provide three versions:
+
+    1. **Naturalized Translation**: A fluent English version that sounds natural and idiomatic.
+    2. **Literal Translation**: A close word-for-word rendering to show original structure and phrasing.
+    3. **Annotated Translation**: A readable translation that includes notes on difficult phrases, particles, idioms, or honorifics. Notes can be inline in parentheses or as footnotes.
+
+    Focus on tone, emotional subtext, and speaker intent. If gender, status, or relationships are implied, mention that in the annotations.
+
+    Output using this format in markdown:
+
+    **Naturalized Translation**  
+    [text]  
+
+    **Literal Translation**  
+    [text]  
+
+    **Annotated Translation**  
+    [text with notes]  
     """
     
     response = client.chat.completions.create(
@@ -61,36 +53,41 @@ def grade(client: openai.OpenAI, original_text: str, translated_text: str,#
           temperature: float = 1, top_p: float = 1):
     system_message = f"""
     # Role
-    
-    You are a professional translator and language evaluator with expertise in translation accuracy, fluency, and cultural adaptation. 
-    Your task is to evaluate a given translation based on:
-    
-    1. **Accuracy**: How well the translated text preserves the meaning of the original text.
-    2. **Fluency**: Whether the translation is natural and grammatically correct in {target_lang}.
-    3. **Cultural Appropriateness**: If necessary, whether adaptations to cultural references were appropriately handled.
-    
+
+    You are a professional Japanese-to-English translation evaluator with expertise in:
+    - fidelity to source,
+    - fluency of the output, and
+    - appropriate cultural localization.
+
     # Instructions
-    
-    - Read the original text in {input_lang} and compare it with the provided translation in {target_lang}.
-    - Grade the translation on a scale of 1 to 10 based on the above criteria.
-    - Provide a single sentence explanation for each score.
-    - Calculate and display the average score.
-    
+
+    Evaluate the following translation in terms of:
+    1. **Accuracy** – Faithfulness to original meaning.
+    2. **Fluency** – Natural, grammatical English.
+    3. **Cultural Appropriateness** – Sensitivity to nuance and adaptation.
+
+    Provide:
+    - A score from 1–10 for each category.
+    - A one-sentence explanation for each score.
+    - An **average score**, rounded to one decimal.
+    - A **Suggestions for Improvement** section with up to 3 specific tips.
+    - (Optional) List specific lines or phrases that may be misinterpreted.
+
     # Output Format
-    
-    - Provide three individual scores (Accuracy, Fluency, Cultural Appropriateness) each with a one-sentence explanation.
-    - Calculate and display the average score.
-    - The output should be written in markdown.
-    
-    # Example Output
-    
-    **Average Score**: [average score]
-    
-    **Accuracy**: [score] - [one sentence explanation]
-    
-    **Fluency**: [score] - [one sentence explanation]
-    
-    **Cultural Appropriateness**: [score] - [one sentence explanation]
+
+    **Average Score**: X.X
+
+    **Accuracy**: [score] - [short reason]  
+    **Fluency**: [score] - [short reason]  
+    **Cultural Appropriateness**: [score] - [short reason]  
+
+    **Suggestions for Improvement**:
+    - Suggestion 1
+    - Suggestion 2
+    - Suggestion 3
+
+    **Notable Issues** (optional):
+    - Example: “X” could be misread as Y.
     """
     
     response = client.chat.completions.create(
