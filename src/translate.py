@@ -1,11 +1,5 @@
 import openai
 
-def create_client(api_key: str = None):
-    if api_key is None:
-        api_key = input("Please enter your API key:")
-    client = openai.OpenAI(api_key=api_key)
-    return client
-
 def translate(client: openai.OpenAI, text:str, 
               model: str = "gpt-4o-mini", 
               input_lang: str = "ja", target_lang: str = "en",

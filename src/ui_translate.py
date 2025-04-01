@@ -11,9 +11,7 @@ def render_translate():
         text_to_translate = st.text_area("Enter Text to Translate:")
         client = st.session_state.openai_api_client
         
-        if client is None:
-            st.error("OpenAI API client not loaded")
-        elif text_to_translate != "" and st.button("Translate"):
+        if text_to_translate != "" and st.button("Translate"):
             with st.spinner("Translating... This may take a while."):
                 translated_text = translate(client, text_to_translate, model=st.session_state.model_translate, 
                                             input_lang=st.session_state.source_lang_translate, 

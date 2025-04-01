@@ -1,55 +1,22 @@
 import streamlit as st
 import whisper
-import openai
-from src.translate import create_client
-import torch
+import json
+
+from src.session_setup import load_whisper_model, create_client, test_api_key
 
 # To remove FutureWarning
 import functools
 whisper.torch.load = functools.partial(whisper.torch.load, weights_only=True)
-
-def create_sessions_var():
-    # Audio Transcription
-    if "selected_model_transcribe" not in st.session_state:
-        st.session_state.selected_model_transcribe = "medium"
-    if "input_lang" not in st.session_state:
-        st.session_state.input_lang = "ja"
-    if "enable_cuda" not in st.session_state:
-        st.session_state.enable_cuda = False 
-    if "whisper_model" not in st.session_state:
-        st.session_state.whisper_model = None  # Now requires manual loading
-    # Translation
-    if "openai_api_key" not in st.session_state:
-        st.session_state.openai_api_key = ""
-    if "openai_api_key_valid" not in st.session_state:
-        st.session_state.openai_api_key_valid = False
-    if "openai_api_client" not in st.session_state:
-        st.session_state.openai_api_client = None
-    if "source_lang_translate" not in st.session_state:
-        st.session_state.source_lang_translate = "ja"
-    if "target_lang_translate" not in st.session_state:
-        st.session_state.target_lang_translate = "en"
-    if "model_translate" not in st.session_state:
-        st.session_state.model_translate = "gpt-4o-mini"
-    if "temperature" not in st.session_state:
-        st.session_state.temperature = 1.0
-    if "top_p" not in st.session_state:
-        st.session_state.top_p = 1.0
     
-
-def load_whisper_model(selected_model: str = None): 
-    if selected_model is not None:
-        st.session_state.selected_model_transcribe = selected_model
-    device = "cuda" if st.session_state.enable_cuda else "cpu"
-    try:
-        with st.spinner("Loading Whisper model... This may take a while. Your first time using a model will take longer to load as it need to be downloaded."):
-            st.session_state.whisper_model = whisper.load_model(st.session_state.selected_model_transcribe, device=device)
-    except torch.cuda.OutOfMemoryError:
-        st.error("CUDA ran out of memory. Try using a smaller model or disabling CUDA.")
-        st.session_state.enable_cuda = False 
+def render_load_whisper_model():
+    with st.spinner("Loading Whisper model... This may take a while. Your first time using a model will take longer to load model needs to be downloaded."):
+        st.session_state.whisper_model = load_whisper_model(st.session_state.selected_model_transcribe)
+        if st.session_state.whisper_model is not None:
+            st.success("Whisper model loaded successfully.")
+        else:
+            st.error("Failed to load Whisper model. Please check the Config page.")
         
 def render_audio_config(page_name: str):
-    
     leftcol, rightcol = st.columns(2)
     
     # Model Selection
@@ -72,16 +39,16 @@ def render_audio_config(page_name: str):
     
     # Load Model
     if st.button("Load Whisper Model", key=f"{page_name} load whisper model"):
-        load_whisper_model()
+        render_load_whisper_model()
 
-def test_api_key(api_key):
+def render_test_api_key():
     with st.spinner("Checking API Key"):
-        try:
-            client = openai.OpenAI(api_key=api_key)
-            client.models.list()
-            return True
-        except openai.OpenAIError:
-            return False
+        st.session_state.openai_api_key_valid = test_api_key(st.session_state.openai_api_key)
+        
+        if st.session_state.openai_api_key_valid:
+            st.success("API Key is valid")
+        else:
+            st.error("API Key is invalid")
 
 def render_translate_config(page_name: str):
     # API KEY
@@ -97,17 +64,8 @@ def render_translate_config(page_name: str):
         if st.session_state.openai_api_key.strip() == "":
             st.session_state.openai_api_key_valid = False
         else:
-            if not test_api_key(st.session_state.openai_api_key):
-                st.session_state.openai_api_key_valid = False
-            else:
-                st.session_state.openai_api_key_valid = True
-
-    if st.session_state.openai_api_key_valid:
-        st.success("API Key is valid")
-    else:
-        st.error("⚠ API Key is invalid")
+            render_test_api_key()
         
-    
     # Model Selection
     model_options = ["gpt-4", "gpt-4o", "gpt-4o-mini"]
     st.session_state.model_translate = st.selectbox("Select Model:", 
@@ -147,10 +105,12 @@ def render_translate_config(page_name: str):
                                                                 st.session_state.target_lang_translate,
                                                                 key=f"{page_name} translate target lang")
     
-
-
 def render_config():
     st.header("Configuration")
+    
+    st.subheader("Save/Load")
+    if st.button("Save Configurations"):
+        save_config()
     
     st.subheader("Transcribe")
     render_audio_config("config page")
@@ -158,6 +118,24 @@ def render_config():
     st.subheader("Translate")
     render_translate_config("config page")
     
+def save_config(path="config.json"):
+    keys_to_save = [
+        "selected_model_transcribe", "input_lang", "enable_cuda",
+        "openai_api_key", "source_lang_translate", "target_lang_translate",
+        "model_translate", "temperature", "top_p"
+    ]
+    config = {key: st.session_state.get(key) for key in keys_to_save}
+    # if not os.path.exists(path):
+    file = open(path, "w", encoding="utf-8")
+    json.dump(config, file, ensure_ascii=False, indent=4)
     
-    
-    
+def load_config(path="config.json"):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        for key, value in config.items():
+            st.session_state[key] = value
+        return True
+    except FileNotFoundError:
+        st.warning(f"No config file found at {path}")
+        return False
