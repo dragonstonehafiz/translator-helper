@@ -59,7 +59,9 @@ def render_translate_config(page_name: str):
     
     # Check if API key has changed before validating
     if api_key_input != st.session_state.openai_api_key:
+        print(st.session_state.openai_api_key)
         st.session_state.openai_api_key = api_key_input
+        print(st.session_state.openai_api_key)
         
         if st.session_state.openai_api_key.strip() == "":
             st.session_state.openai_api_key_valid = False
@@ -125,6 +127,7 @@ def save_config(path="config.json"):
         "model_translate", "temperature", "top_p"
     ]
     config = {key: st.session_state.get(key) for key in keys_to_save}
+    print(config)
     # if not os.path.exists(path):
     file = open(path, "w", encoding="utf-8")
     json.dump(config, file, ensure_ascii=False, indent=4)
@@ -133,6 +136,7 @@ def load_config(path="config.json"):
     try:
         with open(path, "r", encoding="utf-8") as f:
             config = json.load(f)
+        st.session_state.initialized = True
         for key, value in config.items():
             st.session_state[key] = value
         return True

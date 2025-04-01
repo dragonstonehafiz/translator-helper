@@ -21,19 +21,21 @@ if __name__ == "__main__":
     )
     
     initialize_session_state()
-    if not load_config():
-        st.warning("No configuration file found. Default settings will be used.")
-    else:
-        # This if statement is so we don't run this line every time the page is refreshed
-        if st.session_state.whisper_model is None:
-            render_load_whisper_model()
-        
-        if st.session_state.openai_api_client is None:
-            render_test_api_key()
-            if st.session_state.openai_api_key_valid:
-                st.session_state.openai_api_client = create_client(st.session_state.openai_api_key)
-        
-        st.success("Configuration loaded successfully.")
+    
+    if "initialized" not in st.session_state:
+        if not load_config():
+            st.warning("No configuration file found. Default settings will be used.")
+        else:
+            # This if statement is so we don't run this line every time the page is refreshed
+            if st.session_state.whisper_model is None:
+                render_load_whisper_model()
+            
+            if st.session_state.openai_api_client is None:
+                render_test_api_key()
+                if st.session_state.openai_api_key_valid:
+                    st.session_state.openai_api_client = create_client(st.session_state.openai_api_key)
+            
+            st.success("Configuration loaded successfully.")
     
     st.title('Translator Helper')
     tab_transcribe, tab_translate, tab_grade, tab_config = st.tabs(["Transcribe", "Translate", "Grade", "Configuration"])
