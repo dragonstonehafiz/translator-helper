@@ -1,9 +1,17 @@
 import streamlit as st
 from src.translate import translate
+from src.ui_context import get_context_dict, render_context_dict
+import streamlit as st
 
 def render_translate():
     st.header("Translate")
-    
+
+    st.subheader("Context")
+    context_dict = get_context_dict()
+    render_context_dict(context_dict)
+
+    st.subheader("Input")
+    text_to_translate = ""
     if st.session_state.openai_api_client is None:
         st.error("OpenAI API client not loaded. Please load it in the Configurations page.")
     else:
@@ -11,7 +19,10 @@ def render_translate():
         text_to_translate = st.text_area("Enter Text to Translate:")
         client = st.session_state.openai_api_client
 
-    if text_to_translate != "" and st.button("Translate"):
+    # Boolean to disable button
+    has_text = text_to_translate.strip() != ""
+
+    if st.button("Translate", disabled=not has_text, key="translate_button"):
         with st.spinner("Translating... This may take a while."):
             translated_text = translate(client, text_to_translate, model=st.session_state.model_translate, 
                                         input_lang=st.session_state.source_lang_translate, 

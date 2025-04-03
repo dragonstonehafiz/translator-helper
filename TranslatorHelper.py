@@ -3,6 +3,7 @@ from src.ui_transcribe import render_transcribe
 from src.ui_translate import render_translate
 from src.ui_grade import render_grade
 from src.ui_config import render_config, load_config, render_load_whisper_model, render_test_api_key
+from src.ui_context import render_context
 from src.session_defaults import initialize_session_state
 from src.session_setup import create_client
 
@@ -38,7 +39,7 @@ if __name__ == "__main__":
             st.success("Configuration loaded successfully.")
     
     st.title('Translator Helper')
-    tab_transcribe, tab_translate, tab_grade, tab_config = st.tabs(["Transcribe", "Translate", "Grade", "Configuration"])
+    tab_transcribe, tab_translate, tab_grade, tab_context, tab_config = st.tabs(["Transcribe", "Translate", "Grade", "Context", "Configuration"])
 
     with tab_transcribe:
         render_transcribe()
@@ -46,5 +47,7 @@ if __name__ == "__main__":
         render_translate()
     with tab_grade:
         render_grade()
+    with tab_context:
+        render_context()
     with tab_config:
         render_config()

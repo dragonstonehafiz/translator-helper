@@ -1,5 +1,6 @@
 import streamlit as st
 from src.translate import grade
+from src.ui_context import get_context_dict, render_context_dict
 from html import escape
 
 def render_grade():
@@ -8,6 +9,12 @@ def render_grade():
     if st.session_state.openai_api_client is None:
         st.error("OpenAI API client not loaded. Please load it in the Configurations page.")
     else:
+        # Context Section
+        st.subheader("Context")
+        context_dict = get_context_dict()
+        render_context_dict(context_dict)
+
+        st.subheader("Input")
         # Text Inputs
         original_text = st.text_area("Enter Original Text:")
         translated_text = st.text_area("Enter Translated Text:")
