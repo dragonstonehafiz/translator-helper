@@ -28,7 +28,8 @@ def render_translate():
                                         input_lang=st.session_state.source_lang_translate, 
                                         target_lang=st.session_state.target_lang_translate,
                                         temperature=st.session_state.temperature,
-                                        top_p=st.session_state.top_p)
+                                        top_p=st.session_state.top_p,
+                                        context=context_dict)
             render_translated_text(translated_text)
 
 
