@@ -1,4 +1,3 @@
-import openai
 
 def translate(client, text: str, context: dict = {}, model: str = "gpt-4o-mini", 
               input_lang: str = "ja", target_lang: str = "en",
@@ -76,7 +75,7 @@ def grade(client, original_text: str, translated_text: str, context: dict = None
     If any context is provided (e.g. characters, scene, or tone), incorporate it into your evaluation.
     Check whether the translation reflects character relationships, speech level, and emotional cues accurately.
 
-    # Instructions
+    # Instructions,.
 
     Evaluate the following translation in terms of:
     1. **Accuracy** – Faithfulness to original meaning.
