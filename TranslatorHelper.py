@@ -36,7 +36,7 @@ if __name__ == "__main__":
                 if st.session_state.openai_api_key_valid:
                     st.session_state.openai_api_client = create_client(st.session_state.openai_api_key)
             
-            st.success("Configuration loaded successfully.")
+            st.success("Configuration file successfully loaded.")
     
     st.title('Translator Helper')
     tab_transcribe, tab_translate, tab_grade, tab_context, tab_config = st.tabs(["Transcribe", "Translate", "Grade", "Context", "Configuration"])

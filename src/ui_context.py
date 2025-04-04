@@ -7,14 +7,14 @@ def render_context():
         "Characters",
         placeholder="List character names, roles, and relationships...",
         key="context_characters",
-        height=150
+        height=100
     )
 
     st.text_area(
         "Scene Backstory",
         placeholder="What's the situation? What's happened recently?",
         key="context_scene_backstory",
-        height=150
+        height=100
     )
 
     st.text_area(
@@ -23,8 +23,6 @@ def render_context():
         key="context_casual_level",
         height=100
     )
-
-    st.success("Context will automatically be included in translation and grading prompts.")
 
 def get_context_dict():
     """
