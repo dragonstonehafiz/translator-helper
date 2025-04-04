@@ -52,10 +52,13 @@ def render_test_api_key():
 
 def render_translate_config(page_name: str):
     # API KEY
-    api_key_input = st.text_input("Enter OpenAI API Key:", 
-                                  st.session_state.openai_api_key, 
-                                  type="password", 
-                                  key=f"{page_name} translate api key")
+    api_key_input = st.text_input(
+        "Enter OpenAI API Key:", 
+        value=st.session_state.openai_api_key, 
+        placeholder="sk-...", 
+        type="password", 
+        key=f"{page_name} translate api key"
+    )
     
     # Check if API key has changed before validating
     if api_key_input != st.session_state.openai_api_key:
@@ -99,13 +102,19 @@ def render_translate_config(page_name: str):
     # Language Selection
     leftcol, rightcol = st.columns(2)
     with leftcol:
-        st.session_state.source_lang_translate = st.text_input("Enter Source Language:", 
-                                                                st.session_state.source_lang_translate,
-                                                                key=f"{page_name} translate source lang")
+        st.session_state.source_lang_translate = st.text_input(
+            "Enter Source Language:",
+            value=st.session_state.source_lang_translate,
+            placeholder="e.g. ja",
+            key=f"{page_name} translate source lang"
+        )
     with rightcol:
-        st.session_state.target_lang_translate = st.text_input("Enter Target Language:", 
-                                                                st.session_state.target_lang_translate,
-                                                                key=f"{page_name} translate target lang")
+        st.session_state.target_lang_translate = st.text_input(
+            "Enter Target Language:",
+            value=st.session_state.target_lang_translate,
+            placeholder="e.g. en",
+            key=f"{page_name} translate target lang"
+        )
     
 def render_config():
     st.header("Configuration")

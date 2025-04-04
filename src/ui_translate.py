@@ -16,7 +16,11 @@ def render_translate():
         st.error("OpenAI API client not loaded. Please load it in the Configurations page.")
     else:
         # Text Input for Translation
-        text_to_translate = st.text_area("Enter Text to Translate:")
+        text_to_translate = st.text_area(
+            "Enter Text to Translate:",
+            placeholder="Paste the Japanese text you want to translate..."
+        )
+
         client = st.session_state.openai_api_client
 
     # Boolean to disable button

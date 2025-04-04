@@ -16,8 +16,14 @@ def render_grade():
 
         st.subheader("Input")
         # Text Inputs
-        original_text = st.text_area("Enter Original Text:")
-        translated_text = st.text_area("Enter Translated Text:")
+        original_text = st.text_area(
+            "Enter Original Text:",
+            placeholder="Paste the original Japanese text here..."
+        )
+        translated_text = st.text_area(
+            "Enter Translated Text:",
+            placeholder="Paste your translation here for evaluation..."
+        )
         client = st.session_state.openai_api_client
         # Grade Button
         if st.button("Grade Translation"):
