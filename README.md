@@ -1,92 +1,62 @@
-# Translating Helper 📝🎤
+# Translator Helper
 
-This repository provides a **translation helper tool** designed to assist when **transcribing difficult-to-hear dialogue** or **refining translations into natural phrasing**. 
-It is **not intended for full audio transcription or translation automation**, though an advanced pipeline could be built for such tasks.
+**Translator Helper** is a Streamlit-based application designed to assist in the transcription and translation of Japanese Drama CDs. It uses OpenAI's GPT models for translation and grading, and Whisper for speech-to-text transcription.
 
-Originally, I created this tool to help with **translating anime Drama CDs**, especially when struggling with unclear dialogue  or finding the best way to phrase something in English (or another target language). 
-With the new **interactive UI**, it is now easier for others to use as well.
+## Features
 
-⚠ **Note**: This tool is **not meant** for automatic translation of full audio files. It assists in transcribing difficult-to-hear dialogue and improving translations by providing multiple phrasing options.
+### 1. Transcription
+- Upload `.mp3` or `.wav` audio files.
+- Transcribe audio using OpenAI Whisper.
+- Selectable Whisper model and input language.
+- Optional GPU acceleration (CUDA).
 
-## Features 🌟
-- **🎤 Transcribe:** Convert spoken dialogue into text.
-- **🌍 Translate:** Generate multiple translation options for a given phrase.
-- **✅ Grade:** Evaluate translation accuracy, fluency, and cultural appropriateness.
-- **⚙ Configuration:** Customize settings for transcription and translation.
+### 2. Translation
+- Translate Japanese text into English (or other languages).
+- Uses GPT models (`gpt-4`, `gpt-4o`, `gpt-4o-mini`) for rich, multi-perspective translations:
+  - Naturalized translation
+  - Literal translation
+  - Annotated translation
+- Context-aware: inputs like character relationships, scene background, and tone guide translation.
 
-## **Installation & Setup** 🛠
+### 3. Grading
+- Evaluates translations based on:
+  - **Accuracy**
+  - **Fluency**
+  - **Cultural Appropriateness**
+- Provides an average score and detailed suggestions for improvement.
 
-### **1. Clone the Repository**
+### 4. Context
+- Input rich contextual information:
+  - Characters and relationships
+  - Scene backstory
+  - Speech level or tone
 
-```bash
-git clone https://github.com/dragonstonehafiz/translator-helper.git
-cd translator-helper
-```
+### 5. Configuration
+- Manage and save API keys and model preferences.
+- Set translation temperature and top-p.
+- Save/load configuration from `config.json`.
 
-### **2. Create a Virtual Environment & Install Dependencies**
+## Setup
 
-```bash
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-```
+### Prerequisites
 
-### **3. Run the Streamlit UI**
+- Python 3.8+
+- Install dependencies:
+  ```bash
+  pip install -r requirements.txt
+  ```
+
+### Whisper (Optional: GPU Support)
+
+Ensure you have enough VRAM for the selected Whisper model. CUDA can be enabled in settings if supported.
+
+## Usage
+
 ```bash
 streamlit run TranslatorHelper.py
 ```
 
-## **Usage Guide 📖**
+## Notes
 
-Once the UI is launched, navigate to the provided URL. You'll see the following tabs:
-
-### **1️⃣ Transcribe**
-- Upload an audio file (`.mp3`, `.wav`).
-- Select your model and language.
-- Click **"Transcribe"** to generate a text transcript.
-
-### **2️⃣ Translate**
-- Enter the text you want to translate.
-- Choose the target language.
-- Click **"Translate"** to receive multiple translation suggestions.
-
-### **3️⃣ Grade**
-- Enter both the original and translated text.
-- Click **"Grade Translation"** to evaluate accuracy, fluency, and cultural adaptation.
-
-### **4️⃣ Configuration**
-- Set API keys, select models, and adjust translation settings.
-
-## **Requirements 📋**
-- Python 3.8+
-- [Streamlit](https://streamlit.io/) (for UI)
-- [OpenAI Whisper](https://github.com/openai/whisper) (for transcription)
-- [OpenAI GPT-4](https://openai.com/api/) (for translation)
-- CUDA (optional, for faster transcription)
-
-### **CUDA Support (Optional) 🚀**
-If you have a **CUDA-compatible GPU**, you can install **PyTorch with CUDA** for **faster transcription**.
-
-1. **Check your installed CUDA version**:
-   ```bash
-   nvcc --version
-   ```
-
-2. **Download the correct PyTorch version** based on your CUDA version:  
-   - Official installation guide: [PyTorch CUDA Installation](https://pytorch.org/get-started/locally/)  
-   - For older versions: [PyTorch Archive](https://pytorch.org/get-started/previous-versions/)  
-
-3. **Install PyTorch with CUDA support**:
-   ```bash
-   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-   ```
-
-#### **Whisper Model VRAM Requirements**
-|  Size  | Parameters | English-only model | Multilingual model | Required VRAM | Relative speed |
-|:------:|:----------:|:------------------:|:------------------:|:-------------:|:--------------:|
-|  tiny  |    39 M    |     `tiny.en`      |       `tiny`       |     ~1 GB     |      ~10x      |
-|  base  |    74 M    |     `base.en`      |       `base`       |     ~1 GB     |      ~7x       |
-| small  |   244 M    |     `small.en`     |      `small`       |     ~2 GB     |      ~4x       |
-| medium |   769 M    |    `medium.en`     |      `medium`      |     ~5 GB     |      ~2x       |
-| large  |   1550 M   |        N/A         |      `large`       |    ~10 GB     |       1x       |
-| turbo  |   809 M    |        N/A         |      `turbo`       |     ~6 GB     |      ~8x       |
+- The app assumes familiarity with Japanese language and Drama CD content.
+- GPT models provide support and interpretation; human judgment is still key.
