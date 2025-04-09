@@ -16,7 +16,8 @@
   - Naturalized translation
   - Literal translation
   - Annotated translation
-- Context-aware: inputs like character relationships, scene background, and tone guide translation.
+- **Context-aware translation**:
+  - Integrates character relationships, scene background, and tone to guide output.
 
 ### 3. Grading
 - Evaluates translations based on:
@@ -24,12 +25,15 @@
   - **Fluency**
   - **Cultural Appropriateness**
 - Provides an average score and detailed suggestions for improvement.
+- Uses the same context input as translation for consistency.
 
 ### 4. Context
-- Input rich contextual information:
+- Upload `.srt` or `.ass` subtitle files.
+- Automatically extract contextual details:
+  - Scene summary (events and dialogue content)
   - Characters and relationships
-  - Scene backstory
-  - Speech level or tone
+  - Speech level and tone
+- Fields are auto-filled and remain editable before use in translation or grading.
 
 ### 5. Configuration
 - Manage and save API keys and model preferences.
