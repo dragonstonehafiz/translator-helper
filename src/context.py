@@ -31,14 +31,16 @@ def summarize(client, text: str, model: str = "gpt-4o-mini",
 
     # Instructions
 
-    Summarize only what is explicitly stated or shown in the lines: actions, setting details, and the topics of dialogue.
+    Summarize only what is explicitly stated or shown in the lines: actions, setting details, and topics of dialogue.
     Avoid interpreting emotions, inferring relationships, or using narrative or subjective language.
     Do not describe mood, tone, or themes. Do not include phrases such as “playfully,” “awkward,” “teasing,” “lighthearted,” etc.
 
+    If the content naturally divides into separate parts (e.g. location change, topic change, new speaker focus), break the summary into multiple short paragraphs for clarity.
+
     # Output Format
 
-    Write a single paragraph summarizing the scene using neutral, objective language. 
-    Focus on who is present, what they say or do, and where events occur.
+    Write a neutral, objective summary using clear and concise language.
+    Keep it as brief as possible and convey only essintial information.
     """
 
     response = client.chat.completions.create(
@@ -104,26 +106,31 @@ def identify_glossary_terms(client, text: str, model: str = "gpt-4o-mini",
     glossary_extraction_prompt = f"""
     # Role
 
-    You are a translation assistant with expertise in identifying key terms, phrases, and honorifics in {input_lang} that may require consistent treatment when translated into {target_lang}.
+    You are a translation assistant with expertise in identifying terms in {input_lang} that require consistent or careful translation into {target_lang}.
 
     # Instructions
 
-    From the following lines, extract terms or expressions that are:
-    - Repeated or significant across multiple lines,
-    - Difficult to translate directly,
-    - Cultural references, idioms, or wordplay,
-    - Honorifics or forms of address (e.g. -san, -sama, senpai),
-    - Nicknames or unique stylistic choices (e.g. sound effects, speech quirks).
+    From the following lines, extract only linguistically or culturally significant terms that may need special treatment during translation. Prioritize:
 
-    These will be used to create a glossary for translation consistency. Do not include standard/common words unless they carry unique meaning in this context.
+    - Expressions that are repeated or emphasized.
+    - Idioms, wordplay, or culturally specific phrases.
+    - Honorifics, titles, or speech-level indicators.
+    - Uncommon or context-dependent words.
+
+    Do **not** include:
+    - Character names unless they contain translatable meaning.
+    - Standard or common vocabulary.
+    - Phrases where meaning is obvious or trivial in context.
+
+    Avoid speculation about narrative role or symbolism. Keep meanings concise and translation-focused.
 
     # Output Format
 
     Return a list in this format:
 
-    - Term: [original term] — Meaning: [brief definition or explanation], Notes: [optional translation tips, usage, nuance]
+    - Term: [original term] — Meaning: [brief definition], Notes: [optional translation notes]
 
-    If no glossary-worthy terms appear, write: “No glossary terms identified.”
+    If no such terms are found, respond with: “No glossary terms identified.”
     """
 
     response = client.chat.completions.create(
@@ -153,15 +160,15 @@ def determine_tone(client, text: str, model: str = "gpt-4o-mini",
     # Instructions
 
     Analyze the tone and speech level of the following lines. 
-    Consider emotional shifts, pacing, speaker intent, speech level (formal/informal), and any notable use of sarcasm, affection, anger, or teasing. 
-    Note whether the conversation feels hierarchical, intimate, strained, lighthearted, etc.
+    Consider emotional shifts, pacing, speaker intent, and speech level (e.g., formal, informal, blunt, indirect). 
+    Note any features such as sarcasm, teasing, hierarchy, or emotional restraint, but do not speculate or over-explain.
 
     Avoid translating the lines. Focus entirely on analyzing the tone based on linguistic cues and context.
 
     # Output Format
 
-    Write 2–3 sentences describing the overall tone and style of speech in the passage. 
-    Highlight any key shifts or emotional undercurrents that might affect translation choices.
+    Write **1 to 2 short sentences** describing the overall tone and style of speech. 
+    Keep it concise and focused on what would directly inform translation choices.
     """
 
     response = client.chat.completions.create(

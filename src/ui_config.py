@@ -62,9 +62,7 @@ def render_translate_config(page_name: str):
     
     # Check if API key has changed before validating
     if api_key_input != st.session_state.openai_api_key:
-        print(st.session_state.openai_api_key)
         st.session_state.openai_api_key = api_key_input
-        print(st.session_state.openai_api_key)
         
         if st.session_state.openai_api_key.strip() == "":
             st.session_state.openai_api_key_valid = False

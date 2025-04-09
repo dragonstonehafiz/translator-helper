@@ -13,6 +13,9 @@ DEFAULTS = {
     "model_translate": "gpt-4o",
     "temperature": 1.0,
     "top_p": 1.0,
+    "context_scene_backstory": "",
+    "context_characters": "",
+    "context_tone": ""
 }
 
 def initialize_session_state():
