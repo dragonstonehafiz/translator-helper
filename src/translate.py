@@ -9,23 +9,25 @@ def translate(client, text: str, context: dict = {}, model: str = "gpt-4o-mini",
     system_message = f"""
     # Role
 
-    You are a professional assistant for translators working on Japanese Drama CDs.
-    Your job is to provide helpful translations and linguistic insight to help the human translator do their job effectively.
+    You are a professional assistant for translators working with foreign-language source material.
+    Your job is to produce accurate and nuanced translations, and to provide linguistic insight that supports high-quality human translation.
 
     # Context
 
-    If context is provided (such as character traits, scene backstory, or tone), use it to guide the interpretation and translation. 
-    The context is meant to help preserve emotional subtext, relationship nuance, and speech level.
+    If context is provided (such as character background, scene details, or tone), use it to guide your interpretation.
+    This helps preserve emotional subtext, relationship nuance, and appropriate speech level in the target language.
 
     # Instructions
 
     Translate the following {input_lang} text into {target_lang}, and provide three versions:
 
-    1. **Naturalized Translation**: A fluent {target_lang} version that sounds natural and idiomatic.
-    2. **Literal Translation**: A close word-for-word rendering to show original structure and phrasing.
-    3. **Annotated Translation**: A readable translation that includes notes on difficult phrases, particles, idioms, or honorifics. Notes can be inline in parentheses or as footnotes.
+    1. **Naturalized Translation**: A fluent, idiomatic version that sounds natural in {target_lang}.
+    2. **Literal Translation**: A direct, word-for-word rendering that reflects the structure and phrasing of the original {input_lang}.
+    3. **Annotated Translation**: A readable version that includes notes on idioms, grammar particles, honorifics, cultural references, or any challenging phrases. Notes can be inline (in parentheses) or listed as footnotes.
 
-    Focus on tone, emotional subtext, and speaker intent. If gender, status, or relationships are implied, mention that in the annotations.
+    Pay close attention to tone, speaker intent, and social dynamics. If gender, formality, or emotional nuance is implied, capture it in the annotations.
+
+    # Output Format
 
     Output using this format in markdown:
 
@@ -38,7 +40,7 @@ def translate(client, text: str, context: dict = {}, model: str = "gpt-4o-mini",
     **Annotated Translation**  
     [text with notes]  
     """
-
+    
     if context:
         context_str = "\n\n".join(f"{k}:\n{v}" for k, v in context.items())
         user_content = f"{context_str}\n\nText:\n{text}"
@@ -66,28 +68,28 @@ def grade(client, original_text: str, translated_text: str, context: dict = None
     # Role
 
     You are a professional {input_lang}-to-{target_lang} translation evaluator with expertise in:
-    - fidelity to source,
+    - fidelity to the source,
     - fluency of the output, and
     - appropriate cultural localization.
 
     # Context
 
-    If any context is provided (e.g. characters, scene, or tone), incorporate it into your evaluation.
-    Check whether the translation reflects character relationships, speech level, and emotional cues accurately.
+    If any context is provided (e.g., character information, scene details, or tone), incorporate it into your evaluation.
+    Consider whether the translation reflects implied relationships, speech level, emotional cues, and overall intent.
 
-    # Instructions,.
+    # Instructions
 
     Evaluate the following translation in terms of:
-    1. **Accuracy** – Faithfulness to original meaning.
+    1. **Accuracy** – Faithfulness to the original meaning.
     2. **Fluency** – Natural, grammatical {target_lang}.
-    3. **Cultural Appropriateness** – Sensitivity to nuance and adaptation.
+    3. **Cultural Appropriateness** – Sensitivity to nuance, setting, and audience expectations.
 
     Provide:
-    - A score from 1–10 for each category.
+    - A score from 1 to 10 for each category.
     - A one-sentence explanation for each score.
-    - An **average score**, rounded to one decimal.
-    - A **Suggestions for Improvement** section with up to 3 specific tips.
-    - (Optional) List specific lines or phrases that may be misinterpreted.
+    - An **average score**, rounded to one decimal place.
+    - A **Suggestions for Improvement** section with up to 3 specific, actionable tips.
+    - (Optional) A **Notable Issues** section pointing out lines or phrases that might be misunderstood or misleading.
 
     # Output Format
 
@@ -105,7 +107,7 @@ def grade(client, original_text: str, translated_text: str, context: dict = None
     **Notable Issues** (optional):
     - Example: “X” could be misread as Y.
     """
-
+    
     if context:
         context_str = "\n\n".join(f"{k}:\n{v}" for k, v in context.items())
         user_content = f"{context_str}\n\nOriginal text ({input_lang}):\n{original_text}\n\nTranslated text ({target_lang}):\n{translated_text}"
