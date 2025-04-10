@@ -1,5 +1,3 @@
-import pysubs2
-
 def summarize(client, text: str, model: str = "gpt-4o-mini", 
               input_lang: str = "ja", target_lang: str = "en",
               temperature=1.0, top_p=1.0):
