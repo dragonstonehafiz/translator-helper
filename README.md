@@ -57,7 +57,7 @@ Ensure you have enough VRAM for the selected Whisper model. CUDA can be enabled 
 ## Usage
 
 ```bash
-streamlit run TranslatorHelper.py
+streamlit run app.py
 ```
 
 ## Notes
