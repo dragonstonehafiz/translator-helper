@@ -2,49 +2,48 @@ def summarize(client, text: str, model: str = "gpt-4o-mini",
               input_lang: str = "ja", target_lang: str = "en",
               temperature=1.0, top_p=1.0):
     
-    scene_summary_prompt = f"""
+    scene_synopsis_prompt = f"""
     # Role
 
-    You are a translation assistant specializing in supporting translations from {input_lang} to {target_lang}.
-    Your job is to help translators understand the literal context and sequence of events in a segment before translating.
+    You are a translation assistant supporting translations from {input_lang} to {target_lang}.
+    Your job is to provide a high-level synopsis that helps translators quickly understand the situation and setting of a scene before working on the dialogue.
 
     # Instructions
 
-    Given a set of lines, write a concise summary in natural {target_lang} that describes the observable actions, events, and dialogue content.
-    Do not interpret tone, emotional intent, relationships, or character dynamics. Avoid subjective language, narrative phrasing, or inferred motivations.
+    Based on the following lines, write a brief synopsis in natural {target_lang} that explains the overall premise of the scene.
+    Focus on the setting, general situation, and any relevant background or circumstances that help explain the context of the conversation.
 
-    Focus strictly on what is said and done — who speaks, what is mentioned, and any concrete situational developments. Treat the input as a script, not a story.
-
-    Do not translate the lines directly. Provide only a neutral, factual summary of the content.
+    Avoid retelling the dialogue line by line or describing specific actions. 
+    Do not interpret tone, emotional nuance, or character psychology — the goal is to orient the translator, not analyze the scene.
 
     # Output Format
 
-    Write a short paragraph summarizing the scene’s events. Include key dialogue topics and actions. Do not include emotional interpretation, speculation, or character analysis.
+    Write a short paragraph that captures the essence of the scene: where it takes place, what’s going on, and any relevant background needed to understand the dialogue in context.
     """
     
-    secondary_prompt = """
+    secondary_prompt = f"""
     # Role
 
-    You are a scene summarizer focused on factual reporting to support translation tasks.
+    You are a post-processor ensuring that scene synopses derived from {input_lang} content are factual and neutral to support accurate translation into {target_lang}.
 
     # Instructions
 
-    Summarize only what is explicitly stated or shown in the lines: actions, setting details, and topics of dialogue.
-    Avoid interpreting emotions, inferring relationships, or using narrative or subjective language.
-    Do not describe mood, tone, or themes. Do not include phrases such as “playfully,” “awkward,” “teasing,” “lighthearted,” etc.
+    Review the synopsis and remove or rephrase any parts that speculate on emotions, suggest interpersonal dynamics, or introduce subjective interpretation.
+    Avoid phrases like “playful,” “lighthearted,” or references to admiration, teasing, or personality traits — unless these are explicitly stated in the original {input_lang} dialogue.
 
-    If the content naturally divides into separate parts (e.g. location change, topic change, new speaker focus), break the summary into multiple short paragraphs for clarity.
+    Keep the synopsis focused on the setting, situation, and surface-level dialogue topics that are clearly conveyed in the original text.
+    Avoid adding tone, narrative style, or implied meaning not directly grounded in the input.
 
     # Output Format
 
-    Write a neutral, objective summary using clear and concise language.
-    Keep it as brief as possible and convey only essintial information.
+    Return a brief, objective synopsis written in clear and natural {target_lang}.
+    Do not add any content that goes beyond what is clearly indicated in the original {input_lang} scene.
     """
 
     response = client.chat.completions.create(
         model=model,
         messages=[
-            {"role": "system", "content": scene_summary_prompt},
+            {"role": "system", "content": scene_synopsis_prompt},
             {"role": "user", "content": text},
             {"role": "user", "content": secondary_prompt}
         ],
@@ -78,7 +77,7 @@ def identify_characters(client, text: str, model: str = "gpt-4o-mini",
 
     Return a list in this format:
 
-    - Name: [name] — Role: [optional guess], Traits: [optional guess]
+    - Name: [name] — Traits: [optional guess]
 
     Only include one entry per character or person.
     """
