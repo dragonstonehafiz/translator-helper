@@ -15,7 +15,8 @@ DEFAULTS = {
     "top_p": 1.0,
     "context_scene_backstory": "",
     "context_characters": "",
-    "context_tone": ""
+    "context_tone": "",
+    "context_story_format": "",
 }
 
 def initialize_session_state():
