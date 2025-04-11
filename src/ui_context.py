@@ -9,6 +9,12 @@ def render_context():
 
     uploaded_file = st.file_uploader("Upload Subtitle File (.srt or .ass)", type=["srt", "ass"])
     
+    autofill_options = st.multiselect(
+        "Which parts would you like to autofill?",
+        options=["Scene Summary", "Characters", "Tone"],
+        default=["Scene Summary", "Characters", "Tone"]
+    )
+    
     if uploaded_file:
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[-1]) as tmp_file:
             tmp_file.write(uploaded_file.read())
@@ -26,9 +32,12 @@ def render_context():
                     if not client:
                         st.error("OpenAI client not initialized. Please load it in the Config tab.")
                     else:
-                        st.session_state.context_scene_backstory = summarize(client, full_text)
-                        st.session_state.context_characters = identify_characters(client, full_text)
-                        st.session_state.context_tone = determine_tone(client, full_text)
+                        if "Scene Summary" in autofill_options:
+                            st.session_state.context_scene_backstory = summarize(client, full_text)
+                        if "Characters" in autofill_options:
+                            st.session_state.context_characters = identify_characters(client, full_text)
+                        if "Tone" in autofill_options:
+                            st.session_state.context_tone = determine_tone(client, full_text)
                         st.rerun()
 
     # Editable fields (populated or blank)
