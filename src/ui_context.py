@@ -42,7 +42,8 @@ def render_context():
                             format_desc = st.session_state.context_story_format  # fallback
 
                         if "Characters" in autofill_options:
-                            char_output = identify_characters(client, full_text, format_description=format_desc)
+                            # Add strip so line breaks don't look weird in rendered text
+                            char_output = identify_characters(client, full_text, format_description=format_desc).strip()
                             st.session_state.context_characters = char_output
                         else:
                             char_output = st.session_state.context_characters  # fallback

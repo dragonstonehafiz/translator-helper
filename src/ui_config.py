@@ -134,8 +134,7 @@ def save_config(path="config.json"):
         "model_translate", "temperature", "top_p"
     ]
     config = {key: st.session_state.get(key) for key in keys_to_save}
-    print(config)
-    # if not os.path.exists(path):
+    # print(config)
     file = open(path, "w", encoding="utf-8")
     json.dump(config, file, ensure_ascii=False, indent=4)
     
