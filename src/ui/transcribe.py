@@ -27,7 +27,7 @@ def tab_transcribe():
             file_name = uploaded_file.name
 
     if audio_data:
-        if st.button("Transcribe"):
+        if st.button("Transcribe", use_container_width=True):
             with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file_name)[-1]) as temp_audio:
                 temp_audio.write(audio_data.read())
                 temp_audio_path = temp_audio.name

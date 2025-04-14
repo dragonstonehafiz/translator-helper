@@ -13,13 +13,13 @@ def tab_config():
     # Load and Save Configurations
     left, right = st.columns(2) 
     with left:
-        if st.button("Load Configuration"):
+        if st.button("Load Configuration", use_container_width=True):
             config = load_config()
             init_session_state_from_config(config)
             st.success("Configuration loaded from config.json.")
             st.rerun()
     with right:
-        if st.button("Save Configuration"):
+        if st.button("Save Configuration", use_container_width=True):
             config = {
                 "input_lang": st.session_state["input_lang"],
                 "output_lang": st.session_state["output_lang"],
@@ -66,8 +66,7 @@ def tab_config():
         ),
         help="Select which OpenAI model to use for LangChain processing."
     )
-            
-        
+                
     # Temperature
     temperature = st.slider(
         "Model Temperature",
@@ -95,10 +94,10 @@ def tab_config():
         
     left, right = st.columns(2)
     with left:
-        if st.button("Load OpenAI API"):
+        if st.button("Load OpenAI API", use_container_width=True):
             ui_load_openai_api(api_key=openai_api_key, model_name=openai_model, temp=temperature)
     with right:
-        if st.button("Load Tavily API"):
+        if st.button("Load Tavily API", use_container_width=True):
             ui_load_tavily_api(api_key=tavily_api_key)
 
     # Sync values to session state
