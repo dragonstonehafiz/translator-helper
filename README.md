@@ -33,7 +33,7 @@ A Streamlit-powered assistant for transcribing, translating, and grading Japanes
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/translator-helper.git
+git clone https://github.com/dragonstonehafiz/translator-helper.git
 cd translator-helper
 ```
 
