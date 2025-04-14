@@ -14,6 +14,10 @@ def tab_translate():
     input_text = st.text_area("Text to Translate", value=st.session_state.get("raw_input_text", ""))
     st.session_state["raw_input_text"] = input_text
     
+    if st.session_state["gpt_instance"] is None:
+        st.error("Please load a the OpenAI API to use this functionality.")
+        return
+    
     if st.button("Translate", use_container_width=True):
         llm = st.session_state.get("gpt_instance")
 
@@ -23,17 +27,12 @@ def tab_translate():
             st.warning("Please enter some text to translate.")
         else:
             with st.spinner("Translating..."):
-                # This is where you'd build your actual prompt
-                # Here's a very simple version just for testing
-                prompt = f"Translate this from Japanese to English:\n\n{input_text.strip()}"
-                response = llm.invoke(prompt)
-                translation = response.content
                 translation = translate(
                     llm=st.session_state["gpt_instance"],
                     text=st.session_state["raw_input_text"],
                     context=create_context_dict(),
-                    input_lang=st.session_state["input_lang"],
-                    target_lang=st.session_state["output_lang"]
+                    input_lang=st.session_state.get("input_lang", "ja"),
+                    target_lang=st.session_state.get("output_lang", "en")
                 )
 
                 st.session_state["translated_output"] = translation

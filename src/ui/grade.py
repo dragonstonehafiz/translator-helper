@@ -16,6 +16,10 @@ def tab_grade():
     original_text = st.text_area("Original Text", key="grade_original")
     translated_text = st.text_area("Translated Text", key="grade_translated")
     
+    if st.session_state["gpt_instance"] is None:
+        st.error("Please load a the OpenAI API to use this functionality.")
+        return
+    
     if st.button("Grade Translation", use_container_width=True):
         if not original_text.strip() or not translated_text.strip():
             st.warning("Please provide both the original and translated text.")
@@ -27,8 +31,8 @@ def tab_grade():
                 original_text=original_text,
                 translated_text=translated_text,
                 context=create_context_dict(),
-                input_lang=st.session_state["input_lang"],
-                target_lang=st.session_state["output_lang"]
+                input_lang=st.session_state.get("input_lang", "ja"),
+                target_lang=st.session_state.get("output_lang", "en")
             )
             
             st.session_state["grade_output"] = output

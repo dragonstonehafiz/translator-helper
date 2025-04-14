@@ -55,7 +55,7 @@ def tab_context():
         characters = st.session_state.get("context_characters", None)
         series_name = st.session_state.get("series_name", None)
         web_keywords = st.session_state.get("web_keywords", None)
-        model = st.session_state.get("gpt_instance")
+        model = st.session_state.get("gpt_instance", None)
         search_tool = st.session_state.get("web_search_instance")
 
         if not model:
