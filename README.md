@@ -1,66 +1,92 @@
 # Translator Helper
 
-**Translator Helper** is a Streamlit-based application designed to assist in the transcription and translation of Japanese Drama CDs. It uses OpenAI's GPT models for translation and grading, and Whisper for speech-to-text transcription.
+A Streamlit-powered assistant for transcribing, translating, and grading Japanese Drama CDs.
 
 ## Features
 
-### 1. Transcription
-- Upload `.mp3` or `.wav` audio files.
-- Transcribe audio using OpenAI Whisper.
-- Selectable Whisper model and input language.
-- Optional GPU acceleration (CUDA).
+- **Transcribe Audio**  
+  Upload `.wav` or `.mp3` files or record from microphone using OpenAI Whisper.
 
-### 2. Translation
-- Translate Japanese text into English (or other languages).
-- Uses GPT models (`gpt-4`, `gpt-4o`, `gpt-4o-mini`) for rich, multi-perspective translations:
-  - Naturalized translation
-  - Literal translation
-  - Annotated translation
-- **Context-aware translation**:
-  - Integrates character relationships, scene background, and tone to guide output.
+- **Import Subtitle Files**  
+  Analyze `.srt` or `.ass` files to extract scene structure, characters, tone, and synopsis.
 
-### 3. Grading
-- Evaluates translations based on:
-  - **Accuracy**
-  - **Fluency**
-  - **Cultural Appropriateness**
-- Provides an average score and detailed suggestions for improvement.
-- Uses the same context input as translation for consistency.
+- **Web Context Search**  
+  Enrich translations using background information retrieved via Tavily + LangChain.
 
-### 4. Context
-- Upload `.srt` or `.ass` subtitle files.
-- Automatically extract contextual details:
-  - Scene summary (events and dialogue content)
-  - Characters and relationships
-  - Speech level and tone
-- Fields are auto-filled and remain editable before use in translation or grading.
+- **Context-Aware Translation**  
+  Translate Japanese text into natural and literal English, with optional annotated form.
 
-### 5. Configuration
-- Manage and save API keys and model preferences.
-- Set translation temperature and top-p.
-- Save/load configuration from `config.json`.
+- **Grading and Evaluation**  
+  Evaluate translation quality based on accuracy, fluency, and cultural appropriateness.
 
-## Setup
+## Tech Stack
 
-### Prerequisites
+- Python 3.10+
+- [Streamlit](https://streamlit.io/) for UI
+- [LangChain](https://www.langchain.com/) for prompt orchestration
+- [OpenAI GPT (Chat Models)](https://platform.openai.com/docs)
+- [Whisper](https://github.com/openai/whisper) for audio transcription
+- [Tavily](https://app.tavily.com/) for web search context
+- `pysubs2` for subtitle file parsing
 
-- Python 3.8+
-- Install dependencies:
-  ```bash
-  pip install -r requirements.txt
-  ```
+## Getting Started
 
-### Whisper (Optional: GPU Support)
+### 1. Clone the Repository
+```bash
+git clone https://github.com/your-username/translator-helper.git
+cd translator-helper
+```
 
-Ensure you have enough VRAM for the selected Whisper model. CUDA can be enabled in settings if supported.
+### 2. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
 
-## Usage
+### 3. Set Up API Keys
+Create a `config.json` file in the root directory (or use the Configuration tab in the UI):
 
+```json
+{
+  "input_lang": "ja",
+  "output_lang": "en",
+  "whisper_model": "medium",
+  "openai_model": "gpt-4o",
+  "openai_api_key": "YOUR_OPENAI_KEY",
+  "tavily_api_key": "YOUR_TAVILY_KEY",
+  "temperature": 0.7
+}
+```
+
+### 4. Run the App
 ```bash
 streamlit run app.py
 ```
 
-## Notes
+## Project Structure
 
-- The app assumes familiarity with Japanese language and Drama CD content.
-- GPT models provide support and interpretation; human judgment is still key.
+```plaintext
+translator-helper/
+├── app.py
+├── config.json
+├── requirements.txt
+├── src/
+│   ├── logic/
+│   │   ├── config.py
+│   │   ├── context.py
+│   │   ├── grade.py
+│   │   ├── load_models.py
+│   │   ├── transcribe.py
+│   │   ├── translate.py
+│   │   └── validate_api_keys.py
+│   │
+│   ├── ui/
+│   │   ├── config.py
+│   │   ├── context.py
+│   │   ├── grade.py
+│   │   ├── init.py
+│   │   ├── load_models.py
+│   │   ├── shared.py
+│   │   ├── transcribe.py
+│   │   └── translate.py
+│   │
+```
