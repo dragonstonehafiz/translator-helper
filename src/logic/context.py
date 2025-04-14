@@ -1,7 +1,8 @@
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.runnable import RunnableMap, RunnableLambda
-from langchain.tools.tavily_search import TavilySearchResults
+from langchain_community.tools.tavily_search.tool import TavilySearchResults
+
 
 def determine_scene_structure(model: ChatOpenAI, input_lang: str, output_lang: str, transcript: str):
     prompt = """
@@ -139,8 +140,6 @@ def identify_characters(model: ChatOpenAI, input_lang: str, output_lang: str, tr
 
     For each character:
     - Provide their **name**
-      - If they speak using a first-person pronoun (e.g., 俺, 私), try to resolve their actual name from dialogue (e.g., if someone addresses them)
-      - If unresolved, use the pronoun but mark it clearly (e.g., “俺 (inferred)”)
     - Describe any **traits or roles** that are *clearly observable* (e.g., casual tone, teacher, narrator)
     - If one character is **clearly the narrative focus** (appears most, drives the scene), add **[Narrative Focus]**
 

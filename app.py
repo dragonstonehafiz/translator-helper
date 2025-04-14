@@ -1,11 +1,15 @@
 import streamlit as st
-from src.ui_transcribe import render_transcribe
-from src.ui_translate import render_translate
-from src.ui_grade import render_grade
-from src.ui_config import render_config, load_config, render_load_whisper_model, render_test_api_key
-from src.ui_context import render_context
-from src.session_defaults import initialize_session_state
-from src.session_setup import create_client
+
+from src.ui.config import tab_config
+from src.ui.init import init_session_state_defaults, init_session_state_from_config
+from src.ui.load_models import ui_load_whisper_model, ui_load_openai_api, ui_load_tavily_api
+from src.ui.context import tab_context
+from src.ui.transcribe import tab_transcribe
+from src.ui.translate import tab_translate
+from src.ui.grade import tab_grade
+
+
+from src.logic.config import load_config
 
 # fix RuntimeError: Tried to instantiate class '__path__._path', but it does not exist! Ensure that it is registered via torch::class_
 import torch
@@ -20,34 +24,29 @@ if __name__ == "__main__":
         page_icon="🇯🇵",  # Sets the favicon/icon of the page
         layout="centered",  # Options: "centered" or "wide"
     )
-    
-    initialize_session_state()
-    
-    if "initialized" not in st.session_state:
-        if not load_config():
-            st.warning("No configuration file found. Default settings will be used.")
-        else:
-            # This if statement is so we don't run this line every time the page is refreshed
-            if st.session_state.whisper_model is None:
-                render_load_whisper_model()
-            
-            if st.session_state.openai_api_client is None:
-                render_test_api_key()
-                if st.session_state.openai_api_key_valid:
-                    st.session_state.openai_api_client = create_client(st.session_state.openai_api_key)
-            
-            st.success("Configuration file successfully loaded.")
-    
     st.title('Translator Helper')
-    tab_transcribe, tab_translate, tab_grade, tab_context, tab_config = st.tabs(["Transcribe", "Translate", "Grade", "Context", "Configuration"])
+    
+    # Initialize session state once
+    if "initialized_config" not in st.session_state:
+        init_session_state_defaults()
+        config = load_config("config.json")
+        init_session_state_from_config(config)
+        st.session_state["initialized_config"] = True
+        ui_load_whisper_model(st.session_state.get("whisper_model", "medium"))
+        ui_load_tavily_api(st.session_state.get("tavily_api_key", "PLEASE FILL IN"))
+        ui_load_openai_api(api_key=st.session_state.get("openai_api_key", "PLEASE FILL IN"), 
+                           model_name=st.session_state.get("openai_model", "gpt-4o"),
+                           temp=st.session_state.get("temperature", 0.5))
+    
+    config, context, transcribe, translate, grade = st.tabs(["Configuration", "Context", "Transcribe", "Translate", "Grade"])
 
-    with tab_transcribe:
-        render_transcribe()
-    with tab_translate:
-        render_translate()
-    with tab_grade:
-        render_grade()
-    with tab_context:
-        render_context()
-    with tab_config:
-        render_config()
+    with config:
+        tab_config()
+    with context:
+        tab_context()
+    with transcribe:
+        tab_transcribe()
+    with translate:
+        tab_translate()
+    with grade:
+        tab_grade()

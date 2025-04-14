@@ -1,18 +1,12 @@
 import streamlit as st
 import tempfile
 import os
-import time
-from src.transcribe import transcribe
-        
-def create_temp_audio_file(uploaded_file):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[-1]) as temp_file:
-        temp_file.write(uploaded_file.getbuffer())
-        return temp_file.name
+from src.logic.transcribe import transcribe
 
-def render_transcribe():
+def tab_transcribe():
     st.header("Transcribe")
 
-    if st.session_state.whisper_model is None:
+    if st.session_state.whisper_instance is None:
         st.error("Whisper model not loaded. Please load it in the Configurations page.")
         return
 
@@ -40,9 +34,10 @@ def render_transcribe():
 
             with st.spinner("Transcribing..."):
                 transcript = transcribe(
-                    st.session_state.whisper_model,
+                    st.session_state.whisper_instance,
                     temp_audio_path,
                     st.session_state.input_lang
                 )
                 st.code(transcript, language='plaintext')
-            
+                
+

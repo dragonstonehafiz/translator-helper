@@ -14,4 +14,3 @@ def transcribe(model: whisper.model.Whisper, filepath: str, language: str):
         return result['text']
     else:
         return "File not detected. Did you put the right path?"
-        

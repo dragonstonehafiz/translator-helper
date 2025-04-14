@@ -1,46 +1,41 @@
 import streamlit as st
-from src.translate import grade
-from src.ui_context import get_context_dict, render_context_dict
+import sys
+sys.path.append('../')
+
+from src.logic.grade import grade
+from src.ui.shared import show_context, create_context_dict
 from html import escape
 
-def render_grade():
-    st.header("Grade")
+def tab_grade():
+    st.subheader("Context")
+    
+    show_context()
+        
+    st.subheader("Input")
+    
+    original_text = st.text_area("Original Text", key="grade_original")
+    translated_text = st.text_area("Translated Text", key="grade_translated")
+    
+    if st.button("Grade Translation", use_container_width=True):
+        if not original_text.strip() or not translated_text.strip():
+            st.warning("Please provide both the original and translated text.")
+            return
 
-    if st.session_state.openai_api_client is None:
-        st.error("OpenAI API client not loaded. Please load it in the Configurations page.")
-    else:
-        # Context Section
-        st.subheader("Context")
-        context_dict = get_context_dict()
-        render_context_dict(context_dict)
-
-        st.subheader("Input")
-        # Text Inputs
-        original_text = st.text_area(
-            "Enter Original Text:",
-            placeholder="Paste the original Japanese text here..."
-        )
-        translated_text = st.text_area(
-            "Enter Translated Text:",
-            placeholder="Paste your translation here for evaluation..."
-        )
-        client = st.session_state.openai_api_client
-        # Grade Button
-        if st.button("Grade Translation"):
-            if not original_text.strip() or not translated_text.strip():
-                st.error("Both fields must be filled in before grading.")
-            else:
-                with st.spinner("Grading translation... This may take a while."):
-                    grading_result = grade(client, original_text, translated_text,
-                                            model=st.session_state.model_translate,
-                                            input_lang=st.session_state.source_lang_translate,
-                                            target_lang=st.session_state.target_lang_translate,
-                                            temperature=st.session_state.temperature,
-                                            top_p=st.session_state.top_p,
-                                            context=context_dict)
-                    
-                    if grading_result:
-                        render_grading_result(grading_result)
+        with st.spinner("Evaluating translation..."):
+            output = grade(
+                llm=st.session_state["gpt_instance"],  # assumes you've already initialized an LLM in session
+                original_text=original_text,
+                translated_text=translated_text,
+                context=create_context_dict(),
+                input_lang=st.session_state["input_lang"],
+                target_lang=st.session_state["output_lang"]
+            )
+            
+            st.session_state["grade_output"] = output
+            
+    grade_output = st.session_state.get("grade_output", "")
+    render_grading_result(grade_output)
+            
 
 def render_grading_result(grading_result):
     st.subheader("Translation Evaluation")
@@ -101,3 +96,4 @@ def render_grading_result(grading_result):
         for item in issues:
             st.markdown(f"- {item}")
 
+    
