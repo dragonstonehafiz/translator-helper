@@ -10,7 +10,7 @@ def determine_scene_structure(model: ChatOpenAI, input_lang: str, output_lang: s
 
     ## Instructions
 
-    Examine the text and describe the **structure and delivery format** in natural {output_lang}. 
+    Examine the text and describe the **structure and delivery format** in natural {output_lang}.  
     Focus on **how the dialogue is organized**, and whether characters are interacting or delivering isolated lines.
 
     ### Important
@@ -21,19 +21,22 @@ def determine_scene_structure(model: ChatOpenAI, input_lang: str, output_lang: s
 
     ### What to Include
 
-    - Whether the scene consists of monologue, interactive dialogue, narration, or a mix.
-    - How many speakers are present (if discernible).
-    - Whether speakers are engaging with one another or simply delivering separate reflections.
-    - Any structural patterns (e.g., speaker-separated entries, timestamped logs, introspective journaling).
+    Use the following labeled format in your output for clarity:
 
-    ## Transcript
+    **Scene Type**: [e.g., Interactive Dialogue / Monologue / Narration / Mixed]  
+    **Speaker Count**: [e.g., 1, 2, 3+, or "Unclear"]  
+    **Interaction Style**: [Describe whether speakers engage with each other or not]  
+    **Delivery Format**: [e.g., Speaker-separated entries, Timestamped logs, Introspective monologue]  
+    **Notes**: [Any other relevant structural observations]
+
+    ### Transcript
 
     {scene_text}
 
     ## Output Format
 
-    Write a short paragraph that objectively describes how the text is structured and delivered.  
-    Be literal and grounded in what is observable in the dialogue — not inferred from content.
+    Return your answer in the labeled format above using **bold markdown headers** (e.g., **Scene Type**).  
+    Keep each line concise and easy to scan. Only state what is directly observable in the dialogue.
     """
 
     analyze_format_prompt = ChatPromptTemplate.from_template(prompt)
@@ -86,10 +89,9 @@ def gather_context_from_web(model: ChatOpenAI, search_tool: TavilySearchResults,
 
     ## Output Format
 
-    Write a clear and structured **bullet-point summary** in natural {output_lang}.  
-    Each bullet should focus on one aspect: setting, premise, characters, or theme.  
-    Use **no more than 6 bullets total**, and **each bullet should be no more than 2 sentences**.  
-    Avoid paragraphs unless absolutely necessary.  
+    Write a clearly formatted summary in natural {output_lang} using **bolded section labels** followed by a colon.  
+    Each labeled section (e.g., **Premise and Genre:**) should be on its own line, but **do not use bullet points or lists**.  
+    Keep each section to no more than 2 sentences, and use **no more than 6 labeled sections** in total.
     """
 
     web_context_prompt = ChatPromptTemplate.from_template(web_context_prompt_str)
@@ -148,9 +150,9 @@ def identify_characters(model: ChatOpenAI, input_lang: str, output_lang: str, tr
     ## Output Format
 
     Return a list in this format:
-    - Name: [name] — Traits: [brief description]. [Narrative Focus] (if applicable)
+    - **[Character Name]**: [brief description]. [Narrative Focus] (if applicable)
 
-    Include only one entry per character.
+    Include only one entry per character. Format the name in bold using markdown (** **).
     """
 
     format_notes = (
@@ -190,23 +192,23 @@ def summarize_scene(model: ChatOpenAI, input_lang: str, output_lang: str, transc
                     format_description: str = None, character_list: str = None, web_context: str = None):
     prompt_str = """
     # Role: {input_lang} Scene Summary Assistant
-    
+
     ## Input
-    
+
     ### Web Context
-    
+
     {web_notes}
-    
+
     ### Transcript
 
     {scene_text}
-    
+
     ### Format Description
-    
+
     {format_notes}
-    
+
     ### Characters
-    
+
     {character_notes}
 
     ## Instructions
@@ -214,15 +216,21 @@ def summarize_scene(model: ChatOpenAI, input_lang: str, output_lang: str, transc
     You are assisting a translator by providing a high-level summary of the following scene in natural {output_lang}.  
     Your goal is to help the translator understand the context *before* they begin translating.  
 
-    Focus on **where the scene takes place**, **who is involved**, and **what is going on** in broad terms.  
-    Do **not** retell the dialogue line-by-line or insert emotional interpretation.
+    Focus on the **location**, **involved characters**, and **key actions or themes** of the scene.  
+    Avoid retelling the dialogue line-by-line or interpreting character emotions.
 
     ## Output Format
 
-    Write a concise paragraph in natural {output_lang} summarizing the situation, location, and relevant context of the scene.  
-    Keep it factual and grounded in the observable content.
-    """
+    Structure your output into labeled sections for readability:
 
+    **Setting**: [Where the scene takes place and any notable environmental context]  
+    **Main Characters**: [Who is involved and their roles or relationships]  
+    **Situation**: [What is happening in broad terms — discussion, conflict, action, etc.]  
+    **Themes**: [Any recurring or prominent ideas mentioned — e.g., power, family, ideology]
+
+    Write clearly and concisely. Use full sentences, but keep each section focused and skimmable.
+    """
+    
     # Optional inserts
     format_notes = f"Consider the following scene structure:\n{format_description}" if format_description else "No scene structure provided."
     character_notes = f"The following characters were identified:\n{character_list}" if character_list else "No characters were identified."
