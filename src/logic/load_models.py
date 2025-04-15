@@ -1,6 +1,6 @@
 import whisper
 from langchain_openai import ChatOpenAI
-from langchain.tools.tavily_search import TavilySearchResults
+from langchain_community.tools.tavily_search.tool import TavilySearchResults
 import os
 
 def load_whisper_model(model_name: str = "medium"):
