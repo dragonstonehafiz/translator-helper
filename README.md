@@ -2,6 +2,8 @@
 
 A Streamlit-powered assistant for transcribing, translating, and grading Japanese Drama CDs.
 
+[![Watch the demo](https://img.youtube.com/vi/Zi3OjbpptQk/maxresdefault.jpg)](https://youtu.be/Zi3OjbpptQk?si=Pb9BCGCWDZM_1RJU)
+
 ## Features
 
 - **Transcribe Audio**  
