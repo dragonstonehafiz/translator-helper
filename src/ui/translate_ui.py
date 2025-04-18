@@ -2,7 +2,7 @@ import streamlit as st
 import sys
 sys.path.append('../')
 
-from src.logic.translate import translate
+from src.logic.translate import translate_multi_response
 from src.ui.shared_ui import show_context, create_context_dict
 
 def tab_translate():
@@ -27,7 +27,7 @@ def tab_translate():
             st.warning("Please enter some text to translate.")
         else:
             with st.spinner("Translating..."):
-                translation = translate(
+                translation = translate_multi_response(
                     llm=st.session_state["gpt_instance"],
                     text=st.session_state["raw_input_text"],
                     context=create_context_dict(),
