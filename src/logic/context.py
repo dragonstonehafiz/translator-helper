@@ -65,25 +65,29 @@ def gather_context_from_web(model: ChatOpenAI, search_tool: TavilySearchResults,
 
     ## Instruction
 
-    You are helping a translator identify what **external background information** would support accurate translation of a Japanese drama scene.
+    You are helping a translator identify what **character-related background information** would support accurate translation of a Japanese drama scene.
 
-    Focus specifically on the following two types of background information:
+    The transcript may include multiple named characters.  
+    Your job is to determine what is **unclear or missing** about these characters that could affect translation decisions — especially things like relationships, roles, or social dynamics.
 
-    1. **Character relationships** — if multiple characters are mentioned, determine whether their roles or relationships are unclear and would benefit from clarification.
-
-    2. **Story premise or genre** — identify whether the overall setting, premise, or narrative style is unclear (e.g., slice of life, romance, supernatural, mystery, etc.) and whether that context would help guide tone or phrasing choices.
     ## Transcript
 
     {transcript}
 
     ## Output
 
-    Write exactly two bullet points:
-    - One about **character relationships**
-    - One about the **story premise or genre**
+    List 1–3 specific character-related questions that should be answered by external background knowledge.  
+    These may include questions like:
+    - “What is the relationship between X and Y?”
+    - “What is [Character]’s role in the story?”
+    - “Is [Character] a student, teacher, or someone else?”
+    - “Are these characters part of a family, organization, or friend group?”
 
-    Use clear, natural {output_lang}.
-    """
+    Only ask about things that are **relevant to translation** — ignore trivial background.
+
+    Write each question in clear, natural {output_lang}, with no bullet points or numbering.
+    Separate questions with a single line break.
+    """    
     
     info_needed_prompt = ChatPromptTemplate.from_template(info_need_prompt_str)
     
@@ -117,23 +121,25 @@ def gather_context_from_web(model: ChatOpenAI, search_tool: TavilySearchResults,
 
     You are assisting a translator working on a project involving the series titled **{series_name}**.
 
-    Use the search results below to construct a helpful, factual background summary in natural {output_lang}.  
-    Only use information that is clearly supported by the search results.  
-    Do **not** speculate, interpret tone, or invent any missing details.
+    Use the search results below to construct a helpful, factual summary in natural {output_lang}, focused **only on characters**.  
+    Your goal is to extract character-related information that would help a translator understand who’s who, how they relate, and what roles they play.
 
     ### Focus Areas
 
-    You are specifically looking for the following two types of information:
-    - **Character relationships** — e.g., names, roles, group dynamics, or how characters relate to each other.
-    - **Story premise and genre** — e.g., setting, type of narrative, and what kind of story this is.
+    Only include information that helps clarify:
+    - Character names and roles
+    - Group dynamics (e.g., classmates, siblings, coworkers)
+    - Relationships or rivalries
+    - Social status, job, or family background
+    - Whether a character is central, minor, or recurring
 
-    If no information is available for a category, briefly acknowledge it.
+    If a character is mentioned but the relationship or role is unclear, you may briefly note the ambiguity.
 
     ### Important Guidelines
 
-    - Do **not** include personal opinions, guesses, or unverified claims.
-    - Keep the tone neutral and factual.
-    - Do not fabricate names, backstories, or settings not explicitly mentioned in the search results.
+    - Do **not** include plot summaries, genre, or story premise.
+    - Do **not** speculate or infer tone or character traits not stated in the search results.
+    - Avoid listing irrelevant characters or giving excessive detail.
 
     ### Search Results
 
@@ -142,9 +148,8 @@ def gather_context_from_web(model: ChatOpenAI, search_tool: TavilySearchResults,
     ## Output Format
 
     Write a clearly formatted summary in natural {output_lang} using **bolded section labels** followed by a colon.  
-    Each labeled section (e.g., **Character Relationships:**) should be on its own line.  
-    Write **no more than 2–4 sections total**, each limited to **1–2 concise sentences**.  
-    Do **not** use bullet points or numbered lists.
+    Use section labels such as: **Main Characters**, **Supporting Characters**, **Relationships**, or **Unclear Roles**.  
+    Each section should be 1–2 concise sentences. Do **not** use bullet points or lists.
     """
 
     web_context_prompt = ChatPromptTemplate.from_template(web_context_prompt_str)
