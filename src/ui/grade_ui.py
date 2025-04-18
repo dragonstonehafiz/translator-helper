@@ -3,7 +3,7 @@ import sys
 sys.path.append('../')
 
 from src.logic.grade import grade
-from src.ui.shared import show_context, create_context_dict
+from ui.shared_ui import show_context, create_context_dict
 from html import escape
 
 def tab_grade():

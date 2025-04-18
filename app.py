@@ -1,12 +1,12 @@
 import streamlit as st
 
-from src.ui.config import tab_config
-from src.ui.init import init_session_state_defaults, init_session_state_from_config
-from src.ui.load_models import ui_load_whisper_model, ui_load_openai_api, ui_load_tavily_api
-from src.ui.context import tab_context
-from src.ui.transcribe import tab_transcribe
-from src.ui.translate import tab_translate
-from src.ui.grade import tab_grade
+from ui.config_ui import tab_config
+from ui.init_ui import init_session_state_defaults, init_session_state_from_config
+from ui.load_models_ui import ui_load_whisper_model, ui_load_openai_api, ui_load_tavily_api
+from ui.context_ui import tab_context
+from ui.transcribe_ui import tab_transcribe
+from ui.translate_ui import tab_translate
+from ui.grade_ui import tab_grade
 
 
 from src.logic.config import load_config

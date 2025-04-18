@@ -3,8 +3,8 @@ sys.path.append('../')
 
 import streamlit as st
 from src.logic.config import save_config, load_config
-from src.ui.load_models import ui_load_whisper_model, ui_load_openai_api, ui_load_tavily_api
-from src.ui.init import init_session_state_from_config
+from ui.load_models_ui import ui_load_whisper_model, ui_load_openai_api, ui_load_tavily_api
+from ui.init_ui import init_session_state_from_config
 
 def tab_config():
     st.header("Configuration Settings")
