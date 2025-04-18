@@ -73,7 +73,7 @@ def tab_context():
                 st.error("Tavily web search tool is not loaded.")
                 return
             with st.spinner("Gathering web context..."):
-                web_context = gather_context_from_web(model, search_tool, output_lang, series_name, web_keywords)
+                web_context = gather_context_from_web(model, search_tool, output_lang, series_name, web_keywords, full_text)
                 st.session_state["context_web_summary"] = web_context
 
         if "Characters" in selected_context_tasks:
