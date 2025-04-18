@@ -3,7 +3,7 @@ import sys
 sys.path.append('../')
 
 from src.logic.translate import translate
-from ui.shared_ui import show_context, create_context_dict
+from src.ui.shared_ui import show_context, create_context_dict
 
 def tab_translate():
     st.header("Translate")

@@ -58,30 +58,82 @@ def determine_scene_structure(model: ChatOpenAI, input_lang: str, output_lang: s
 
 
 def gather_context_from_web(model: ChatOpenAI, search_tool: TavilySearchResults, output_lang: str, 
-                            series_name: str, keywords: str):
+                            series_name: str, keywords: str, transcript: str):
+    
+    info_need_prompt_str = """
+    # Role: Translation Context Analyst
+
+    ## Instruction
+
+    You are helping a translator identify what **external background information** would support accurate translation of a Japanese drama scene.
+
+    Focus specifically on the following two types of background information:
+
+    1. **Character relationships** — if multiple characters are mentioned, determine whether their roles or relationships are unclear and would benefit from clarification.
+
+    2. **Story premise or genre** — identify whether the overall setting, premise, or narrative style is unclear (e.g., slice of life, romance, supernatural, mystery, etc.) and whether that context would help guide tone or phrasing choices.
+    ## Transcript
+
+    {transcript}
+
+    ## Output
+
+    Write exactly two bullet points:
+    - One about **character relationships**
+    - One about the **story premise or genre**
+
+    Use clear, natural {output_lang}.
+    """
+    
+    info_needed_prompt = ChatPromptTemplate.from_template(info_need_prompt_str)
+    
+    query_generation_prompt_str = """
+    # Role: Internet Search Query Writer
+
+    ## Instruction
+
+    You are writing a web search query to help a translator find background information about a Japanese series.  
+    The goal is to retrieve information that matches the described research need below.
+
+    ## Input
+
+    Series Title: {series_name}  
+    User Keywords: {keywords}  
+    Research Need: {info_need}
+
+    ## Output
+
+    Write **one clean web search query** in natural {output_lang}.  
+    It should look like a normal Google search — simple, lowercase if applicable, and no extra formatting.
+    Only return the query string.
+    """    
+
+    query_generator_prompt = ChatPromptTemplate.from_template(query_generation_prompt_str)
+    
     web_context_prompt_str = """
     # Role: Translator Support Assistant
 
     ## Instructions
 
-    You are assisting a translator working on a project involving the series titled **{series_name}**.  
-    The user has also provided the following keywords to guide your understanding: **{keywords}**.
+    You are assisting a translator working on a project involving the series titled **{series_name}**.
 
     Use the search results below to construct a helpful, factual background summary in natural {output_lang}.  
-    Only use information that is present in the search results. Do **not** speculate, interpret tone, or invent missing details.
+    Only use information that is clearly supported by the search results.  
+    Do **not** speculate, interpret tone, or invent any missing details.
 
-    ### Important
+    ### Focus Areas
 
-    - Do **not** include personal opinions or unverified claims.
-    - If the retrieved content is ambiguous or incomplete, acknowledge it briefly.
-    - Focus on surface-level, factual context that can support a translator's understanding of the setting, characters, or themes.
+    You are specifically looking for the following two types of information:
+    - **Character relationships** — e.g., names, roles, group dynamics, or how characters relate to each other.
+    - **Story premise and genre** — e.g., setting, type of narrative, and what kind of story this is.
 
-    ### What to Include
+    If no information is available for a category, briefly acknowledge it.
 
-    - The general premise and genre of the series (if stated).
-    - A summary of the setting or overall structure (e.g., school mystery, fantasy world, time period).
-    - A list or brief mention of recurring characters (if available).
-    - Any relevant details about themes, tone, format, or social context relevant to translation decisions.
+    ### Important Guidelines
+
+    - Do **not** include personal opinions, guesses, or unverified claims.
+    - Keep the tone neutral and factual.
+    - Do not fabricate names, backstories, or settings not explicitly mentioned in the search results.
 
     ### Search Results
 
@@ -90,19 +142,41 @@ def gather_context_from_web(model: ChatOpenAI, search_tool: TavilySearchResults,
     ## Output Format
 
     Write a clearly formatted summary in natural {output_lang} using **bolded section labels** followed by a colon.  
-    Each labeled section (e.g., **Premise and Genre:**) should be on its own line, but **do not use bullet points or lists**.  
-    Keep each section to no more than 2 sentences, and use **no more than 6 labeled sections** in total.
+    Each labeled section (e.g., **Character Relationships:**) should be on its own line.  
+    Write **no more than 2–4 sections total**, each limited to **1–2 concise sentences**.  
+    Do **not** use bullet points or numbered lists.
     """
 
     web_context_prompt = ChatPromptTemplate.from_template(web_context_prompt_str)
+    
+    # Final single chain
     web_context_chain = (
-        RunnableLambda(lambda x: {
-            "series_name": x["series_name"],
-            "keywords": x["keywords"],
-            "output_lang": x["output_lang"],
-            "query": f"{x['series_name']} {x['keywords']}",
-            "search_results": search_tool.invoke({"query": f"{x['series_name']} {x['keywords']}"})
+        RunnableMap({
+            "series_name": lambda x: x["series_name"],
+            "keywords": lambda x: x["keywords"],
+            "transcript": lambda x: x["transcript"],
+            "output_lang": lambda x: x["output_lang"]
         })
+        # Step 1: Extract info need
+        | RunnableMap({
+            "info_need": info_needed_prompt | model,
+            "series_name": lambda x: x["series_name"],
+            "keywords": lambda x: x["keywords"],
+            "output_lang": lambda x: x["output_lang"]
+        })
+        # Step 2: Generate query
+        | RunnableMap({
+            "query_result": query_generator_prompt | model,
+            "series_name": lambda x: x["series_name"],
+            "output_lang": lambda x: x["output_lang"]
+        })
+        # Step 3: Search the web
+        | RunnableMap({
+            "search_results": lambda x: search_tool.invoke({"query": x["query_result"].content}),
+            "series_name": lambda x: x["series_name"],
+            "output_lang": lambda x: x["output_lang"]
+        })
+        # Step 4: Format the web context summary
         | web_context_prompt
         | model
     )
@@ -110,6 +184,7 @@ def gather_context_from_web(model: ChatOpenAI, search_tool: TavilySearchResults,
     result = web_context_chain.invoke({
         "series_name": series_name,
         "keywords": keywords,
+        "transcript": transcript,
         "output_lang": output_lang
     })
     
@@ -199,10 +274,6 @@ def summarize_scene(model: ChatOpenAI, input_lang: str, output_lang: str, transc
 
     {web_notes}
 
-    ### Transcript
-
-    {scene_text}
-
     ### Format Description
 
     {format_notes}
@@ -211,24 +282,29 @@ def summarize_scene(model: ChatOpenAI, input_lang: str, output_lang: str, transc
 
     {character_notes}
 
+    ### Transcript
+
+    {scene_text}
+
     ## Instructions
 
-    You are assisting a translator by providing a high-level summary of the following scene in natural {output_lang}.  
-    Your goal is to help the translator understand the context *before* they begin translating.  
+    You are assisting a translator by summarizing the events of the following scene in natural {output_lang}.
 
-    Focus on the **location**, **involved characters**, and **key actions or themes** of the scene.  
-    Avoid retelling the dialogue line-by-line or interpreting character emotions.
+    You have access to supporting information about the characters, setting, and tone.  
+    **Do not repeat this background information unless something new is revealed in this specific scene.**
+
+    Focus only on what actually happens, including:
+
+    - Key actions or decisions
+    - Character interactions and shifts in tone
+    - Information revealed through dialogue or narration
+    - Any notable scene changes (e.g., topic shifts, emotional moments)
+
+    Avoid quoting the transcript or summarizing line-by-line.
 
     ## Output Format
 
-    Structure your output into labeled sections for readability:
-
-    **Setting**: [Where the scene takes place and any notable environmental context]  
-    **Main Characters**: [Who is involved and their roles or relationships]  
-    **Situation**: [What is happening in broad terms — discussion, conflict, action, etc.]  
-    **Themes**: [Any recurring or prominent ideas mentioned — e.g., power, family, ideology]
-
-    Write clearly and concisely. Use full sentences, but keep each section focused and skimmable.
+    Write one concise paragraph in natural {output_lang} that clearly summarizes the events and developments of this scene.
     """
     
     # Optional inserts
