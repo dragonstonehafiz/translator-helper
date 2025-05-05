@@ -5,6 +5,7 @@ DEFAULTS = {
     "output_lang": "en",
     "whisper_model": "medium",
     "openai_model": "gpt-4o",
+    "device": "cpu",
     "openai_api_key": "",
     "tavily_api_key": "",
     "temperature": 0.7,
@@ -26,4 +27,5 @@ def init_session_state_from_config(config: dict):
     st.session_state["openai_model"] = config.get("openai_model", "gpt-4o")
     st.session_state["tavily_api_key"] = config.get("tavily_api_key", "")
     st.session_state["temperature"] = config.get("temperature", 0.7)
+    st.session_state["device"] = config.get("device", "cpu")
             

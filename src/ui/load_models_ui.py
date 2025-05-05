@@ -9,7 +9,7 @@ from src.logic.validate_api_keys import validate_openai_api_key, validate_tavily
 def ui_load_whisper_model(model_name: str):
     # Load and store whisper model in session_state
     with st.spinner(f"Loading Whisper model: {model_name}..."):
-        model = load_whisper_model(model_name)
+        model = load_whisper_model(model_name, device=st.session_state.get("device", "cpu"))
         st.session_state["whisper_instance"] = model
     st.success("Whisper model loaded and stored in session state.")
     

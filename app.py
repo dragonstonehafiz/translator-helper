@@ -37,16 +37,27 @@ if __name__ == "__main__":
         ui_load_openai_api(api_key=st.session_state.get("openai_api_key", "PLEASE FILL IN"), 
                            model_name=st.session_state.get("openai_model", "gpt-4o"),
                            temp=st.session_state.get("temperature", 0.5))
+        
+    mode = st.sidebar.radio("Pages", ["Settings", "Automation", "Assistant"], index=0)
     
-    config, context, transcribe, translate, grade = st.tabs(["Configuration", "Context", "Transcribe", "Translate", "Grade"])
-
-    with config:
+    if mode == "Settings":
         tab_config()
-    with context:
-        tab_context()
-    with transcribe:
-        tab_transcribe()
-    with translate:
-        tab_translate()
-    with grade:
-        tab_grade()
+    elif mode == "Automation":
+        context, transcribe_file, translate_file = st.tabs(["Context", "Transcribe File", "Translate File"])
+        
+        with context:
+            tab_context()
+        with transcribe_file:
+            pass
+        with translate_file:
+            pass
+        
+    elif mode == "Assistant":
+        transcribe, translate, grade = st.tabs(["Transcribe", "Translate", "Grade"])
+        
+        with transcribe:
+            tab_transcribe()
+        with translate:
+            tab_translate()
+        with grade:
+            tab_grade()

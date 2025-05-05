@@ -2,12 +2,13 @@ import sys
 sys.path.append('../')
 
 import streamlit as st
+from src.logic.load_models import get_device_map
 from src.logic.config import save_config, load_config
 from src.ui.load_models_ui import ui_load_whisper_model, ui_load_openai_api, ui_load_tavily_api
 from src.ui.init_ui import init_session_state_from_config
 
 def tab_config():
-    st.header("Configuration Settings")
+    st.header("Configuration")
     
     st.subheader("General")
     # Load and Save Configurations
@@ -24,6 +25,7 @@ def tab_config():
                 "input_lang": st.session_state["input_lang"],
                 "output_lang": st.session_state["output_lang"],
                 "whisper_model": st.session_state["whisper_model"],
+                "device": st.session_state["device"],
                 "openai_model": st.session_state["openai_model"],
                 "openai_api_key": st.session_state["openai_api_key"],
                 "tavily_api_key": st.session_state["tavily_api_key"],
@@ -41,7 +43,7 @@ def tab_config():
 
     st.subheader("Transcription")
     # Whisper model + Load
-    col1, col2 = st.columns([3, 1])
+    col1, col2 = st.columns(2)
     with col1:
         whisper_model = st.selectbox(
             "Select Whisper Model",
@@ -52,8 +54,30 @@ def tab_config():
             help="Choose the Whisper model to use for transcription."
         )
     with col2:
-        if st.button("Load Whisper"):
-            ui_load_whisper_model(whisper_model)
+        # devices = get_available_devices()
+        # selected_label = st.selectbox(
+        #     "Select CPU/GPU",
+        #     options=devices,
+        #     index=devices.index(st.session_state.get("device", "cpu")),
+        #     help="Choose whether you want to use GPU acceleration or not."
+        # )
+        # # Extract "cpu" or "cuda:X"
+        # device_id = selected_label.split(" - ")[0].strip()
+        # st.session_state["device"] = device_id
+        device_map = get_device_map()
+        device_labels = list(device_map.keys())
+        selected_label = st.selectbox(
+            "Select CPU/GPU",
+            options=device_labels,
+            index=device_labels.index(next((k for k, v in device_map.items() if v == st.session_state.get("device", "cpu")), "cpu")),
+            help="Choose whether you want to use GPU acceleration or not."
+        )
+
+        # Save valid device string to session
+        device = device_map[selected_label]
+        
+    if st.button("Load Whisper", use_container_width=True):
+        ui_load_whisper_model(whisper_model)
 
     st.subheader("OpenAI Configurations")
     # OpenAI model selection
@@ -108,3 +132,4 @@ def tab_config():
     st.session_state["openai_api_key"] = openai_api_key
     st.session_state["tavily_api_key"] = tavily_api_key
     st.session_state["temperature"] = temperature
+    st.session_state["device"] = device
