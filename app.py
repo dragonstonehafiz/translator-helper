@@ -4,7 +4,7 @@ from src.ui.config_ui import tab_config
 from src.ui.init_ui import init_session_state_defaults, init_session_state_from_config
 from src.ui.load_models_ui import ui_load_whisper_model, ui_load_openai_api, ui_load_tavily_api
 from src.ui.context_ui import tab_context
-from src.ui.transcribe_ui import tab_transcribe
+from src.ui.transcribe_ui import tab_transcribe_line, tab_transcribe_file
 from src.ui.translate_ui import tab_translate
 from src.ui.grade_ui import tab_grade
 
@@ -42,13 +42,14 @@ if __name__ == "__main__":
     
     if mode == "Settings":
         tab_config()
+        
     elif mode == "Automation":
         context, transcribe_file, translate_file = st.tabs(["Context", "Transcribe File", "Translate File"])
         
         with context:
             tab_context()
         with transcribe_file:
-            pass
+            tab_transcribe_file()
         with translate_file:
             pass
         
@@ -56,7 +57,7 @@ if __name__ == "__main__":
         transcribe, translate, grade = st.tabs(["Transcribe", "Translate", "Grade"])
         
         with transcribe:
-            tab_transcribe()
+            tab_transcribe_line()
         with translate:
             tab_translate()
         with grade:
