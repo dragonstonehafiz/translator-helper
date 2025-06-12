@@ -68,8 +68,8 @@ def translate_multi_response(llm: ChatOpenAI, text: str, context: dict = None,
     return response.content
 
 
-def translate_single(llm: ChatOpenAI, text: str, context: dict = None,
-                     input_lang: str = "ja", target_lang: str = "en"):
+def translate_sub(llm: ChatOpenAI, text: str, context: dict = None,
+                  input_lang: str = "ja", target_lang: str = "en"):
     
     context_lines = []
     for key, value in context.items():
@@ -100,6 +100,7 @@ def translate_single(llm: ChatOpenAI, text: str, context: dict = None,
 
     Only output the naturalized translation text directly.
     Do not wrap it in markdown or label it.
+    If there is indicator of the speaker (i.e. "Speaker1: blah blah blah"), remove the indicator
     """.strip()
 
     messages = [
@@ -128,7 +129,7 @@ def translate_subs(llm: ChatOpenAI, subs, context: dict, context_window: int = 3
         context_dict["Current Speaker"] = line.name
         
         current_line = f"{line.text}"
-        translation = translate_single(llm, current_line, context=context_dict,
+        translation = translate_sub(llm, current_line, context=context_dict,
                                        input_lang=input_lang, target_lang=target_lang)
         
         line.text = translation

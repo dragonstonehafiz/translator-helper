@@ -12,8 +12,14 @@ def tab_context():
     
     # Keyowrds to use when doing web context search
     st.subheader("Web Context Input")
-    series_name = st.text_input("Series Name", value=st.session_state.get("series_name", ""), help="for web context")
-    keywords = st.text_input("Search Keywords", value=st.session_state.get("web_keywords", ""), help="e.g., character names, setting, terms")
+    
+    left, right = st.columns(2)
+    
+    with left:
+        series_name = st.text_input("Series Name", value=st.session_state.get("series_name", ""), help="Series name to use in automated web search.")
+    
+    with right:
+        keywords = st.text_input("Keywords", value=st.session_state.get("keywords", ""), help="Keywords to include in automated web search.")
 
     # Loading Subtitile Files
     st.subheader("Subtitle File")
@@ -24,26 +30,24 @@ def tab_context():
             tmp_path = tmp_file.name
             
         subs = pysubs2.load(tmp_path, encoding="utf-8")
-        full_text = "\n".join([line.text for line in subs])
+        transcript = "\n".join([line.text for line in subs])
         os.remove(tmp_path)
+    else:
+        return
     
     # Chosing which context functions to use
     st.subheader("Select Context Functions to Run")      
     selected_context_tasks = st.multiselect(
         "Select Context Functions to Run",
         options=[
-            "Scene Structure",
-            "Web Context",
-            "Characters",
-            "Synopsis",
-            "Tone"
+            "Automated Web Search",
+            "Generate Character List",
+            "High Level Synopsis"
         ],
         default=[
-            "Scene Structure",
-            "Web Context",
-            "Characters",
-            "Synopsis",
-            "Tone"
+            "Automated Web Search",
+            "Generate Character List",
+            "High Level Synopsis"
         ],
     )
     
@@ -51,83 +55,64 @@ def tab_context():
         # Temp references to session state
         input_lang = st.session_state.get("input_lang", "ja")
         output_lang = st.session_state.get("output_lang", "en")
-        format_description = st.session_state.get("format_description", None)
-        characters = st.session_state.get("context_characters", None)
-        series_name = st.session_state.get("series_name", None)
-        web_keywords = st.session_state.get("web_keywords", None)
         model = st.session_state.get("gpt_instance", None)
         search_tool = st.session_state.get("web_search_instance")
+        
+        synopsis = st.session_state.get("synopsis", "")
+        series_name = st.session_state.get("series_name", "")
+        keywords = st.session_state.get("keywords", "")
+        character_list = st.session_state.get("character_list", "")
+        web_context = st.session_state.get("web_context", "")
 
         if not model:
             st.error("ChatGPT model is not loaded.")
             return
 
-        web_context = ""
-        
-        if "Scene Structure" in selected_context_tasks:
-            with st.spinner("Determining scene structure..."):
-                st.session_state["context_scene_structure"] = determine_scene_structure(model, input_lang, output_lang, full_text)
-
-        if "Web Context" in selected_context_tasks:
+        if "Automated Web Search" in selected_context_tasks:
             if not search_tool:
                 st.error("Tavily web search tool is not loaded.")
                 return
             with st.spinner("Gathering web context..."):
-                web_context = gather_context_from_web(model, search_tool, output_lang, series_name, web_keywords, full_text)
-                st.session_state["context_web_summary"] = web_context
+                web_context = generate_web_context(model, search_tool, series_name=series_name, keywords=keywords,
+                                                   input_lang=input_lang, output_lang=output_lang)
+                st.session_state["web_context"] = web_context
+        
+        if "Generate Character List" in selected_context_tasks:
+            with st.spinner("Generating Character List..."):
+                character_list = generate_character_list(model, input_lang, output_lang, transcript, web_context)
+                st.session_state["character_list"] = character_list
+        
+        if "High Level Synopsis" in selected_context_tasks:
+            with st.spinner("Generating Synopsis..."):
+                synopsis = generate_high_level_summary(model, input_lang, output_lang, transcript, character_list)
+                st.session_state["synopsis"] = synopsis
 
-        if "Characters" in selected_context_tasks:
-            with st.spinner("Identifying characters..."):
-                characters = identify_characters(model, input_lang, output_lang, full_text, format_description, web_context)
-                st.session_state["context_characters"] = characters
-
-        if "Synopsis" in selected_context_tasks:
-            with st.spinner("Summarizing scene..."):
-                st.session_state["context_scene_summary"] = summarize_scene(model, input_lang, output_lang, 
-                                                                            full_text, format_description, characters, web_context)
-
-        if "Tone" in selected_context_tasks:
-            with st.spinner("Analyzing tone and formality..."):
-                st.session_state["context_tone"] = determine_tone(model, input_lang, output_lang,
-                                                                  full_text, format_description, web_context)
 
         st.success("Selected context functions completed.")
 
     # Let the user update the context fields on their own
-    st.subheader("Edit Context")   
-    st.session_state["context_scene_structure"] = st.text_area(
-        "Scene Structure",
-        value=st.session_state.get("context_scene_structure", ""),
+    st.subheader("Edit Context")
+    st.session_state["web_context"] = st.text_area(
+        "Web Search Results",
+        value=st.session_state.get("web_context", ""),
+        height=120,
+    )
+    
+    st.session_state["character_list"] = st.text_area(
+        "Character List",
+        value=st.session_state.get("character_list", ""),
         height=120,
     )
 
-    st.session_state["context_web_summary"] = st.text_area(
-        "Web Context Summary",
-        value=st.session_state.get("context_web_summary", ""),
+    st.session_state["synopsis"] = st.text_area(
+        "High Level Synopsis",
+        value=st.session_state.get("synopsis", ""),
         height=150,
     )
 
-    st.session_state["context_characters"] = st.text_area(
-        "Character List",
-        value=st.session_state.get("context_characters", ""),
-        height=150,
-    )
-
-    st.session_state["context_scene_summary"] = st.text_area(
-        "Scene Synopsis",
-        value=st.session_state.get("context_scene_summary", ""),
-        height=150,
-    )
-
-    st.session_state["context_tone"] = st.text_area(
-        "Tone and Style",
-        value=st.session_state.get("context_tone", ""),
-        height=100,
-    )
-    
     # Save to session_state
     st.session_state["series_name"] = series_name
-    st.session_state["web_keywords"] = keywords
+    st.session_state["keywords"] = keywords
         
         
     

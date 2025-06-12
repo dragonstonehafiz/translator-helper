@@ -1,224 +1,147 @@
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
-from langchain.schema.runnable import RunnableMap, RunnableLambda
+from langchain.schema.runnable import RunnableMap
 from langchain_community.tools.tavily_search.tool import TavilySearchResults
 
 
-def determine_scene_structure(model: ChatOpenAI, input_lang: str, output_lang: str, transcript: str):
-    prompt = """
-    # Role: {input_lang} Scene Structure Assistant
+def generate_web_query(model: ChatOpenAI, series_name: str, key_words: str, 
+                       input_lang="ja", output_lang: str = "en") -> str:
+    """
+    Generate a natural language search query using free-form user keywords and the series title.
 
-    ## Instructions
+    Returns:
+        A single search query string in the output language.
+    """
 
-    Examine the text and describe the **structure and delivery format** in natural {output_lang}.  
-    Focus on **how the dialogue is organized**, and whether characters are interacting or delivering isolated lines.
+    prompt_str = """
+    # Role: Search Prompt Generator for Translators
 
-    ### Important
+    ## Task
 
-    - Do **not** assume a conversation simply because multiple speaker names appear.
-    - Only classify the scene as interactive *if the characters are clearly responding to each other’s lines*.
-    - If each speaker talks independently, without responding to others, treat it as a sequence of monologues.
+    You are helping a translator gather background information about a fictional work titled "{series_name}" in {input_lang}.  
+    Using the user-provided keywords below, generate **one natural language search query** (in {output_lang}) that could be used to retrieve useful character or context information.
 
-    ### What to Include
+    The query should:
+    - Use the keywords "{keywords}" and the title "{series_name}".
+    - Phrase the query naturally, as if typed into a search engine.
+    - Do not add assumptions or filler like "tell me about".
+    - The goal is to help a translator get concise and relevant results.
 
-    Use the following labeled format in your output for clarity:
+    ## Keywords
 
-    **Scene Type**: [e.g., Interactive Dialogue / Monologue / Narration / Mixed]  
-    **Speaker Count**: [e.g., 1, 2, 3+, or "Unclear"]  
-    **Interaction Style**: [Describe whether speakers engage with each other or not]  
-    **Delivery Format**: [e.g., Speaker-separated entries, Timestamped logs, Introspective monologue]  
-    **Notes**: [Any other relevant structural observations]
-
-    ### Transcript
-
-    {scene_text}
+    {keywords}
 
     ## Output Format
 
-    Return your answer in the labeled format above using **bold markdown headers** (e.g., **Scene Type**).  
-    Keep each line concise and easy to scan. Only state what is directly observable in the dialogue.
+    One natural language search query in {output_lang}.
     """
 
-    analyze_format_prompt = ChatPromptTemplate.from_template(prompt)
-    analyze_format_chain = (
+    prompt = ChatPromptTemplate.from_template(prompt_str)
+
+    chain = (
         RunnableMap({
-            "scene_text": lambda x: x["text"],
-            "input_lang": lambda x: x.get("input_lang", "ja"),
-            "output_lang": lambda x: x.get("output_lang", "en"),
-        }) | analyze_format_prompt | model
+            "series_name": lambda x: x["series_name"],
+            "keywords": lambda x: x["keywords"],
+            "output_lang": lambda x: x["output_lang"],
+            "input_lang": lambda x: x["input_lang"]
+        }) | prompt | model
     )
-    
-    result = analyze_format_chain.invoke({
-        "text": transcript,
-        "input_lang": input_lang,
-        "output_lang": output_lang
+
+    result = chain.invoke({
+        "series_name": series_name,
+        "keywords": key_words,
+        "output_lang": output_lang,
+        "input_lang": input_lang
     })
 
-    return result.content
+    return result.content.strip()
 
 
-def gather_context_from_web(model: ChatOpenAI, search_tool: TavilySearchResults, output_lang: str, 
-                            series_name: str, keywords: str, transcript: str):
-    
-    info_need_prompt_str = """
-    # Role: Translation Context Analyst
+def generate_web_context(model: ChatOpenAI, search_tool: TavilySearchResults, 
+                         series_name: str, keywords: str,
+                         input_lang: str, output_lang: str):
+    """
+    Generate a general-purpose web context summary using a natural-language search query.
 
-    ## Instruction
+    Returns:
+        A string summary of relevant background information based on the provided series name and keywords.
+    """
+    # Step 1: Generate a search query from the keywords
+    query = generate_web_query(
+        model=model,
+        key_words=keywords,
+        series_name=series_name,
+        input_lang=input_lang,
+        output_lang=output_lang
+    )
 
-    You are helping a translator identify what **character-related background information** would support accurate translation of a Japanese drama scene.
+    # Step 2: Run the query
+    search_results = search_tool.invoke({"query": query})
 
-    The transcript may include multiple named characters.  
-    Your job is to determine what is **unclear or missing** about these characters that could affect translation decisions — especially things like relationships, roles, or social dynamics.
+    # Step 3: Ask GPT to summarize the results for translation purposes
+    summary_prompt = ChatPromptTemplate.from_template("""
+    # Role: Translator Support Assistant
 
-    ## Transcript
+    ## Task
 
-    {transcript}
-
-    ## Output
-
-    List 1–3 specific character-related questions that should be answered by external background knowledge.  
-    These may include questions like:
-    - “What is the relationship between X and Y?”
-    - “What is [Character]’s role in the story?”
-    - “Is [Character] a student, teacher, or someone else?”
-    - “Are these characters part of a family, organization, or friend group?”
-
-    Only ask about things that are **relevant to translation** — ignore trivial background.
-
-    Write each question in clear, natural {output_lang}, with no bullet points or numbering.
-    Separate questions with a single line break.
-    """    
-    
-    info_needed_prompt = ChatPromptTemplate.from_template(info_need_prompt_str)
-    
-    query_generation_prompt_str = """
-    # Role: Internet Search Query Writer
-
-    ## Instruction
-
-    You are writing a web search query to help a translator find background information about a Japanese series.  
-    The goal is to retrieve information that matches the described research need below.
+    You are helping a translator understand key background information about the fictional work "{series_name}".  
+    Using the search results and user-provided keywords, write a concise and readable summary.
 
     ## Input
 
-    Series Title: {series_name}  
-    User Keywords: {keywords}  
-    Research Need: {info_need}
-
-    ## Output
-
-    Write **one clean web search query** in natural {output_lang}.  
-    It should look like a normal Google search — simple, lowercase if applicable, and no extra formatting.
-    Only return the query string.
-    """    
-
-    query_generator_prompt = ChatPromptTemplate.from_template(query_generation_prompt_str)
-    
-    web_context_prompt_str = """
-    # Role: Translator Support Assistant
+    - Title: {series_name}
+    - Keywords: {keywords}
+    - Search Results: {search_results}
 
     ## Instructions
 
-    You are assisting a translator working on a project involving the series titled **{series_name}**.
-
-    Use the search results below to construct a helpful, factual summary in natural {output_lang}, focused **only on characters**.  
-    Your goal is to extract character-related information that would help a translator understand who’s who, how they relate, and what roles they play.
-
-    ### Focus Areas
-
-    Only include information that helps clarify:
-    - Character names and roles
-    - Group dynamics (e.g., classmates, siblings, coworkers)
-    - Relationships or rivalries
-    - Social status, job, or family background
-    - Whether a character is central, minor, or recurring
-
-    If a character is mentioned but the relationship or role is unclear, you may briefly note the ambiguity.
-
-    ### Important Guidelines
-
-    - Do **not** include plot summaries, genre, or story premise.
-    - Do **not** speculate or infer tone or character traits not stated in the search results.
-    - Avoid listing irrelevant characters or giving excessive detail.
-
-    ### Search Results
-
-    {search_results}
-
+    - Write 1–3 short paragraphs (maximum) summarizing:
+    - Important characters and their relationships
+    
     ## Output Format
 
-    Write a clearly formatted summary in natural {output_lang} using **bolded section labels** followed by a colon.  
-    Use section labels such as: **Main Characters**, **Supporting Characters**, **Relationships**, or **Unclear Roles**.  
-    Each section should be 1–2 concise sentences. Do **not** use bullet points or lists.
-    """
+    A few concise paragraphs in {output_lang}.
+    """)
 
-    web_context_prompt = ChatPromptTemplate.from_template(web_context_prompt_str)
-    
-    # Final single chain
-    web_context_chain = (
+    summary_chain = (
         RunnableMap({
             "series_name": lambda x: x["series_name"],
             "keywords": lambda x: x["keywords"],
-            "transcript": lambda x: x["transcript"],
+            "search_results": lambda x: x["search_results"],
             "output_lang": lambda x: x["output_lang"]
-        })
-        # Step 1: Extract info need
-        | RunnableMap({
-            "info_need": info_needed_prompt | model,
-            "series_name": lambda x: x["series_name"],
-            "keywords": lambda x: x["keywords"],
-            "output_lang": lambda x: x["output_lang"]
-        })
-        # Step 2: Generate query
-        | RunnableMap({
-            "query_result": query_generator_prompt | model,
-            "series_name": lambda x: x["series_name"],
-            "output_lang": lambda x: x["output_lang"]
-        })
-        # Step 3: Search the web
-        | RunnableMap({
-            "search_results": lambda x: search_tool.invoke({"query": x["query_result"].content}),
-            "series_name": lambda x: x["series_name"],
-            "output_lang": lambda x: x["output_lang"]
-        })
-        # Step 4: Format the web context summary
-        | web_context_prompt
-        | model
+        }) | summary_prompt | model
     )
-    
-    result = web_context_chain.invoke({
+
+    result = summary_chain.invoke({
         "series_name": series_name,
         "keywords": keywords,
-        "transcript": transcript,
+        "search_results": search_results,
         "output_lang": output_lang
     })
-    
-    return result.content
+
+    return result.content.strip()
 
 
-def identify_characters(model: ChatOpenAI, input_lang: str, output_lang: str, transcript: str, 
-                        format_description: str = None, web_context: str = None):
+def generate_character_list(model: ChatOpenAI, 
+                            input_lang: str, output_lang: str, 
+                            transcript: str, web_context: str = None):
     prompt_str = """
     # Role: {input_lang} Character Identifier
     
     ## Input
     
-    ### Web Context
-
-    {web_notes}
+    ### Web context
+    
+    {web_context}
 
     ### Transcript
 
-    {scene_text}
-    
-    ### Format Description
-    
-    {format_notes}
+    {transcript}
 
     ## Instructions
 
-    You are assisting a translator by identifying characters in a scene.  
-    Use the dialogue transcript to extract any named or inferred characters.  
+    You are assisting a translator by identifying characters in a scene that is in {input_lang}.
+    Use the dialogue transcript to extract any named or inferred characters in {output_lang}.
 
     For each character:
     - Provide their **name**
@@ -229,67 +152,64 @@ def identify_characters(model: ChatOpenAI, input_lang: str, output_lang: str, tr
 
     ## Output Format
 
-    Return a list in this format:
+    All output should be in {output_lang}.
+
+    - Use the full name from the web context when available (e.g., “Sumika Shiun”).
+    - If a character appears under multiple names or forms (e.g., “清夏ちゃん” and “Sumika Shiun”), 
+    **merge them into one entry** using the full name from the web context, and mention the alias in parentheses.
+
+    Example:  
+    - **Sumika Shiun** (also referred to as "清夏ちゃん")
+
+    - For unnamed or minor characters (e.g., “Student A”), use translated role names in {output_lang}.
+
+    Return one entry per character in this format:  
     - **[Character Name]**: [brief description]. [Narrative Focus] (if applicable)
+
+    Do not include more than one entry per character.
+    Do not use nested bullet points inside descriptions.
 
     Include only one entry per character. Format the name in bold using markdown (** **).
     """
-
-    format_notes = (
-        f"Consider the following format when interpreting the structure:\n{format_description}"
-        if format_description else "No specific format description is provided."
-    )
-
-    web_notes = (
-        "You may refer to the following background information to improve accuracy." 
-        if web_context else "No external series information was provided."
-    )
+    
+    web_context = f"The following is additional information pulled from the web:\n{web_context}" if web_context else "No additional web context."
 
     final_prompt = ChatPromptTemplate.from_template(prompt_str)
 
     character_chain = (
         RunnableMap({
-            "scene_text": lambda x: x["text"],
+            "transcript": lambda x: x["transcript"],
+            "web_context": lambda x: x["web_context"],
             "input_lang": lambda x: x.get("input_lang", "ja"),
-            "output_lang": lambda x: x.get("output_lang", "en"),
-            "format_notes": lambda x: x["format_notes"],
-            "web_notes": lambda x: x["web_notes"]
+            "output_lang": lambda x: x.get("output_lang", "en")
         }) | final_prompt | model
     )
 
     result = character_chain.invoke({
-        "text": transcript,
+        "transcript": transcript,
+        "web_context": web_context,
         "input_lang": input_lang,
-        "output_lang": output_lang,
-        "format_notes": format_notes,
-        "web_notes": web_notes
+        "output_lang": output_lang
     })
 
     return result.content
 
 
-def summarize_scene(model: ChatOpenAI, input_lang: str, output_lang: str, transcript: str, 
-                    format_description: str = None, character_list: str = None, web_context: str = None):
+def generate_high_level_summary(model: ChatOpenAI, 
+                                input_lang: str, output_lang: str, 
+                                transcript: str, character_list: str = None):
     prompt_str = """
     # Role: {input_lang} Scene Summary Assistant
 
     ## Input
 
-    ### Web Context
-
-    {web_notes}
-
-    ### Format Description
-
-    {format_notes}
-
     ### Characters
 
-    {character_notes}
+    {character_list}
 
     ### Transcript
 
-    {scene_text}
+    {transcript}
 
     ## Instructions
 
@@ -313,96 +233,24 @@ def summarize_scene(model: ChatOpenAI, input_lang: str, output_lang: str, transc
     """
     
     # Optional inserts
-    format_notes = f"Consider the following scene structure:\n{format_description}" if format_description else "No scene structure provided."
-    character_notes = f"The following characters were identified:\n{character_list}" if character_list else "No characters were identified."
-    web_notes = f"You may also refer to the following background information:\n{web_context}" if web_context else "No external series information provided."
+    character_list = f"The following characters were identified:\n{character_list}" if character_list else "No characters were identified."
 
     summarize_prompt = ChatPromptTemplate.from_template(prompt_str)
 
     summarize_chain = (
         RunnableMap({
-            "scene_text": lambda x: x["text"],
+            "transcript": lambda x: x["transcript"],
             "input_lang": lambda x: x.get("input_lang", "ja"),
             "output_lang": lambda x: x.get("output_lang", "en"),
-            "format_notes": lambda x: x["format_notes"],
-            "character_notes": lambda x: x["character_notes"],
-            "web_notes": lambda x: x["web_notes"]
+            "character_list": lambda x: x["character_list"],
         }) | summarize_prompt | model
     )
 
     result = summarize_chain.invoke({
-        "text": transcript,
-        "input_lang": input_lang,
-        "output_lang": output_lang,
-        "format_notes": format_notes,
-        "character_notes": character_notes,
-        "web_notes": web_notes
-    })
-
-    return result.content
-
-def determine_tone(model: ChatOpenAI, input_lang: str, output_lang: str, transcript: str,
-                   format_description: str = None, web_context: str = None):
-    prompt_str = """
-    # Role: {input_lang} Tone and Style Analyzer
-    
-    ## Input
-    
-    ### Web Context
-    
-    {web_notes}
-    
-    ### Transcript
-
-    {scene_text}
-    
-    ### Format Description
-    
-    {format_notes}
-
-    ## Instructions
-
-    You are assisting a translator by analyzing the overall **tone and speech level** of the following scene.  
-    Your analysis should help guide translation choices in {output_lang} — especially around formality, emotional undercurrents, and delivery style.
-
-    Focus on:
-    - Overall tone (e.g., casual, serious, comedic, emotional, subdued)
-    - Notable speech patterns (e.g., blunt, polite, indirect, teasing)
-    - Formality level or shifts in speech style
-    - Any emotional or interpersonal cues that are directly observable
-
-    Do **not** translate the lines or interpret underlying emotion beyond what is evident.
-
-    ## Output Format
-
-    Write **1 to 2 concise sentences** describing the tone and delivery style.  
-    Focus on what would be **most helpful for a translator** to know when rendering speech into {output_lang}.
-    """
-
-    format_notes = (
-        f"The following format description may help you understand how the scene is structured:\n{format_description}"
-        if format_description else "No format description was provided."
-    )
-    web_notes = f"You may also consider the following series background:\n{web_context}" if web_context else "No web context was provided."
-
-    prompt = ChatPromptTemplate.from_template(prompt_str)
-
-    tone_chain = (
-        RunnableMap({
-            "scene_text": lambda x: x["transcript"],
-            "input_lang": lambda x: x.get("input_lang", "ja"),
-            "output_lang": lambda x: x.get("output_lang", "en"),
-            "format_notes": lambda x: x["format_notes"],
-            "web_notes": lambda x: x["web_notes"]
-        }) | prompt | model
-    )
-
-    result = tone_chain.invoke({
         "transcript": transcript,
         "input_lang": input_lang,
         "output_lang": output_lang,
-        "format_notes": format_notes,
-        "web_notes": web_notes
+        "character_list": character_list
     })
 
     return result.content
