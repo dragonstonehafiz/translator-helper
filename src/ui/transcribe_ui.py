@@ -80,7 +80,7 @@ def tab_transcribe_file():
                 
     # Get the generated sub file if it was created
     transcript_file = st.session_state.get("transcript_file", None)
-    if type(transcript_file) == pysubs2.SSAFile and file_name is not None:
+    if isinstance(transcript_file, pysubs2.SSAFile):
         # Save the subtitle to a temp .ass file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".ass") as temp_sub_file:
             transcript_file.save(temp_sub_file.name)
