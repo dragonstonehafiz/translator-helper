@@ -3,7 +3,7 @@ import sys
 sys.path.append('../')
 
 from src.logic.grade import grade
-from src.ui.shared_ui import show_context, create_context_dict
+from src.ui.shared_ui import show_context, get_context_dict
 from html import escape
 
 def tab_grade():
@@ -20,17 +20,17 @@ def tab_grade():
         st.error("Please load a the OpenAI API to use this functionality.")
         return
     
-    if st.button("Grade Translation", use_container_width=True):
+    if st.button("Grade Translation", use_container_width=True, type="primary"):
         if not original_text.strip() or not translated_text.strip():
             st.warning("Please provide both the original and translated text.")
             return
 
-        with st.spinner("Evaluating translation..."):
+        with st.spinner("Evaluating translation...", show_time=True):
             output = grade(
                 llm=st.session_state["gpt_instance"],  # assumes you've already initialized an LLM in session
                 original_text=original_text,
                 translated_text=translated_text,
-                context=create_context_dict(),
+                context=get_context_dict(),
                 input_lang=st.session_state.get("input_lang", "ja"),
                 target_lang=st.session_state.get("output_lang", "en")
             )

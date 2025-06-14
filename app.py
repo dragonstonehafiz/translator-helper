@@ -5,7 +5,7 @@ from src.ui.init_ui import init_session_state_defaults, init_session_state_from_
 from src.ui.load_models_ui import ui_load_whisper_model, ui_load_openai_api, ui_load_tavily_api
 from src.ui.context_ui import tab_context
 from src.ui.transcribe_ui import tab_transcribe_line, tab_transcribe_file
-from src.ui.translate_ui import tab_translate
+from src.ui.translate_ui import tab_translate, tab_translate_file
 from src.ui.grade_ui import tab_grade
 
 
@@ -51,7 +51,7 @@ if __name__ == "__main__":
         with transcribe_file:
             tab_transcribe_file()
         with translate_file:
-            pass
+            tab_translate_file()
         
     elif mode == "Assistant":
         transcribe, translate, grade = st.tabs(["Transcribe", "Translate", "Grade"])

@@ -1,6 +1,8 @@
 from langchain_core.messages import SystemMessage, HumanMessage
 from pysubs2.ssafile import SSAFile
 from langchain_openai import ChatOpenAI
+import openai
+import time
 from tqdm import tqdm
 
 def translate_multi_response(llm: ChatOpenAI, text: str, context: dict = None,
@@ -27,19 +29,22 @@ def translate_multi_response(llm: ChatOpenAI, text: str, context: dict = None,
     system_prompt = f"""
     # Role
 
-    You are a professional assistant for translators working with foreign-language source material.  
-    Your job is to produce accurate and nuanced translations, and to provide linguistic insight that supports high-quality human translation.
+    You are a professional assistant for translators working with {input_lang} source material.  
+    Your job is to produce accurate translations and detailed linguistic annotations without interpretation.
 
     ## Instructions
 
-    Translate the following {input_lang} text into {target_lang}, and provide three versions:
+    Translate the following {input_lang} text into {target_lang}, and provide two versions:
 
     1. **Naturalized Translation** — a fluent, idiomatic version that sounds natural in {target_lang}.  
-    2. **Literal Translation** — a direct, word-for-word rendering that reflects the structure and phrasing of the original {input_lang}.  
-    3. **Annotated Translation** — a readable version that includes notes on idioms, grammar particles, honorifics, cultural references, or any challenging phrases. Notes can be inline (in parentheses) or listed as footnotes.
+    2. **Annotated Translation** — a readable version with in-depth notes on:
+       - word choices and dictionary meanings
+       - particles and grammar structures
+       - honorifics and levels of formality
+       - sentence structure and function words
 
-    Pay close attention to tone, speaker intent, and social dynamics.  
-    If gender, formality, or emotional nuance is implied, capture it in the annotations.
+    Do **not** infer tone, speaker identity, emotion, or cultural subtext.  
+    Your goal is to explain what each word/phrase is doing linguistically — not what it might imply.
 
     ### Context
 
@@ -52,11 +57,8 @@ def translate_multi_response(llm: ChatOpenAI, text: str, context: dict = None,
     **Naturalized Translation**  
     [text]
 
-    **Literal Translation**  
-    [text]
-
     **Annotated Translation**  
-    [text with notes]
+    [text with precise linguistic notes]
     """.strip()
 
     messages = [
@@ -115,7 +117,6 @@ def translate_sub(llm: ChatOpenAI, text: str, context: dict = None,
 def translate_subs(llm: ChatOpenAI, subs, context: dict, context_window: int = 3,
                    input_lang: str = "ja", target_lang: str = "en") -> SSAFile:
     
-    
     for idx, line in enumerate(tqdm(subs, desc="Translating Lines", unit="line")):
         
         # Take the lines before and after this current line to help with translation
@@ -129,10 +130,19 @@ def translate_subs(llm: ChatOpenAI, subs, context: dict, context_window: int = 3
         context_dict["Current Speaker"] = line.name
         
         current_line = f"{line.text}"
-        translation = translate_sub(llm, current_line, context=context_dict,
-                                       input_lang=input_lang, target_lang=target_lang)
-        
-        line.text = translation
+        for attempt in range(5):  # Retry up to 5 times
+            try:
+                translation = translate_sub(llm, current_line, context=context_dict,
+                                            input_lang=input_lang, target_lang=target_lang)
+                line.text = translation
+                break  # Success, break out of retry loop
+            except openai.RateLimitError as e:
+                wait_time = 2 ** attempt  # Exponential backoff
+                print(f"Rate limit hit, retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+            except Exception as e:
+                print(f"Translation failed at line {idx}: {e}")
+                break  # Break on non-rate-limit errors
         
     return subs
         

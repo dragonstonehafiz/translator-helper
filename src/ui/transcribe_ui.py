@@ -31,12 +31,12 @@ def tab_transcribe_line():
             file_name = uploaded_file.name
 
     if audio_data:
-        if st.button("Transcribe", use_container_width=True):
+        if st.button("Transcribe", use_container_width=True, type="primary"):
             with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file_name)[-1]) as temp_audio:
                 temp_audio.write(audio_data.read())
                 temp_audio_path = temp_audio.name
 
-            with st.spinner("Transcribing..."):
+            with st.spinner("Transcribing...", show_time=True):
                 transcript = transcribe_line(
                     st.session_state.whisper_instance,
                     temp_audio_path,
@@ -54,20 +54,20 @@ def tab_transcribe_file():
     audio_data = None
     file_name = "default.ass"
     
-    uploaded_file = st.file_uploader("Choose an audio file", type=["mp3", "wav"])
+    uploaded_file = st.file_uploader("Choose an audio file", type=["mp3", "wav"], key="transcribe_file_uploader")
     if uploaded_file:
         st.audio(uploaded_file)
         audio_data = uploaded_file
         file_name = uploaded_file.name
         
     if audio_data:
-        if st.button("Transcribe", use_container_width=True):
+        if st.button("Transcribe", use_container_width=True, type="primary"):
             with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file_name)[-1]) as temp_audio:
                 temp_audio.write(audio_data.read())
                 temp_audio_path = temp_audio.name
             
             
-            with st.spinner("Transcribing..."):
+            with st.spinner("Transcribing...", show_time=True):
                 subs = transcribe_file(
                     st.session_state.whisper_instance,
                     temp_audio_path,
@@ -81,6 +81,7 @@ def tab_transcribe_file():
     # Get the generated sub file if it was created
     transcript_file = st.session_state.get("transcript_file", None)
     if isinstance(transcript_file, pysubs2.SSAFile):
+        st.subheader("File Download")
         # Save the subtitle to a temp .ass file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".ass") as temp_sub_file:
             transcript_file.save(temp_sub_file.name)

@@ -13,7 +13,7 @@ def show_context():
         st.markdown(st.session_state.get("synopsis", "_No synopsis available._"))
     
         
-def create_context_dict():
+def get_context_dict():
     context = {
          "character_list": st.session_state.get("character_list"),
          "high_level_synopsis": st.session_state.get("synopsis")
