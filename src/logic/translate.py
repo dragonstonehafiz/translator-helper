@@ -130,14 +130,14 @@ def translate_subs(llm: ChatOpenAI, subs, context: dict, context_window: int = 3
         context_dict["Current Speaker"] = line.name
         
         current_line = f"{line.text}"
-        for attempt in range(5):  # Retry up to 5 times
+        for attempt in range(3):  # Retry up to 5 times
             try:
                 translation = translate_sub(llm, current_line, context=context_dict,
                                             input_lang=input_lang, target_lang=target_lang)
                 line.text = translation
                 break  # Success, break out of retry loop
             except openai.RateLimitError as e:
-                wait_time = 2 ** attempt  # Exponential backoff
+                wait_time = 1.5
                 print(f"Rate limit hit, retrying in {wait_time} seconds...")
                 time.sleep(wait_time)
             except Exception as e:
