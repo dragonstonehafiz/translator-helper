@@ -57,9 +57,9 @@ def generate_web_query(model: ChatOpenAI, series_name: str, key_words: str,
     return result.content.strip()
 
 
-def generate_web_context(model: ChatOpenAI, search_tool: TavilySearchResults, 
-                         series_name: str, keywords: str,
-                         input_lang: str, output_lang: str):
+def generate_web_context(model: ChatOpenAI, search_tool: TavilySearchResults,
+                         input_lang: str, output_lang: str,
+                         series_name: str, keywords: str):
     """
     Generate a general-purpose web context summary using a natural-language search query.
 
