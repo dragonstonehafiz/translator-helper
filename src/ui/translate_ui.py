@@ -86,6 +86,12 @@ def render_translated_text(translated_text):
 def tab_translate_file():
     st.header("Translate File")
     
+    st.warning(
+        "Subtitle file translation will use your OpenAI tokens **for every line**, "
+        "which can get expensive for longer files.\n\n"
+        "To reduce cost, consider translating only selected lines or breaking the file into smaller chunks."
+    )
+    
     show_context()
     
     st.subheader("Translation")
@@ -108,7 +114,7 @@ def tab_translate_file():
         
         try:
             subs = pysubs2.load(tmp_path, encoding="utf-8")
-            sub_data = load_sub_data(tmp_path)
+            sub_data = load_sub_data(tmp_path, include_speaker=False)
             disable_button = False
             
             with st.expander("Stats"):
@@ -154,10 +160,16 @@ def tab_translate_file():
     transcript_file = st.session_state.get("translated_subtitle_file", None)
     if isinstance(transcript_file, pysubs2.SSAFile):
         st.subheader("File Download")
+        
         # Save the subtitle to a temp .ass file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".ass") as temp_sub_file:
             transcript_file.save(temp_sub_file.name)
             sub_file_path = temp_sub_file.name
+            
+            subs = pysubs2.load(sub_file_path, encoding="utf-8")
+            sub_data = load_sub_data(sub_file_path, include_speaker=False)
+            with st.expander("Preview"):
+                st.write(sub_data[:10])
             
         # Make it downloadable
         with open(sub_file_path, "rb") as f:
