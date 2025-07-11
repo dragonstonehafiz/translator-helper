@@ -6,7 +6,7 @@ def show_context():
     def render_item(label, key, default_checked=True):
         col1, col2 = st.columns([6, 1])
         with col1:
-            with st.expander("Web Search Results"):
+            with st.expander(label):
                 st.markdown(st.session_state.get(key, f"_No {label.lower()} available._"))
         with col2:
             st.checkbox(f"Include", key=f"include_{key}", value=st.session_state.get(f"include_{key}", default_checked))

@@ -127,11 +127,11 @@ def generate_character_list(model: ChatOpenAI,
                             transcript: str, web_context: str = None):
     prompt_str = """
     # Role: {input_lang} Character Identifier
-    
+
     ## Input
-    
+
     ### Web context
-    
+
     {web_context}
 
     ### Transcript
@@ -141,35 +141,31 @@ def generate_character_list(model: ChatOpenAI,
     ## Instructions
 
     You are assisting a translator by identifying characters in a scene that is in {input_lang}.
-    Use the dialogue transcript to extract any named or inferred characters in {output_lang}.
+    Use the dialogue transcript (and any web context) to extract characters in {output_lang}.
 
-    For each character:
-    - Provide their **name**
-    - Describe any **traits or roles** that are *clearly observable* (e.g., casual tone, teacher, narrator)
+    For each character include:
+    - **Name** — the most complete form you can find
+    - **Very High-Level Summary** — one short clause capturing their role / personality / tone
     - If one character is **clearly the narrative focus** (appears most, drives the scene), add **[Narrative Focus]**
 
-    Do **not** speculate. Only use information grounded in the transcript or search context.
+    Rely only on evidence from the transcript or web context — do **not** speculate.
 
     ## Output Format
 
-    All output should be in {output_lang}.
+    All output must be in {output_lang}.
 
-    - Use the full name from the web context when available (e.g., “Sumika Shiun”).
-    - If a character appears under multiple names or forms (e.g., “清夏ちゃん” and “Sumika Shiun”), 
-    **merge them into one entry** using the full name from the web context, and mention the alias in parentheses.
+    - When the web context supplies a fuller name (e.g., “Sumika Shiun”), use that.
+    - If the same person appears under multiple names or forms (e.g., “清夏ちゃん” and “Sumika Shiun”),
+    **merge them into one entry** using the full name and list the alias in parentheses.
 
     Example:  
-    - **Sumika Shiun** (also referred to as "清夏ちゃん")
+    - **Sumika Shiun** (also referred to as "清夏ちゃん"): Cheerful classmate who motivates others. [Narrative Focus]
 
-    - For unnamed or minor characters (e.g., “Student A”), use translated role names in {output_lang}.
+    - For unnamed or minor speakers (e.g., “Student A”), use translated role names in {output_lang}.
 
-    Return one entry per character in this format:  
-    - **[Character Name]**: [brief description]. [Narrative Focus] (if applicable)
+    Return **one line per character** in this exact pattern (no nested bullets):
 
-    Do not include more than one entry per character.
-    Do not use nested bullet points inside descriptions.
-
-    Include only one entry per character. Format the name in bold using markdown (** **).
+    - **[Character Name]**: [very high-level summary]. [Narrative Focus] (if applicable)
     """
     
     web_context = f"The following is additional information pulled from the web:\n{web_context}" if web_context else "No additional web context."
