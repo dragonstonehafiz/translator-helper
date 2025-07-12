@@ -1,7 +1,7 @@
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.runnable import RunnableMap
-from langchain_community.tools.tavily_search.tool import TavilySearchResults
+from langchain_tavily import TavilySearch
 
 
 def generate_web_query(model: ChatOpenAI, series_name: str, key_words: str, 
@@ -57,7 +57,7 @@ def generate_web_query(model: ChatOpenAI, series_name: str, key_words: str,
     return result.content.strip()
 
 
-def generate_web_context(model: ChatOpenAI, search_tool: TavilySearchResults,
+def generate_web_context(model: ChatOpenAI, search_tool: TavilySearch,
                          input_lang: str, output_lang: str,
                          series_name: str, keywords: str):
     """
