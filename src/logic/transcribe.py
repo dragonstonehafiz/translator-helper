@@ -34,6 +34,12 @@ def transcribe_file(model: whisper.model.Whisper, filepath: str, language: str) 
         # Get the segments from the transcription result
         segments = result["segments"]
         
+        subs = pysubs2.SSAFile()
+        style = subs.styles["Default"]
+        style.fontsize = 46
+        style.fontname = "Arial"
+        subs.styles["Default"] = style
+        
         # Go through each segment and add it to a newly generated ass file
         subs = pysubs2.SSAFile()
         for seg in segments:
