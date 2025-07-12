@@ -9,7 +9,7 @@ from html import escape
 def tab_grade():
     st.subheader("Context")
     
-    show_context()
+    show_context("grade")
         
     st.subheader("Input")
     

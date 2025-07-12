@@ -1,6 +1,6 @@
 import whisper
 from langchain_openai import ChatOpenAI
-from langchain_community.tools.tavily_search.tool import TavilySearchResults
+from langchain_tavily import TavilySearch
 import os
 import torch
 
@@ -26,5 +26,5 @@ def load_gpt_model(api_key: str, model_name: str = "gpt-4o", temperature: float 
     
 def load_web_searcher(api_key: str):
     os.environ["TAVILY_API_KEY"] = api_key
-    search_tool = TavilySearchResults(k=3)
+    search_tool = TavilySearch(k=3)
     return search_tool

@@ -1,6 +1,6 @@
 import streamlit as st
 
-def show_context():
+def show_context(page_name: str):
     st.subheader("Context")
 
     def render_item(label, key, default_checked=True):
@@ -9,7 +9,7 @@ def show_context():
             with st.expander(label):
                 st.markdown(st.session_state.get(key, f"_No {label.lower()} available._"))
         with col2:
-            st.checkbox(f"Include", key=f"include_{key}", value=st.session_state.get(f"include_{key}", default_checked))
+            st.checkbox(f"Include", key=f"include_{key}_{page_name}", value=st.session_state.get(f"include_{key}", default_checked))
 
     render_item("Web Context", "web_context")
     render_item("Character List", "character_list")

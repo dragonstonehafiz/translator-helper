@@ -12,7 +12,7 @@ from src.logic.utils import load_sub_data
 def tab_translate():
     st.header("Translate")
     
-    show_context()
+    show_context("translate_line")
         
     st.subheader("Input")
     input_text = st.text_area("Text to Translate", value=st.session_state.get("raw_input_text", ""))
@@ -92,7 +92,7 @@ def tab_translate_file():
         "To reduce cost, consider translating only selected lines or breaking the file into smaller chunks."
     )
     
-    show_context()
+    show_context("translate_file")
     
     st.subheader("Translation")
     
