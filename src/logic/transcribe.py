@@ -36,7 +36,7 @@ def transcribe_file(model: whisper.model.Whisper, filepath: str, language: str) 
         
         subs = pysubs2.SSAFile()
         style = subs.styles["Default"]
-        style.fontsize = 16
+        style.fontsize = 55
         style.fontname = "Arial"
         subs.styles["Default"] = style
         
