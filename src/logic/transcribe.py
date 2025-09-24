@@ -41,7 +41,6 @@ def transcribe_file(model: whisper.model.Whisper, filepath: str, language: str) 
         subs.styles["Default"] = style
         
         # Go through each segment and add it to a newly generated ass file
-        subs = pysubs2.SSAFile()
         for seg in segments:
             line = pysubs2.SSAEvent(
                 start=seg["start"] * 1000,

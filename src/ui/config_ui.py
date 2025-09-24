@@ -75,6 +75,7 @@ def tab_config():
 
         # Save valid device string to session
         device = device_map[selected_label]
+        st.session_state["device"] = device
         
     if st.button("Load Whisper", use_container_width=True):
         ui_load_whisper_model(whisper_model)
