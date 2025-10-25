@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 config.json
+output/*.ass
+output/*.srt
+context/*.json
