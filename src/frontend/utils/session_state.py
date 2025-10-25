@@ -14,6 +14,12 @@ DEFAULT_SESSION_VALUES = {
     "whisper_instance": None,
     "gpt_instance": None,
     "web_search_instance": None,
+    "series_name": "",
+    "keywords": "",
+    "web_context": "",
+    "character_list": "",
+    "synopsis": "",
+    "context_save_filename": "context_snapshot.json",
 }
 
 def ensure_session_defaults() -> None:
