@@ -11,6 +11,12 @@ from .validate_api_keys import (
     validate_openai_api_key,
     validate_tavily_api_key,
 )
+from .load_models import (
+    get_device_map,
+    load_whisper_model,
+    load_gpt_model,
+    load_tavily_api,
+)
 
 __all__ = [
     "DEFAULT_CONFIG",
@@ -21,4 +27,8 @@ __all__ = [
     "load_sub_data",
     "validate_openai_api_key",
     "validate_tavily_api_key",
+    "get_device_map",
+    "load_whisper_model",
+    "load_gpt_model",
+    "load_tavily_api",
 ]

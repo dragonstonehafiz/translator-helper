@@ -24,7 +24,7 @@ def load_gpt_model(api_key: str, model_name: str = "gpt-4o", temperature: float 
     return llm
     
     
-def load_web_searcher(api_key: str):
+def load_tavily_api(api_key: str):
     os.environ["TAVILY_API_KEY"] = api_key
     search_tool = TavilySearch(k=3)
     return search_tool
