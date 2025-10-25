@@ -5,8 +5,8 @@ import tempfile
 import sys
 sys.path.append('../')
 
-from src.logic.context import *
-from src.logic.utils import load_sub_data
+from src.backend.business.context import *
+from src.backend.utils import load_sub_data
 
 def tab_context():
     st.header("Generate Context Data")

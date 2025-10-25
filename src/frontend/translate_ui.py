@@ -5,9 +5,9 @@ import os
 import pysubs2
 sys.path.append('../')
 
-from src.logic.translate import translate_multi_response, translate_subs
-from src.ui.shared_ui import show_context, get_context_dict
-from src.logic.utils import load_sub_data
+from src.backend.business.translate import translate_multi_response, translate_subs
+from src.frontend.shared_ui import show_context, get_context_dict
+from src.backend.utils import load_sub_data
 
 def tab_translate():
     st.header("Translate")

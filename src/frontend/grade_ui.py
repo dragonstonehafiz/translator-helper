@@ -2,8 +2,8 @@ import streamlit as st
 import sys
 sys.path.append('../')
 
-from src.logic.grade import grade
-from src.ui.shared_ui import show_context, get_context_dict
+from src.backend.business.grade import grade
+from src.frontend.shared_ui import show_context, get_context_dict
 from html import escape
 
 def tab_grade():

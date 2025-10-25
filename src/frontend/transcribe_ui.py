@@ -2,7 +2,7 @@ import streamlit as st
 import tempfile
 import os
 import pysubs2
-from src.logic.transcribe import transcribe_line, transcribe_file
+from src.backend.business.transcribe import transcribe_line, transcribe_file
 
 def tab_transcribe_line():
     """

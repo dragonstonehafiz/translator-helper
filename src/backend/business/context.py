@@ -1,3 +1,4 @@
+from typing import Optional
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.runnable import RunnableMap
@@ -124,7 +125,7 @@ def generate_web_context(model: ChatOpenAI, search_tool: TavilySearch,
 
 def generate_character_list(model: ChatOpenAI, 
                             input_lang: str, output_lang: str, 
-                            transcript: str, web_context: str = None):
+                            transcript: str, web_context: Optional[str] = None):
     prompt_str = """
     # Role: {input_lang} Character Identifier
 
@@ -193,7 +194,7 @@ def generate_character_list(model: ChatOpenAI,
 
 def generate_high_level_summary(model: ChatOpenAI, 
                                 input_lang: str, output_lang: str, 
-                                transcript: str, character_list: str = None):
+                                transcript: str, character_list: Optional[str] = None):
     prompt_str = """
     # Role: {input_lang} Scene Summary Assistant
 

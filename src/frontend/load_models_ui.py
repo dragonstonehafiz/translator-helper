@@ -3,8 +3,8 @@ import sys
 sys.path.append('../')
 
 import streamlit as st
-from src.logic.load_models import load_whisper_model, load_gpt_model, load_web_searcher
-from src.logic.validate_api_keys import validate_openai_api_key, validate_tavily_api_key
+from src.backend.load_models import load_whisper_model, load_gpt_model, load_web_searcher
+from src.backend.utils import validate_openai_api_key, validate_tavily_api_key
 
 def ui_load_whisper_model(model_name: str):
     # Load and store whisper model in session_state

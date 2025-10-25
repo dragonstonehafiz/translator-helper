@@ -1,15 +1,15 @@
 import streamlit as st
 
-from src.ui.config_ui import tab_config
-from src.ui.init_ui import init_session_state_defaults, init_session_state_from_config
-from src.ui.load_models_ui import ui_load_whisper_model, ui_load_openai_api, ui_load_tavily_api
-from src.ui.context_ui import tab_context
-from src.ui.transcribe_ui import tab_transcribe_line, tab_transcribe_file
-from src.ui.translate_ui import tab_translate, tab_translate_file
-from src.ui.grade_ui import tab_grade
+from src.frontend.config_ui import tab_config
+from src.frontend.init_ui import init_session_state_defaults, init_session_state_from_config
+from src.frontend.load_models_ui import ui_load_whisper_model, ui_load_openai_api, ui_load_tavily_api
+from src.frontend.context_ui import tab_context
+from src.frontend.transcribe_ui import tab_transcribe_line, tab_transcribe_file
+from src.frontend.translate_ui import tab_translate, tab_translate_file
+from src.frontend.grade_ui import tab_grade
 
 
-from src.logic.config import load_config
+from src.backend.utils import load_config
 
 # fix RuntimeError: Tried to instantiate class '__path__._path', but it does not exist! Ensure that it is registered via torch::class_
 import torch

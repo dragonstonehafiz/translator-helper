@@ -2,10 +2,10 @@ import sys
 sys.path.append('../')
 
 import streamlit as st
-from src.logic.load_models import get_device_map
-from src.logic.config import save_config, load_config
-from src.ui.load_models_ui import ui_load_whisper_model, ui_load_openai_api, ui_load_tavily_api
-from src.ui.init_ui import init_session_state_from_config
+from src.backend.load_models import get_device_map
+from src.backend.utils import load_config, save_config
+from src.frontend.load_models_ui import ui_load_whisper_model, ui_load_openai_api, ui_load_tavily_api
+from src.frontend.init_ui import init_session_state_from_config
 
 def tab_config():
     st.header("Configuration")
