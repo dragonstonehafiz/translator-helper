@@ -100,6 +100,10 @@ def translate_sub(llm: ChatOpenAI, text: str, context: dict = None,
     ### Other Guidance
     Pay close attention to tone, speaker intent, and social dynamics.  
     If gender, formality, or emotional nuance is implied, capture it naturally in phrasing.
+    
+    If the context block provides the length of the current line (in seconds), 
+    consider the line's duration when choosing phrasing and conciseness: 
+    shorter lines should bias toward more compact translations, while longer lines allow more literal or expanded phrasing.
 
     ### Context
     {context_block}
@@ -134,6 +138,23 @@ def translate_subs(llm: ChatOpenAI, subs, context: dict, context_window: int = 3
         context_dict["Previous Lines"] = "\n".join([f"{l.name}: {l.text}" for l in prev_lines])
         context_dict["Next Lines"] = "\n".join([f"{l.name}: {l.text}" for l in next_lines])
         context_dict["Current Speaker"] = line.name
+
+        # Include the length/duration of the subtitle line in seconds when available
+        try:
+            # pysubs2 uses milliseconds for start/end on events
+            length_seconds = None
+            if hasattr(line, "start") and hasattr(line, "end"):
+                length_seconds = max(0.0, (float(line.end) - float(line.start)) / 1000.0)
+            elif hasattr(line, "length"):
+                # Some subtitle objects may expose a length attribute in ms
+                length_seconds = max(0.0, float(line.length) / 1000.0)
+
+            if length_seconds is not None:
+                # round to 2 decimal places for readability
+                context_dict["length_seconds"] = round(length_seconds, 2)
+        except Exception:
+            # Non-critical: if we can't compute length, skip it
+            pass
         
         current_line = f"{line.text}"
         for attempt in range(3):  # Retry up to 5 times
