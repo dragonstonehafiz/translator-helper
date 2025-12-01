@@ -1,7 +1,7 @@
 from typing import Optional
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
-from langchain.schema.runnable import RunnableMap
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableMap
 from langchain_tavily import TavilySearch
 
 

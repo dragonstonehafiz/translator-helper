@@ -2,19 +2,19 @@
 
 A Streamlit-powered assistant for transcribing, translating, and grading Japanese Drama CDs.
 
-[![Watch the demo](https://img.youtube.com/vi/Zi3OjbpptQk/maxresdefault.jpg)](https://youtu.be/Zi3OjbpptQk?si=Pb9BCGCWDZM_1RJU)
-
 ## Features
 
-| Page | Tab | Purpose |
-|------|-----|---------|
-| **Settings** | — (single tab) | Select Whisper and GPT models, pick GPU/CPU, enter & validate API keys, set temperature, and choose input/output language. |
-| **Automation** | **Context Gathering** | Perform a web search, extract the character list, and write a scene synopsis. |
-| | **File Transcribe** | Run Whisper on an entire audio file and export a `.ass` subtitle file. |
-| | **File Translation** | Upload a `.ass` file, and sequentially translate it line by line. |
-| **Assistant** | **Line Transcribe** | Transcribe a single audio clip. |
-| | **Line Translate** | Input a single line for translation. |
-| | **Line Grade** | Score your translation for Accuracy, Fluency, and Cultural Fit, with brief comments. |
+| Page | Tab / Section | Purpose |
+|------|---------------|---------|
+| **Settings** | — (single tab) | Adjust input/output language codes, pick the Whisper size + device from `get_device_map`, choose the OpenAI chat model, supply OpenAI/Tavily API keys, set temperature, and persist the configuration to `config.json`. |
+| **Translate** | **Context Inputs** | Author or paste Web Context, Character List, and High Level Summary in expandable editors, toggling each block on/off to control what gets injected into translations. |
+| | **Translate Line** | Submit ad-hoc source text to `translate_multi_response`, which uses the active context payload plus the session’s language pair for GPT translations. |
+| | **Translate File** | Upload `.ass`/`.srt`, review line/character stats and a preview, pick a context window, and run `translate_subs`; translated `.ass` files are saved under `output/` for download. |
+| **Transcribe** | **Transcribe Soundbite** | Record audio in-browser, visualize the waveform, and send the clip through `transcribe_line` with the loaded Whisper model. |
+| | **Transcribe File** | Upload longer audio, preview the waveform, and run `transcribe_file` to generate subtitle events; name the output and download the `.ass` produced in `output/`. |
+| **Context** | **Generate from Subtitle** | Provide series metadata, upload `.ass`/`.srt`, and run automated helpers (Tavily web search, character list extraction, synopsis generation) in dependency order. |
+| | **Load / Save Context** | Save the current context bundle to `/context/*.json` or reload an existing snapshot to rehydrate the UI fields. |
+| | **Context Editors** | Persistent Web Context, Character List, and High Level Summary text areas for manual editing on any page visit. |
 
 
 ## Dependencies

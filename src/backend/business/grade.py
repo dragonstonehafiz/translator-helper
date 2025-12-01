@@ -1,6 +1,4 @@
-from langchain.prompts import ChatPromptTemplate
-from langchain.schema.runnable import RunnableMap
-from langchain.schema.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage
 
 def grade(llm, original_text: str, translated_text: str, context: dict = None,
           input_lang: str = "ja", target_lang: str = "en") -> str:
