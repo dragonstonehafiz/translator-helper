@@ -91,10 +91,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.stateService.setLoadingGpt(response.loading_gpt_model);
         this.stateService.setLoadingTavily(response.loading_tavily_api);
         
-        // After loading completes, check readiness and reload server variables
+        // After loading completes, check readiness
         if (!response.loading_whisper_model || !response.loading_gpt_model || !response.loading_tavily_api) {
           this.checkReadiness();
-          this.loadServerVariables();
         }
       },
       error: (error) => {
