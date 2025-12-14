@@ -1,0 +1,107 @@
+<div class="settings-container">
+  <div class="section-container">
+    <h1 class="settings-title">Status</h1>
+    
+    <div class="status-row">
+      <div class="status-box" [class.ready]="tavilyReady" [class.not-ready]="!tavilyReady">
+        <h3 class="component-name">Tavily API</h3>
+        <div class="status-content">
+          <div class="status-indicator"></div>
+          <span class="status-text">{{ tavilyReady ? 'Ready' : 'Not Ready' }}</span>
+        </div>
+      </div>
+      
+      <div class="status-box" [class.ready]="openaiReady" [class.not-ready]="!openaiReady">
+        <h3 class="component-name">OpenAI API</h3>
+        <div class="status-content">
+          <div class="status-indicator"></div>
+          <span class="status-text">{{ openaiReady ? 'Ready' : 'Not Ready' }}</span>
+        </div>
+      </div>
+      
+      <div class="status-box" [class.ready]="whisperReady" [class.not-ready]="!whisperReady">
+        <h3 class="component-name">Whisper Model</h3>
+        <div class="status-content">
+          <div class="status-indicator"></div>
+          <span class="status-text">{{ whisperReady ? 'Ready' : 'Not Ready' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="instructions-section" *ngIf="!tavilyReady || !openaiReady || !whisperReady">
+      <div class="instruction-box" *ngIf="!tavilyReady || !openaiReady">
+        Please input Tavily/OpenAI API key below
+      </div>
+      <div class="instruction-box" *ngIf="!whisperReady">
+        Please initiate the transcription model below
+      </div>
+    </div>
+  </div>
+
+  <div class="section-container">
+    <h1 class="settings-title">Settings</h1>
+
+    <div class="form-section">
+      <div class="subsection">
+        <h2 class="subsection-title">Transcription Settings</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="whisperModel">Whisper Model</label>
+            <select id="whisperModel" [(ngModel)]="whisperModel" [disabled]="loadingWhisper">
+              <option *ngFor="let model of whisperModels" [value]="model">{{ model }}</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="device">Device</label>
+            <select id="device" [(ngModel)]="device" [disabled]="loadingWhisper">
+              <option *ngFor="let dev of devices" [value]="dev.value">{{ dev.label }}</option>
+            </select>
+          </div>
+        </div>
+        <button class="load-button" (click)="loadWhisperModel()" [disabled]="loadingWhisper">
+          <span *ngIf="!loadingWhisper">Load Whisper Model</span>
+          <span *ngIf="loadingWhisper">Loading...</span>
+        </button>
+      </div>
+
+      <div class="subsection">
+        <h2 class="subsection-title">OpenAI API Settings</h2>
+        <div class="form-group">
+          <label for="openaiApiKey">OpenAI API Key</label>
+          <input type="password" id="openaiApiKey" [(ngModel)]="openaiApiKey" placeholder="sk-..." [disabled]="loadingGpt">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="openaiModel">OpenAI Model</label>
+            <select id="openaiModel" [(ngModel)]="openaiModel" [disabled]="loadingGpt">
+              <option *ngFor="let model of openaiModels" [value]="model">{{ model }}</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="temperature">Temperature: {{ temperature }}</label>
+            <input type="range" id="temperature" [(ngModel)]="temperature" min="0" max="1.5" step="0.05" [disabled]="loadingGpt">
+          </div>
+        </div>
+        <button class="load-button" (click)="loadGptModel()" [disabled]="loadingGpt || !openaiApiKey">
+          <span *ngIf="!loadingGpt">Load GPT Model</span>
+          <span *ngIf="loadingGpt">Loading...</span>
+        </button>
+      </div>
+
+      <div class="subsection">
+        <h2 class="subsection-title">Tavily API Key</h2>
+        <div class="form-group">
+          <label for="tavilyApiKey">Tavily API Key</label>
+          <input type="password" id="tavilyApiKey" [(ngModel)]="tavilyApiKey" placeholder="tvly-..." [disabled]="loadingTavily">
+        </div>
+        <button class="load-button" (click)="loadTavilyApi()" [disabled]="loadingTavily || !tavilyApiKey">
+          <span *ngIf="!loadingTavily">Load Tavily API</span>
+          <span *ngIf="loadingTavily">Loading...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

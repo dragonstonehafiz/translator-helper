@@ -1,0 +1,13 @@
+<nav class="navbar">
+  <div class="navbar-content">
+    <div class="navbar-brand">
+      <a routerLink="/">Translator Helper</a>
+    </div>
+    <div class="navbar-menu">
+      <a routerLink="/settings" routerLinkActive="active">Settings</a>
+      <a *ngIf="isReady" routerLink="/context" routerLinkActive="active">Context</a>
+      <a *ngIf="isReady" routerLink="/transcribe" routerLinkActive="active">Transcribe</a>
+      <a *ngIf="isReady" routerLink="/translate" routerLinkActive="active">Translate</a>
+    </div>
+  </div>
+</nav>
