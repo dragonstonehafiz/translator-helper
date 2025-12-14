@@ -5,6 +5,9 @@ FastAPI server for Translator Helper backend.
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from contextlib import asynccontextmanager
+from settings import settings
+import threading
 
 # Server state variables
 tavily_api_key_available = False
@@ -14,17 +17,51 @@ whisper_model = None
 gpt_model = None
 tavily_api_key = ""
 openai_api_key = ""
+current_whisper_model = ""
+current_device = ""
+current_openai_model = ""
+current_temperature = 0.5
 running_translation = False
 running_transcription = False
 loading_whisper_model = False
 loading_gpt_model = False
 loading_tavily_api = False
 
+# Startup function to load models based on settings
+def startup_load_models():
+    """Load models on startup based on .env configuration."""
+    # Load Tavily API if key is provided
+    if settings.tavily_api_key:
+        print(f"Loading Tavily API on startup...")
+        thread = threading.Thread(target=load_tavily_background, args=(settings.tavily_api_key,), daemon=True)
+        thread.start()
+    
+    # Load OpenAI/GPT model if key is provided
+    if settings.openai_api_key:
+        print(f"Loading GPT model '{settings.openai_model}' on startup...")
+        thread = threading.Thread(target=load_gpt_background, args=(settings.openai_model, settings.openai_api_key, settings.temperature), daemon=True)
+        thread.start()
+    
+    # Load Whisper model if settings are provided
+    if settings.whisper_model and settings.device:
+        print(f"Loading Whisper model '{settings.whisper_model}' on device '{settings.device}' on startup...")
+        thread = threading.Thread(target=load_whisper_background, args=(settings.whisper_model, settings.device), daemon=True)
+        thread.start()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events."""
+    # Startup
+    startup_load_models()
+    yield
+    # Shutdown (if needed in the future)
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Translator Helper API",
     description="Backend API for translator helper",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS configuration - allow frontend to connect
@@ -35,12 +72,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.get("/")
-@app.get("/api/health")
-async def health_check():
-    """Check if the server is running."""
-    return {"status": "ok", "message": "Translator Helper API is running"}
 
 @app.get("/api/running")
 async def get_running_status():
@@ -86,6 +117,16 @@ async def get_devices():
 
     return {"devices": device_map}
 
+@app.get("/api/server/variables")
+async def get_server_variables():
+    """Get current server configuration variables."""
+    return {
+        "whisper_model": current_whisper_model,
+        "device": current_device,
+        "openai_model": current_openai_model,
+        "temperature": current_temperature
+    }
+
 # Request models
 class LoadWhisperRequest(BaseModel):
     model_name: str
@@ -102,12 +143,14 @@ class LoadTavilyRequest(BaseModel):
 # Background task functions
 def load_whisper_background(model_name: str, device: str):
     """Load Whisper model in background."""
-    global whisper_model, whisper_model_ready, loading_whisper_model
+    global whisper_model, whisper_model_ready, loading_whisper_model, current_whisper_model, current_device
     try:
         loading_whisper_model = True
         from utils.load_models import load_whisper_model
         whisper_model = load_whisper_model(model_name, device)
         whisper_model_ready = True
+        current_whisper_model = model_name
+        current_device = device
     except Exception as e:
         print(f"Error loading Whisper model: {e}")
         whisper_model_ready = False
@@ -116,13 +159,15 @@ def load_whisper_background(model_name: str, device: str):
 
 def load_gpt_background(model_name: str, api_key: str, temperature: float):
     """Load GPT model in background."""
-    global gpt_model, openai_api_key_available, openai_api_key, loading_gpt_model
+    global gpt_model, openai_api_key_available, openai_api_key, loading_gpt_model, current_openai_model, current_temperature
     try:
         loading_gpt_model = True
         from utils.load_models import load_gpt_model
         gpt_model = load_gpt_model(api_key, model_name, temperature)
         openai_api_key = api_key
         openai_api_key_available = True
+        current_openai_model = model_name
+        current_temperature = temperature
     except Exception as e:
         print(f"Error loading GPT model: {e}")
         openai_api_key_available = False

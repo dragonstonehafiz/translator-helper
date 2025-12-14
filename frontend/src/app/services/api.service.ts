@@ -46,4 +46,8 @@ export class ApiService {
       api_key: apiKey
     });
   }
+
+  getServerVariables(): Observable<{whisper_model: string, device: string, openai_model: string, temperature: number}> {
+    return this.http.get<{whisper_model: string, device: string, openai_model: string, temperature: number}>(`${this.baseUrl}/server/variables`);
+  }
 }

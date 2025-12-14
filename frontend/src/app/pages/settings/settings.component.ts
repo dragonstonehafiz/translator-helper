@@ -21,6 +21,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
   loadingGpt = false;
   loadingTavily = false;
 
+  // Current server configuration
+  currentWhisperModel = '';
+  currentDevice = '';
+  currentOpenaiModel = '';
+  currentTemperature = 0;
+
   // Settings form fields
   whisperModel = 'large';
   device = '';
@@ -44,6 +50,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.checkReadiness();
     this.loadDevices();
+    this.loadServerVariables();
     this.startPolling();
 
     // Subscribe to loading states
@@ -84,9 +91,10 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.stateService.setLoadingGpt(response.loading_gpt_model);
         this.stateService.setLoadingTavily(response.loading_tavily_api);
         
-        // After loading completes, check readiness
+        // After loading completes, check readiness and reload server variables
         if (!response.loading_whisper_model || !response.loading_gpt_model || !response.loading_tavily_api) {
           this.checkReadiness();
+          this.loadServerVariables();
         }
       },
       error: (error) => {
@@ -122,6 +130,20 @@ export class SettingsComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Failed to load devices:', error);
+      }
+    });
+  }
+
+  loadServerVariables(): void {
+    this.apiService.getServerVariables().subscribe({
+      next: (response) => {
+        this.currentWhisperModel = response.whisper_model;
+        this.currentDevice = response.device;
+        this.currentOpenaiModel = response.openai_model;
+        this.currentTemperature = response.temperature;
+      },
+      error: (error) => {
+        console.error('Failed to load server variables:', error);
       }
     });
   }

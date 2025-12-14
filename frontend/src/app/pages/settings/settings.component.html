@@ -17,6 +17,10 @@
           <div class="status-indicator"></div>
           <span class="status-text">{{ openaiReady ? 'Ready' : 'Not Ready' }}</span>
         </div>
+        <div class="status-details" *ngIf="openaiReady && currentOpenaiModel">
+          <div>Model: {{ currentOpenaiModel }}</div>
+          <div>Temperature: {{ currentTemperature }}</div>
+        </div>
       </div>
       
       <div class="status-box" [class.ready]="whisperReady" [class.not-ready]="!whisperReady">
@@ -24,6 +28,10 @@
         <div class="status-content">
           <div class="status-indicator"></div>
           <span class="status-text">{{ whisperReady ? 'Ready' : 'Not Ready' }}</span>
+        </div>
+        <div class="status-details" *ngIf="whisperReady && currentWhisperModel">
+          <div>Model: {{ currentWhisperModel }}</div>
+          <div>Device: {{ currentDevice }}</div>
         </div>
       </div>
     </div>
