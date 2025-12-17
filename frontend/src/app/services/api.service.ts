@@ -14,8 +14,8 @@ export class ApiService {
     return this.http.get<{is_ready: boolean, message: string, tavily_ready: boolean, openai_ready: boolean, whisper_ready: boolean}>(`${this.baseUrl}/ready`);
   }
 
-  checkRunning(): Observable<{running_translation: boolean, running_transcription: boolean, loading_whisper_model: boolean, loading_gpt_model: boolean, loading_tavily_api: boolean}> {
-    return this.http.get<{running_translation: boolean, running_transcription: boolean, loading_whisper_model: boolean, loading_gpt_model: boolean, loading_tavily_api: boolean}>(`${this.baseUrl}/running`);
+  checkRunning(): Observable<{running_translation: boolean, running_transcription: boolean, running_context: boolean, loading_whisper_model: boolean, loading_gpt_model: boolean, loading_tavily_api: boolean}> {
+    return this.http.get<{running_translation: boolean, running_transcription: boolean, running_context: boolean, loading_whisper_model: boolean, loading_gpt_model: boolean, loading_tavily_api: boolean}>(`${this.baseUrl}/running`);
   }
 
   healthCheck(): Observable<{status: string, message: string}> {
@@ -49,5 +49,36 @@ export class ApiService {
 
   getServerVariables(): Observable<{whisper_model: string, device: string, openai_model: string, temperature: number}> {
     return this.http.get<{whisper_model: string, device: string, openai_model: string, temperature: number}>(`${this.baseUrl}/server/variables`);
+  }
+
+  generateWebContext(seriesName: string, keywords: string, inputLang: string, outputLang: string): Observable<{status: string, context?: string, message?: string}> {
+    return this.http.post<{status: string, context?: string, message?: string}>(`${this.baseUrl}/context/generate-web-context`, {
+      series_name: seriesName,
+      keywords: keywords,
+      input_lang: inputLang,
+      output_lang: outputLang
+    });
+  }
+
+  getContextResult(): Observable<{status: string, result?: {type: string, data: string}, message?: string}> {
+    return this.http.get<{status: string, result?: {type: string, data: string}, message?: string}>(`${this.baseUrl}/context/result`);
+  }
+
+  generateCharacterList(transcript: string, context: any, inputLang: string, outputLang: string): Observable<{status: string, character_list?: string, message?: string}> {
+    return this.http.post<{status: string, character_list?: string, message?: string}>(`${this.baseUrl}/context/generate-character-list`, {
+      transcript: transcript,
+      context: context,
+      input_lang: inputLang,
+      output_lang: outputLang
+    });
+  }
+
+  generateSummary(transcript: string, context: any, inputLang: string, outputLang: string): Observable<{status: string, summary?: string, message?: string}> {
+    return this.http.post<{status: string, summary?: string, message?: string}>(`${this.baseUrl}/context/generate-high-level-summary`, {
+      transcript: transcript,
+      context: context,
+      input_lang: inputLang,
+      output_lang: outputLang
+    });
   }
 }

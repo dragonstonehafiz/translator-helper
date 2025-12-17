@@ -17,6 +17,19 @@ export class StateService {
   private loadingTavilySubject = new BehaviorSubject<boolean>(false);
   public loadingTavily$: Observable<boolean> = this.loadingTavilySubject.asObservable();
 
+  // Context data
+  private webContextSubject = new BehaviorSubject<string>('');
+  public webContext$: Observable<string> = this.webContextSubject.asObservable();
+
+  private characterListSubject = new BehaviorSubject<string>('');
+  public characterList$: Observable<string> = this.characterListSubject.asObservable();
+
+  private summarySubject = new BehaviorSubject<string>('');
+  public summary$: Observable<string> = this.summarySubject.asObservable();
+
+  private runningContextSubject = new BehaviorSubject<boolean>(false);
+  public runningContext$: Observable<boolean> = this.runningContextSubject.asObservable();
+
   constructor() { }
 
   setReady(ready: boolean): void {
@@ -37,5 +50,37 @@ export class StateService {
 
   setLoadingTavily(loading: boolean): void {
     this.loadingTavilySubject.next(loading);
+  }
+
+  setWebContext(context: string): void {
+    this.webContextSubject.next(context);
+  }
+
+  getWebContext(): string {
+    return this.webContextSubject.value;
+  }
+
+  setCharacterList(list: string): void {
+    this.characterListSubject.next(list);
+  }
+
+  getCharacterList(): string {
+    return this.characterListSubject.value;
+  }
+
+  setSummary(summary: string): void {
+    this.summarySubject.next(summary);
+  }
+
+  getSummary(): string {
+    return this.summarySubject.value;
+  }
+
+  setRunningContext(running: boolean): void {
+    this.runningContextSubject.next(running);
+  }
+
+  getRunningContext(): boolean {
+    return this.runningContextSubject.value;
   }
 }

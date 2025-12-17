@@ -21,6 +21,11 @@ export class SettingsComponent implements OnInit, OnDestroy {
   loadingGpt = false;
   loadingTavily = false;
 
+  // Running operations
+  runningTranscription = false;
+  runningTranslation = false;
+  runningContext = false;
+
   // Current server configuration
   currentWhisperModel = '';
   currentDevice = '';
@@ -90,6 +95,11 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.stateService.setLoadingWhisper(response.loading_whisper_model);
         this.stateService.setLoadingGpt(response.loading_gpt_model);
         this.stateService.setLoadingTavily(response.loading_tavily_api);
+        
+        // Update running operations
+        this.runningTranscription = response.running_transcription;
+        this.runningTranslation = response.running_translation;
+        this.runningContext = response.running_context;
         
         // After loading completes, check readiness
         if (!response.loading_whisper_model || !response.loading_gpt_model || !response.loading_tavily_api) {

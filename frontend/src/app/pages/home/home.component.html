@@ -1,3 +1,20 @@
 <div class="home-container">
-  <h1>Home Page</h1>
+  <h1>Translator Helper</h1>
+  
+  <div class="features-row">
+    <div class="feature-card" (click)="navigateToContext()">
+      <h2>Context</h2>
+      <p>Enrich translations with contextual information from subtitle files including web search results, character lists, synopsis, and custom dictionaries.</p>
+    </div>
+
+    <div class="feature-card" (click)="navigateToTranscribe()">
+      <h2>Transcribe</h2>
+      <p>Transcribe audio files or record live audio directly in the application.</p>
+    </div>
+
+    <div class="feature-card" (click)="navigateToTranslate()">
+      <h2>Translate</h2>
+      <p>Translate individual text entries or entire subtitle files with enhanced quality when using context enrichment.</p>
+    </div>
+  </div>
 </div>

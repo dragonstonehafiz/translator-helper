@@ -125,15 +125,35 @@ def generate_web_context(model: ChatOpenAI, search_tool: TavilySearch,
 
 def generate_character_list(model: ChatOpenAI, 
                             input_lang: str, output_lang: str, 
-                            transcript: str, web_context: Optional[str] = None):
+                            transcript: str, context: Optional[dict] = None):
+    """
+    Generate a character list from a transcript.
+    
+    Args:
+        model: ChatOpenAI model
+        input_lang: Input language code
+        output_lang: Output language code
+        transcript: The dialogue transcript
+        context: Optional dictionary with context data (e.g., {"web_context": "...", "summary": "..."})
+    """
+    context = context or {}
+    
+    # Build context section dynamically from all context keys
+    context_sections = []
+    for key, value in context.items():
+        if value:
+            # Format key as title (e.g., "web_context" -> "Web Context")
+            title = key.replace('_', ' ').title()
+            context_sections.append(f"### {title}\n\n{value}")
+    
+    context_text = "\n\n".join(context_sections) if context_sections else "No additional context provided."
+    
     prompt_str = """
     # Role: {input_lang} Character Identifier
 
     ## Input
 
-    ### Web context
-
-    {web_context}
+    {context_text}
 
     ### Transcript
 
@@ -142,14 +162,14 @@ def generate_character_list(model: ChatOpenAI,
     ## Instructions
 
     You are assisting a translator by identifying characters in a scene that is in {input_lang}.
-    Use the dialogue transcript (and any web context) to extract characters in {output_lang}.
+    Use the dialogue transcript and any provided context to extract characters in {output_lang}.
 
     For each character include:
     - **Name** — the most complete form you can find
     - **Very High-Level Summary** — one short clause capturing their role / personality / tone
     - If one character is **clearly the narrative focus** (appears most, drives the scene), add **[Narrative Focus]**
 
-    Rely only on evidence from the transcript or web context — do **not** speculate.
+    Rely only on evidence from the transcript or context — do **not** speculate.
 
     ## Output Format
 
@@ -168,15 +188,13 @@ def generate_character_list(model: ChatOpenAI,
 
     - **[Character Name]**: [very high-level summary]. [Narrative Focus] (if applicable)
     """
-    
-    web_context = f"The following is additional information pulled from the web:\n{web_context}" if web_context else "No additional web context."
 
     final_prompt = ChatPromptTemplate.from_template(prompt_str)
 
     character_chain = (
         RunnableMap({
             "transcript": lambda x: x["transcript"],
-            "web_context": lambda x: x["web_context"],
+            "context_text": lambda x: x["context_text"],
             "input_lang": lambda x: x.get("input_lang", "ja"),
             "output_lang": lambda x: x.get("output_lang", "en")
         }) | final_prompt | model
@@ -184,7 +202,7 @@ def generate_character_list(model: ChatOpenAI,
 
     result = character_chain.invoke({
         "transcript": transcript,
-        "web_context": web_context,
+        "context_text": context_text,
         "input_lang": input_lang,
         "output_lang": output_lang
     })
@@ -194,15 +212,35 @@ def generate_character_list(model: ChatOpenAI,
 
 def generate_high_level_summary(model: ChatOpenAI, 
                                 input_lang: str, output_lang: str, 
-                                transcript: str, character_list: Optional[str] = None):
+                                transcript: str, context: Optional[dict] = None):
+    """
+    Generate a high-level summary from a transcript.
+    
+    Args:
+        model: ChatOpenAI model
+        input_lang: Input language code
+        output_lang: Output language code
+        transcript: The dialogue transcript
+        context: Optional dictionary with context data (e.g., {"character_list": "...", "web_context": "..."})
+    """
+    context = context or {}
+    
+    # Build context section dynamically from all context keys
+    context_sections = []
+    for key, value in context.items():
+        if value:
+            # Format key as title (e.g., "character_list" -> "Character List")
+            title = key.replace('_', ' ').title()
+            context_sections.append(f"### {title}\n\n{value}")
+    
+    context_text = "\n\n".join(context_sections) if context_sections else "No additional context provided."
+    
     prompt_str = """
     # Role: {input_lang} Scene Summary Assistant
 
     ## Input
 
-    ### Characters
-
-    {character_list}
+    {context_text}
 
     ### Transcript
 
@@ -228,9 +266,6 @@ def generate_high_level_summary(model: ChatOpenAI,
 
     Write one concise paragraph in natural {output_lang} that clearly summarizes the events and developments of this scene.
     """
-    
-    # Optional inserts
-    character_list = f"The following characters were identified:\n{character_list}" if character_list else "No characters were identified."
 
     summarize_prompt = ChatPromptTemplate.from_template(prompt_str)
 
@@ -239,7 +274,7 @@ def generate_high_level_summary(model: ChatOpenAI,
             "transcript": lambda x: x["transcript"],
             "input_lang": lambda x: x.get("input_lang", "ja"),
             "output_lang": lambda x: x.get("output_lang", "en"),
-            "character_list": lambda x: x["character_list"],
+            "context_text": lambda x: x["context_text"],
         }) | summarize_prompt | model
     )
 
@@ -247,7 +282,7 @@ def generate_high_level_summary(model: ChatOpenAI,
         "transcript": transcript,
         "input_lang": input_lang,
         "output_lang": output_lang,
-        "character_list": character_list
+        "context_text": context_text
     })
 
     return result.content

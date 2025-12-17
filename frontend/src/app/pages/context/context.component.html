@@ -1,0 +1,187 @@
+<div class="page-container">
+  <div class="header-container">
+    <h1>Context</h1>
+    <span class="tooltip-icon" title="Upload a subtitle file (.ass or .srt) and the app will automatically use the selected OpenAI API to generate context for translations">?</span>
+  </div>
+
+  <div class="form-section">
+    <!-- Import/Export Section -->
+    <div class="subsection">
+      <h2 class="subsection-title subsection-header" (click)="toggleSection('importExport')">
+        <span class="toggle-icon">{{ importExportCollapsed ? '▶' : '▼' }}</span>
+        Import/Export
+        <span class="subsection-info-icon" title="Save your context to a JSON file for future use, or load a previously saved context" (click)="$event.stopPropagation()">?</span>
+      </h2>
+      <div class="subsection-content" *ngIf="!importExportCollapsed">
+        <div class="upload-container">
+          <label for="importFile" class="upload-area"
+                 [class.drag-over]="isImportDragOver"
+                 [class.has-file]="importFile"
+                 (drop)="onImportFileDrop($event)"
+                 (dragover)="onImportDragOver($event)"
+                 (dragleave)="onImportDragLeave($event)">
+            <div class="upload-text" *ngIf="!importFile">Import Context</div>
+            <div class="upload-text" *ngIf="importFile">{{ importFile.name }}</div>
+            <div class="upload-subtext">.json</div>
+            <input type="file" id="importFile" (change)="onImportFile($event)" accept=".json">
+          </label>
+        </div>
+        <button class="action-button" (click)="exportContext()">Export Context</button>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h2 class="subsection-title subsection-header" (click)="toggleSection('fileUpload')">
+        <span class="toggle-icon">{{ fileUploadCollapsed ? '▶' : '▼' }}</span>
+        File Upload
+        <span class="subsection-info-icon" title="Upload subtitle files (.ass or .srt) to be used for context generation" (click)="$event.stopPropagation()">?</span>
+      </h2>
+      <div class="subsection-content" *ngIf="!fileUploadCollapsed">
+      <div class="form-row">
+        <div class="form-group">
+          <div class="label-container">
+            <label for="inputLanguage">Input Language</label>
+            <span class="info-icon" title="Language of the subtitle file to be processed">?</span>
+          </div>
+          <select id="inputLanguage" [(ngModel)]="inputLanguage">
+            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <div class="label-container">
+            <label for="outputLanguage">Output Language</label>
+            <span class="info-icon" title="Target language for translations and context generation">?</span>
+          </div>
+          <select id="outputLanguage" [(ngModel)]="outputLanguage">
+            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+          </select>
+        </div>
+      </div>
+      <div class="upload-container">
+        <label for="fileUpload" class="upload-area" 
+               [class.drag-over]="isDragOver"
+               [class.has-file]="selectedFile"
+               (drop)="onFileDrop($event)"
+               (dragover)="onDragOver($event)"
+               (dragleave)="onDragLeave($event)">
+          <div class="upload-text" *ngIf="!selectedFile">Upload Subtitle File</div>
+          <div class="upload-text" *ngIf="selectedFile">{{ selectedFile.name }}</div>
+          <div class="upload-subtext">.ass / .srt</div>
+          <input type="file" id="fileUpload" (change)="onFileSelected($event)" accept=".ass,.srt">
+        </label>
+      </div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h2 class="subsection-title subsection-header" (click)="toggleSection('webContext')">
+        <span class="toggle-icon">{{ webContextCollapsed ? '▶' : '▼' }}</span>
+        Web Context
+        <span class="subsection-info-icon" title="Gather contextual information from web search using series name and keywords" (click)="$event.stopPropagation()">?</span>
+      </h2>
+      <div class="subsection-content" *ngIf="!webContextCollapsed">
+      <div class="form-row">
+        <div class="form-group">
+          <div class="label-container">
+            <label for="seriesName">Series Name</label>
+            <span class="info-icon" title="Used for gathering context from web search">?</span>
+          </div>
+          <input type="text" id="seriesName" [(ngModel)]="seriesName" placeholder="Enter series name...">
+        </div>
+
+        <div class="form-group">
+          <div class="label-container">
+            <label for="keywords">Keywords</label>
+            <span class="info-icon" title="Used for gathering context from web search">?</span>
+          </div>
+          <input type="text" id="keywords" [(ngModel)]="keywords" placeholder="Enter keywords...">
+        </div>
+      </div>
+
+      <button class="action-button" (click)="gatherWebContext()" [disabled]="runningContext">Gather Web Context</button>
+
+      <div class="form-group">
+        <div class="textarea-header">
+          <label for="webContext">Gathered Web Context</label>
+          <div class="font-size-controls">
+            <button type="button" class="mode-toggle-btn" (click)="toggleWebContextMode()" title="Toggle read/edit mode">
+              {{ webContextReadMode ? 'Read Mode' : 'Write Mode' }}
+            </button>
+            <button type="button" class="font-size-btn" (click)="adjustWebContextFontSize(-1)" title="Decrease font size">A-</button>
+            <span class="font-size-display">{{ webContextFontSize }}px</span>
+            <button type="button" class="font-size-btn" (click)="adjustWebContextFontSize(1)" title="Increase font size">A+</button>
+          </div>
+        </div>
+        <textarea *ngIf="!webContextReadMode" id="webContext" [(ngModel)]="webContext" (ngModelChange)="updateWebContext()" rows="8" placeholder="Web context will appear here..." [style.font-size.px]="webContextFontSize"></textarea>
+        <div *ngIf="webContextReadMode" class="markdown-view" [innerHTML]="formatMarkdown(webContext)" [style.font-size.px]="webContextFontSize"></div>
+      </div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h2 class="subsection-title subsection-header" (click)="toggleSection('context')">
+        <span class="toggle-icon">{{ contextCollapsed ? '▶' : '▼' }}</span>
+        Context
+        <span class="subsection-info-icon" title="Generate character lists and summaries from uploaded subtitle files using AI" (click)="$event.stopPropagation()">?</span>
+      </h2>
+      <div class="subsection-content" *ngIf="!contextCollapsed">
+      <div class="form-group">
+        <div class="textarea-header">
+          <label for="characterList">Character List</label>
+          <div class="font-size-controls">
+            <button type="button" class="mode-toggle-btn" (click)="toggleCharacterListMode()" title="Toggle read/edit mode">
+              {{ characterListReadMode ? 'Read Mode' : 'Write Mode' }}
+            </button>
+            <button type="button" class="font-size-btn" (click)="adjustCharacterListFontSize(-1)" title="Decrease font size">A-</button>
+            <span class="font-size-display">{{ characterListFontSize }}px</span>
+            <button type="button" class="font-size-btn" (click)="adjustCharacterListFontSize(1)" title="Increase font size">A+</button>
+          </div>
+        </div>
+        <textarea *ngIf="!characterListReadMode" id="characterList" [(ngModel)]="characterList" (ngModelChange)="updateCharacterList()" rows="8" placeholder="Enter character names and descriptions..." [style.font-size.px]="characterListFontSize"></textarea>
+        <div *ngIf="characterListReadMode" class="markdown-view" [innerHTML]="formatMarkdown(characterList)" [style.font-size.px]="characterListFontSize"></div>
+      </div>
+
+      <div class="context-options">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="characterListUseWebContext">
+          <span>Include Web Context</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="characterListUseSummary">
+          <span>Include Summary</span>
+        </label>
+      </div>
+      <button class="action-button" (click)="generateCharacterList()" [disabled]="runningContext">Generate Character List</button>
+
+      <div class="form-group">
+        <div class="textarea-header">
+          <label for="summary">Summary</label>
+          <div class="font-size-controls">
+            <button type="button" class="mode-toggle-btn" (click)="toggleSummaryMode()" title="Toggle read/edit mode">
+              {{ summaryReadMode ? 'Read Mode' : 'Write Mode' }}
+            </button>
+            <button type="button" class="font-size-btn" (click)="adjustSummaryFontSize(-1)" title="Decrease font size">A-</button>
+            <span class="font-size-display">{{ summaryFontSize }}px</span>
+            <button type="button" class="font-size-btn" (click)="adjustSummaryFontSize(1)" title="Increase font size">A+</button>
+          </div>
+        </div>
+        <textarea *ngIf="!summaryReadMode" id="summary" [(ngModel)]="summary" (ngModelChange)="updateSummary()" rows="8" placeholder="Enter summary..." [style.font-size.px]="summaryFontSize"></textarea>
+        <div *ngIf="summaryReadMode" class="markdown-view" [innerHTML]="formatMarkdown(summary)" [style.font-size.px]="summaryFontSize"></div>
+      </div>
+
+      <div class="context-options">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="summaryUseWebContext">
+          <span>Include Web Context</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="summaryUseCharacterList">
+          <span>Include Character List</span>
+        </label>
+      </div>
+      <button class="action-button" (click)="generateSummary()" [disabled]="runningContext">Generate Summary</button>
+      </div>
+    </div>
+  </div>
+</div>

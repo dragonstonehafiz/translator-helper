@@ -36,6 +36,32 @@
       </div>
     </div>
 
+    <div class="status-row">
+      <div class="status-box" [class.ready]="runningContext" [class.not-ready]="!runningContext">
+        <h3 class="component-name">Context Generation</h3>
+        <div class="status-content">
+          <div class="spinner" *ngIf="runningContext"></div>
+          <span class="status-text">{{ runningContext ? 'Running' : 'Not Running' }}</span>
+        </div>
+      </div>
+      
+      <div class="status-box" [class.ready]="runningTranslation" [class.not-ready]="!runningTranslation">
+        <h3 class="component-name">Translation</h3>
+        <div class="status-content">
+          <div class="spinner" *ngIf="runningTranslation"></div>
+          <span class="status-text">{{ runningTranslation ? 'Running' : 'Not Running' }}</span>
+        </div>
+      </div>
+      
+      <div class="status-box" [class.ready]="runningTranscription" [class.not-ready]="!runningTranscription">
+        <h3 class="component-name">Transcription</h3>
+        <div class="status-content">
+          <div class="spinner" *ngIf="runningTranscription"></div>
+          <span class="status-text">{{ runningTranscription ? 'Running' : 'Not Running' }}</span>
+        </div>
+      </div>
+    </div>
+
     <div class="instructions-section" *ngIf="!tavilyReady || !openaiReady || !whisperReady">
       <div class="instruction-box" *ngIf="!tavilyReady || !openaiReady">
         Please input Tavily/OpenAI API key below

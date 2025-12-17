@@ -8,6 +8,8 @@ from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from settings import settings
 import threading
+from business.context import generate_web_context, generate_character_list, generate_high_level_summary
+from langchain_tavily import TavilySearch
 
 # Server state variables
 tavily_api_key_available = False
@@ -23,9 +25,12 @@ current_openai_model = ""
 current_temperature = 0.5
 running_translation = False
 running_transcription = False
+running_context = False
 loading_whisper_model = False
 loading_gpt_model = False
 loading_tavily_api = False
+context_result = None
+context_error = None
 
 # Startup function to load models based on settings
 def startup_load_models():
@@ -79,6 +84,7 @@ async def get_running_status():
     return {
         "running_translation": running_translation,
         "running_transcription": running_transcription,
+        "running_context": running_context,
         "loading_whisper_model": loading_whisper_model,
         "loading_gpt_model": loading_gpt_model,
         "loading_tavily_api": loading_tavily_api
@@ -140,6 +146,24 @@ class LoadGptRequest(BaseModel):
 class LoadTavilyRequest(BaseModel):
     api_key: str
 
+class GenerateWebContextRequest(BaseModel):
+    series_name: str
+    keywords: str
+    input_lang: str = "ja"
+    output_lang: str = "en"
+
+class GenerateCharacterListRequest(BaseModel):
+    transcript: str
+    context: dict = {}
+    input_lang: str = "ja"
+    output_lang: str = "en"
+
+class GenerateHighLevelSummaryRequest(BaseModel):
+    transcript: str
+    context: dict = {}
+    input_lang: str = "ja"
+    output_lang: str = "en"
+
 # Background task functions
 def load_whisper_background(model_name: str, device: str):
     """Load Whisper model in background."""
@@ -189,6 +213,71 @@ def load_tavily_background(api_key: str):
     finally:
         loading_tavily_api = False
 
+def generate_web_context_background(series_name: str, keywords: str, input_lang: str, output_lang: str):
+    """Generate web context in background."""
+    global running_context, context_result, context_error, gpt_model, tavily_api_key
+    try:
+        running_context = True
+        context_result = None
+        context_error = None
+        search_tool = TavilySearch(api_key=tavily_api_key)
+        result = generate_web_context(
+            model=gpt_model,
+            search_tool=search_tool,
+            input_lang=input_lang,
+            output_lang=output_lang,
+            series_name=series_name,
+            keywords=keywords
+        )
+        context_result = {"type": "web_context", "data": result}
+    except Exception as e:
+        print(f"Error generating web context: {e}")
+        context_error = str(e)
+    finally:
+        running_context = False
+
+def generate_character_list_background(transcript: str, input_lang: str, output_lang: str, context: dict):
+    """Generate character list in background."""
+    global running_context, context_result, context_error, gpt_model
+    try:
+        running_context = True
+        context_result = None
+        context_error = None
+        result = generate_character_list(
+            model=gpt_model,
+            input_lang=input_lang,
+            output_lang=output_lang,
+            transcript=transcript,
+            context=context if context else None
+        )
+        context_result = {"type": "character_list", "data": result}
+    except Exception as e:
+        print(f"Error generating character list: {e}")
+        context_error = str(e)
+    finally:
+        running_context = False
+
+def generate_summary_background(transcript: str, input_lang: str, output_lang: str, context: dict):
+    """Generate high-level summary in background."""
+    global running_context, context_result, context_error, gpt_model
+    try:
+        running_context = True
+        context_result = None
+        context_error = None
+        result = generate_high_level_summary(
+            model=gpt_model,
+            input_lang=input_lang,
+            output_lang=output_lang,
+            transcript=transcript,
+            context=context if context else None
+        )
+        context_result = {"type": "summary", "data": result}
+    except Exception as e:
+        print(f"Error generating summary: {e}")
+        context_error = str(e)
+    finally:
+        running_context = False
+
 @app.post("/api/load-whisper-model")
 async def load_whisper(request: LoadWhisperRequest, background_tasks: BackgroundTasks):
     """Load Whisper model in background."""
@@ -221,6 +310,87 @@ async def load_tavily(request: LoadTavilyRequest, background_tasks: BackgroundTa
     
     background_tasks.add_task(load_tavily_background, request.api_key)
     return {"status": "loading", "message": "Tavily API loading started"}
+
+@app.post("/api/context/generate-web-context")
+async def api_generate_web_context(request: GenerateWebContextRequest, background_tasks: BackgroundTasks):
+    """Generate web context using Tavily search and GPT."""
+    global gpt_model, tavily_api_key, running_context
+    
+    if not gpt_model:
+        return {"status": "error", "message": "GPT model not loaded"}
+    
+    if not tavily_api_key:
+        return {"status": "error", "message": "Tavily API key not loaded"}
+    
+    if running_context:
+        return {"status": "error", "message": "Context generation already running"}
+    
+    background_tasks.add_task(
+        generate_web_context_background,
+        request.series_name,
+        request.keywords,
+        request.input_lang,
+        request.output_lang
+    )
+    return {"status": "processing", "message": "Web context generation started"}
+
+@app.post("/api/context/generate-character-list")
+async def api_generate_character_list(request: GenerateCharacterListRequest, background_tasks: BackgroundTasks):
+    """Generate character list from transcript."""
+    global gpt_model, running_context
+    
+    if not gpt_model:
+        return {"status": "error", "message": "GPT model not loaded"}
+    
+    if running_context:
+        return {"status": "error", "message": "Context generation already running"}
+    
+    background_tasks.add_task(
+        generate_character_list_background,
+        request.transcript,
+        request.input_lang,
+        request.output_lang,
+        request.context
+    )
+    return {"status": "processing", "message": "Character list generation started"}
+
+@app.post("/api/context/generate-high-level-summary")
+async def api_generate_high_level_summary(request: GenerateHighLevelSummaryRequest, background_tasks: BackgroundTasks):
+    """Generate high-level summary from transcript."""
+    global gpt_model, running_context
+    
+    if not gpt_model:
+        return {"status": "error", "message": "GPT model not loaded"}
+    
+    if running_context:
+        return {"status": "error", "message": "Context generation already running"}
+    
+    background_tasks.add_task(
+        generate_summary_background,
+        request.transcript,
+        request.input_lang,
+        request.output_lang,
+        request.context
+    )
+    return {"status": "processing", "message": "Summary generation started"}
+
+@app.get("/api/context/result")
+async def get_context_result():
+    """Get the result of the last context generation operation."""
+    global context_result, context_error, running_context
+    
+    if running_context:
+        return {"status": "processing", "message": "Context generation in progress"}
+    
+    if context_error:
+        error = context_error
+        return {"status": "error", "message": error}
+    
+    if context_result:
+        result = context_result
+        return {"status": "success", "result": result}
+    
+    return {"status": "idle", "message": "No context generation has been run"}
 
 if __name__ == "__main__":
     import uvicorn
