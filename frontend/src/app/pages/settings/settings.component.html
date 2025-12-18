@@ -1,6 +1,12 @@
+<app-sidebar></app-sidebar>
+
 <div class="settings-container">
-  <div class="section-container">
-    <h1 class="settings-title">Status</h1>
+  <div class="header-container">
+    <h1>Settings</h1>
+  </div>
+
+  <div class="form-section">
+    <app-subsection title="Status">
     
     <div class="status-row">
       <div class="status-box" [class.ready]="tavilyReady" [class.not-ready]="!tavilyReady">
@@ -62,22 +68,17 @@
       </div>
     </div>
 
-    <div class="instructions-section" *ngIf="!tavilyReady || !openaiReady || !whisperReady">
-      <div class="instruction-box" *ngIf="!tavilyReady || !openaiReady">
-        Please input Tavily/OpenAI API key below
+      <div class="instructions-section" *ngIf="!tavilyReady || !openaiReady || !whisperReady">
+        <div class="instruction-box" *ngIf="!tavilyReady || !openaiReady">
+          Please input Tavily/OpenAI API key below
+        </div>
+        <div class="instruction-box" *ngIf="!whisperReady">
+          Please initiate the transcription model below
+        </div>
       </div>
-      <div class="instruction-box" *ngIf="!whisperReady">
-        Please initiate the transcription model below
-      </div>
-    </div>
-  </div>
+    </app-subsection>
 
-  <div class="section-container">
-    <h1 class="settings-title">Settings</h1>
-
-    <div class="form-section">
-      <div class="subsection">
-        <h2 class="subsection-title">Transcription Settings</h2>
+    <app-subsection title="Transcription Settings">
         <div class="form-row">
           <div class="form-group">
             <label for="whisperModel">Whisper Model</label>
@@ -93,14 +94,13 @@
             </select>
           </div>
         </div>
-        <button class="load-button" (click)="loadWhisperModel()" [disabled]="loadingWhisper">
-          <span *ngIf="!loadingWhisper">Load Whisper Model</span>
-          <span *ngIf="loadingWhisper">Loading...</span>
-        </button>
-      </div>
+      <button class="load-button" (click)="loadWhisperModel()" [disabled]="loadingWhisper">
+        <span *ngIf="!loadingWhisper">Load Whisper Model</span>
+        <span *ngIf="loadingWhisper">Loading...</span>
+      </button>
+    </app-subsection>
 
-      <div class="subsection">
-        <h2 class="subsection-title">OpenAI API Settings</h2>
+    <app-subsection title="OpenAI API Settings">
         <div class="form-group">
           <label for="openaiApiKey">OpenAI API Key</label>
           <input type="password" id="openaiApiKey" [(ngModel)]="openaiApiKey" placeholder="sk-..." [disabled]="loadingGpt">
@@ -119,23 +119,21 @@
             <input type="range" id="temperature" [(ngModel)]="temperature" min="0" max="1.5" step="0.05" [disabled]="loadingGpt">
           </div>
         </div>
-        <button class="load-button" (click)="loadGptModel()" [disabled]="loadingGpt || !openaiApiKey">
-          <span *ngIf="!loadingGpt">Load GPT Model</span>
-          <span *ngIf="loadingGpt">Loading...</span>
-        </button>
-      </div>
+      <button class="load-button" (click)="loadGptModel()" [disabled]="loadingGpt || !openaiApiKey">
+        <span *ngIf="!loadingGpt">Load GPT Model</span>
+        <span *ngIf="loadingGpt">Loading...</span>
+      </button>
+    </app-subsection>
 
-      <div class="subsection">
-        <h2 class="subsection-title">Tavily API Key</h2>
+    <app-subsection title="Tavily API Key">
         <div class="form-group">
           <label for="tavilyApiKey">Tavily API Key</label>
           <input type="password" id="tavilyApiKey" [(ngModel)]="tavilyApiKey" placeholder="tvly-..." [disabled]="loadingTavily">
         </div>
-        <button class="load-button" (click)="loadTavilyApi()" [disabled]="loadingTavily || !tavilyApiKey">
-          <span *ngIf="!loadingTavily">Load Tavily API</span>
-          <span *ngIf="loadingTavily">Loading...</span>
-        </button>
-      </div>
-    </div>
+      <button class="load-button" (click)="loadTavilyApi()" [disabled]="loadingTavily || !tavilyApiKey">
+        <span *ngIf="!loadingTavily">Load Tavily API</span>
+        <span *ngIf="loadingTavily">Loading...</span>
+      </button>
+    </app-subsection>
   </div>
 </div>

@@ -81,4 +81,12 @@ export class ApiService {
       output_lang: outputLang
     });
   }
+
+  generateRecap(contexts: any[], inputLang: string, outputLang: string): Observable<{status: string, recap?: string, message?: string}> {
+    return this.http.post<{status: string, recap?: string, message?: string}>(`${this.baseUrl}/context/generate-recap`, {
+      contexts: contexts,
+      input_lang: inputLang,
+      output_lang: outputLang
+    });
+  }
 }

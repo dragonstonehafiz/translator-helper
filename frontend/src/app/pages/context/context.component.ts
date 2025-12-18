@@ -4,11 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { StateService } from '../../services/state.service';
 import { ApiService } from '../../services/api.service';
 import { Subscription, interval } from 'rxjs';
+import { SidebarComponent } from '../../components/sidebar/sidebar.component';
+import { SubsectionComponent } from '../../components/subsection/subsection.component';
+import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 
 @Component({
   selector: 'app-context',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SidebarComponent, SubsectionComponent, FileUploadComponent],
   templateUrl: './context.component.html',
   styleUrl: './context.component.scss'
 })
@@ -19,9 +22,7 @@ export class ContextComponent implements OnInit, OnDestroy {
   summary = '';
   webContext = '';
   selectedFile: File | null = null;
-  isDragOver = false;
   importFile: File | null = null;
-  isImportDragOver = false;
   inputLanguage = 'ja';
   outputLanguage = 'en';
   runningContext = false;
@@ -50,6 +51,14 @@ export class ContextComponent implements OnInit, OnDestroy {
   fileUploadCollapsed = false;
   webContextCollapsed = false;
   contextCollapsed = false;
+  recapCollapsed = false;
+  
+  // Recap section
+  recap = '';
+  recapFontSize = 14;
+  recapReadMode = true;
+  recapContextFiles: File[] = [];
+  recapContexts: any[] = [];
   
   languageOptions = [
     { code: 'en', name: 'English' },
@@ -89,6 +98,7 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.webContext = this.stateService.getWebContext();
     this.characterList = this.stateService.getCharacterList();
     this.summary = this.stateService.getSummary();
+    this.recap = this.stateService.getRecap();
 
     // Start polling for running status
     this.startPolling();
@@ -129,6 +139,9 @@ export class ContextComponent implements OnInit, OnDestroy {
           } else if (response.result.type === 'summary') {
             this.summary = response.result.data;
             this.stateService.setSummary(response.result.data);
+          } else if (response.result.type === 'recap') {
+            this.recap = response.result.data;
+            this.stateService.setRecap(response.result.data);
           }
         } else if (response.status === 'error') {
           alert(`Error: ${response.message}`);
@@ -138,32 +151,14 @@ export class ContextComponent implements OnInit, OnDestroy {
     });
   }
 
-  onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      this.selectedFile = input.files[0];
-    }
-  }
-
-  onDragOver(event: DragEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.isDragOver = true;
-  }
-
-  onDragLeave(event: DragEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.isDragOver = false;
-  }
-
-  onFileDrop(event: DragEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.isDragOver = false;
-
-    if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
-      this.selectedFile = event.dataTransfer.files[0];
+  onSubtitleFilesSelected(files: File[]): void {
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.name.endsWith('.ass') || file.name.endsWith('.srt')) {
+        this.selectedFile = file;
+      } else {
+        alert('Please select an .ass or .srt file.');
+      }
     }
   }
 
@@ -336,6 +331,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       webContext: this.webContext,
       characterList: this.characterList,
       summary: this.summary,
+      recap: this.recap,
       exportDate: new Date().toISOString()
     };
 
@@ -350,13 +346,8 @@ export class ContextComponent implements OnInit, OnDestroy {
     window.URL.revokeObjectURL(url);
   }
 
-  onImportFileDrop(event: DragEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.isImportDragOver = false;
-
-    const files = event.dataTransfer?.files;
-    if (files && files.length > 0) {
+  onImportFilesSelected(files: File[]): void {
+    if (files.length > 0) {
       const file = files[0];
       if (file.name.endsWith('.json')) {
         this.importFile = file;
@@ -365,32 +356,6 @@ export class ContextComponent implements OnInit, OnDestroy {
         alert('Please select a JSON file.');
       }
     }
-  }
-
-  onImportDragOver(event: DragEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.isImportDragOver = true;
-  }
-
-  onImportDragLeave(event: DragEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.isImportDragOver = false;
-  }
-
-  onImportFile(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) {
-      return;
-    }
-
-    const file = input.files[0];
-    this.importFile = file;
-    this.processImportFile(file);
-    
-    // Reset the input so the same file can be imported again
-    input.value = '';
   }
 
   private processImportFile(file: File): void {
@@ -417,6 +382,10 @@ export class ContextComponent implements OnInit, OnDestroy {
           this.summary = data.summary;
           this.stateService.setSummary(data.summary);
         }
+        if (data.recap !== undefined) {
+          this.recap = data.recap;
+          this.stateService.setRecap(data.recap);
+        }
         
         alert('Context imported successfully!');
       } catch (error) {
@@ -428,21 +397,116 @@ export class ContextComponent implements OnInit, OnDestroy {
     reader.readAsText(file);
   }
 
-  toggleSection(section: string): void {
-    switch(section) {
-      case 'importExport':
-        this.importExportCollapsed = !this.importExportCollapsed;
-        break;
-      case 'fileUpload':
-        this.fileUploadCollapsed = !this.fileUploadCollapsed;
-        break;
-      case 'webContext':
-        this.webContextCollapsed = !this.webContextCollapsed;
-        break;
-      case 'context':
-        this.contextCollapsed = !this.contextCollapsed;
-        break;
+  onRecapFilesSelected(files: File[]): void {
+    const jsonFiles = files.filter(file => file.name.endsWith('.json'));
+    if (jsonFiles.length > 0) {
+      this.recapContextFiles = jsonFiles;
+      this.loadRecapContextFiles();
+    } else if (files.length > 0) {
+      alert('Please select JSON files.');
     }
+  }
+
+  private loadRecapContextFiles(): void {
+    this.recapContexts = [];
+    const promises: Promise<any>[] = [];
+
+    for (const file of this.recapContextFiles) {
+      const promise = new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = JSON.parse(e.target?.result as string);
+            resolve(data);
+          } catch (error) {
+            console.error(`Error parsing ${file.name}:`, error);
+            reject(error);
+          }
+        };
+        reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
+        reader.readAsText(file);
+      });
+      promises.push(promise);
+    }
+
+    Promise.all(promises)
+      .then(contexts => {
+        this.recapContexts = contexts;
+      })
+      .catch(error => {
+        console.error('Error loading context files:', error);
+        alert('Failed to load some context files.');
+      });
+  }
+
+  removeRecapFile(index: number): void {
+    this.recapContextFiles.splice(index, 1);
+    this.recapContexts.splice(index, 1);
+  }
+
+  moveRecapFileUp(index: number): void {
+    if (index > 0) {
+      // Swap files
+      [this.recapContextFiles[index], this.recapContextFiles[index - 1]] = 
+        [this.recapContextFiles[index - 1], this.recapContextFiles[index]];
+      
+      // Swap contexts if they exist
+      if (this.recapContexts.length > index) {
+        [this.recapContexts[index], this.recapContexts[index - 1]] = 
+          [this.recapContexts[index - 1], this.recapContexts[index]];
+      }
+    }
+  }
+
+  moveRecapFileDown(index: number): void {
+    if (index < this.recapContextFiles.length - 1) {
+      // Swap files
+      [this.recapContextFiles[index], this.recapContextFiles[index + 1]] = 
+        [this.recapContextFiles[index + 1], this.recapContextFiles[index]];
+      
+      // Swap contexts if they exist
+      if (this.recapContexts.length > index + 1) {
+        [this.recapContexts[index], this.recapContexts[index + 1]] = 
+          [this.recapContexts[index + 1], this.recapContexts[index]];
+      }
+    }
+  }
+
+  generateRecap(): void {
+    if (this.recapContexts.length === 0) {
+      alert('Please upload at least one context file');
+      return;
+    }
+
+    if (this.runningContext) {
+      return;
+    }
+
+    this.apiService.generateRecap(
+      this.recapContexts,
+      this.inputLanguage,
+      this.outputLanguage
+    ).subscribe({
+      next: (response) => {
+        if (response.status === 'processing') {
+          console.log('Recap generation started');
+        } else if (response.status === 'error') {
+          alert(response.message || 'Error generating recap');
+        }
+      },
+      error: (error) => {
+        console.error('Error:', error);
+        alert('Failed to start recap generation');
+      }
+    });
+  }
+
+  toggleRecapMode(): void {
+    this.recapReadMode = !this.recapReadMode;
+  }
+
+  adjustRecapFontSize(change: number): void {
+    this.recapFontSize = Math.max(10, Math.min(24, this.recapFontSize + change));
   }
 
   formatMarkdown(text: string): string {

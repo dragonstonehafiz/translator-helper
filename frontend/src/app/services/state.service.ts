@@ -27,6 +27,9 @@ export class StateService {
   private summarySubject = new BehaviorSubject<string>('');
   public summary$: Observable<string> = this.summarySubject.asObservable();
 
+  private recapSubject = new BehaviorSubject<string>('');
+  public recap$: Observable<string> = this.recapSubject.asObservable();
+
   private runningContextSubject = new BehaviorSubject<boolean>(false);
   public runningContext$: Observable<boolean> = this.runningContextSubject.asObservable();
 
@@ -74,6 +77,14 @@ export class StateService {
 
   getSummary(): string {
     return this.summarySubject.value;
+  }
+
+  setRecap(recap: string): void {
+    this.recapSubject.next(recap);
+  }
+
+  getRecap(): string {
+    return this.recapSubject.value;
   }
 
   setRunningContext(running: boolean): void {

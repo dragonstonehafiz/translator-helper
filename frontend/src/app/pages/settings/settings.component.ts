@@ -4,11 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { StateService } from '../../services/state.service';
 import { interval, Subscription } from 'rxjs';
+import { SidebarComponent } from '../../components/sidebar/sidebar.component';
+import { SubsectionComponent } from '../../components/subsection/subsection.component';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SidebarComponent, SubsectionComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'
 })

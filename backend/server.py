@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from settings import settings
 import threading
-from business.context import generate_web_context, generate_character_list, generate_high_level_summary
+from business.context import generate_web_context, generate_character_list, generate_high_level_summary, generate_recap
 from langchain_tavily import TavilySearch
 
 # Server state variables
@@ -164,6 +164,11 @@ class GenerateHighLevelSummaryRequest(BaseModel):
     input_lang: str = "ja"
     output_lang: str = "en"
 
+class GenerateRecapRequest(BaseModel):
+    contexts: list[dict]
+    input_lang: str = "ja"
+    output_lang: str = "en"
+
 # Background task functions
 def load_whisper_background(model_name: str, device: str):
     """Load Whisper model in background."""
@@ -278,6 +283,26 @@ def generate_summary_background(transcript: str, input_lang: str, output_lang: s
     finally:
         running_context = False
 
+def generate_recap_background(input_lang: str, output_lang: str, contexts: list[dict]):
+    """Generate recap from multiple contexts in background."""
+    global running_context, context_result, context_error, gpt_model
+    try:
+        running_context = True
+        context_result = None
+        context_error = None
+        result = generate_recap(
+            model=gpt_model,
+            input_lang=input_lang,
+            output_lang=output_lang,
+            contexts=contexts
+        )
+        context_result = {"type": "recap", "data": result}
+    except Exception as e:
+        print(f"Error generating recap: {e}")
+        context_error = str(e)
+    finally:
+        running_context = False
+
 @app.post("/api/load-whisper-model")
 async def load_whisper(request: LoadWhisperRequest, background_tasks: BackgroundTasks):
     """Load Whisper model in background."""
@@ -373,6 +398,25 @@ async def api_generate_high_level_summary(request: GenerateHighLevelSummaryReque
         request.context
     )
     return {"status": "processing", "message": "Summary generation started"}
+
+@app.post("/api/context/generate-recap")
+async def api_generate_recap(request: GenerateRecapRequest, background_tasks: BackgroundTasks):
+    """Generate recap from multiple context dicts."""
+    global gpt_model, running_context
+    
+    if not gpt_model:
+        return {"status": "error", "message": "GPT model not loaded"}
+    
+    if running_context:
+        return {"status": "error", "message": "Context generation already running"}
+    
+    background_tasks.add_task(
+        generate_recap_background,
+        request.input_lang,
+        request.output_lang,
+        request.contexts
+    )
+    return {"status": "processing", "message": "Recap generation started"}
 
 @app.get("/api/context/result")
 async def get_context_result():

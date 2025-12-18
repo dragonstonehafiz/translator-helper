@@ -1,0 +1,15 @@
+<div class="upload-container">
+  <label class="upload-area"
+         [class.drag-over]="isDragOver"
+         [class.has-file]="selectedFiles.length > 0"
+         (drop)="onFileDrop($event)"
+         (dragover)="onDragOver($event)"
+         (dragleave)="onDragLeave($event)">
+    <div class="upload-text">{{ getDisplayText() }}</div>
+    <div class="upload-subtext" *ngIf="subtext">{{ subtext }}</div>
+    <input type="file" 
+           (change)="onFileSelected($event)" 
+           [accept]="accept"
+           [multiple]="multiple">
+  </label>
+</div>

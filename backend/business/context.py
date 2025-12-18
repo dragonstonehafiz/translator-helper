@@ -287,3 +287,117 @@ def generate_high_level_summary(model: ChatOpenAI,
 
     return result.content
 
+
+def generate_recap(model: ChatOpenAI,
+                   input_lang: str, output_lang: str,
+                   contexts: list[dict]) -> str:
+    """
+    Generate a comprehensive recap from multiple prior context dicts.
+    
+    This creates a "前回のあらすじ" (previously on...) style summary that:
+    - Lists all established characters with their personalities/roles
+    - Summarizes story progression across all provided contexts
+    - Provides enough detail for translation continuity
+    
+    Args:
+        model: ChatOpenAI model
+        input_lang: Input language code (language of the original content)
+        output_lang: Output language code
+        contexts: List of context dicts in chronological order
+                  Each dict may contain keys like: character_list, synopsis, summary, web_context
+    
+    Returns:
+        A comprehensive recap string in output_lang
+    """
+    # Extract all character lists and synopses from contexts
+    all_character_lists = []
+    all_synopses = []
+    
+    for ctx in contexts:
+        # Extract character list
+        char_list = ctx.get("character_list", "")
+        if char_list and char_list.strip():
+            all_character_lists.append(char_list.strip())
+        
+        # Extract summary
+        summary = ctx.get("summary", "")
+        if summary and summary.strip():
+            all_synopses.append(summary.strip())
+    
+    # Build the sections for the prompt
+    character_section = ""
+    if all_character_lists:
+        # Combine all character lists (dedupe happens naturally in LLM prompt)
+        combined_chars = "\n\n".join([f"### Part {i+1}\n{chars}" 
+                                      for i, chars in enumerate(all_character_lists)])
+        character_section = f"## Characters\n\n{combined_chars}"
+    
+    synopsis_section = ""
+    if all_synopses:
+        combined_synopses = "\n\n".join([f"### Part {i+1}\n{syn}" 
+                                         for i, syn in enumerate(all_synopses)])
+        synopsis_section = f"## Previous Summaries\n\n{combined_synopses}"
+    
+    # If no data provided, return empty string
+    if not character_section and not synopsis_section:
+        return ""
+    
+    prompt_str = """
+    # Role: Continuity Recap Generator for Translators
+
+    ## Task
+
+    You are helping a translator working with {input_lang} source material by creating a comprehensive "Previously On" style recap from multiple prior scenes.
+    The contexts are provided in chronological order.
+    This recap will be used as context for translating future content, so it must be thorough enough to:
+    - Identify returning characters and recall their personalities/roles
+    - Understand ongoing story developments and relationships
+    - Maintain consistent tone and terminology
+
+    ## Input Context
+
+    {character_section}
+
+    {synopsis_section}
+
+    ## Instructions
+
+    Create a comprehensive recap in {output_lang} that includes:
+
+    1. **All Established Characters**: List every character that has appeared, with their key personality traits, roles, and relationships. Merge duplicate entries naturally.
+
+    2. **Story Progression**: Summarize the major events and developments in chronological order, showing how the story has evolved.
+
+    3. **Tone and Setting**: Capture the overall tone, setting, and any important thematic elements.
+
+    **Important**: Be thorough, not brief. The translator needs enough detail to handle returning characters and ongoing plot threads naturally. This recap should serve as a complete reference for continuity.
+
+    ## Output Format
+
+    Write a comprehensive recap in natural {output_lang}. Use clear paragraphs organized by:
+    - First paragraph(s): Characters and their roles/personalities
+    - Following paragraph(s): Story events and developments in order
+
+    Do not use headings or bullet points in your output - write in flowing paragraph form.
+    """
+
+    recap_prompt = ChatPromptTemplate.from_template(prompt_str)
+    
+    recap_chain = (
+        RunnableMap({
+            "character_section": lambda x: x["character_section"],
+            "synopsis_section": lambda x: x["synopsis_section"],
+            "input_lang": lambda x: x["input_lang"],
+            "output_lang": lambda x: x["output_lang"]
+        }) | recap_prompt | model
+    )
+    
+    result = recap_chain.invoke({
+        "character_section": character_section,
+        "synopsis_section": synopsis_section,
+        "input_lang": input_lang,
+        "output_lang": output_lang
+    })
+    
+    return result.content.strip()
+

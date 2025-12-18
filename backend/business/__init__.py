@@ -5,6 +5,7 @@ from .context import (
     generate_web_context,
     generate_character_list,
     generate_high_level_summary,
+    generate_recap,
 )
 from .grade import grade
 from .transcribe import transcribe_line, transcribe_file
@@ -19,6 +20,7 @@ __all__ = [
     "generate_web_context",
     "generate_character_list",
     "generate_high_level_summary",
+    "generate_recap",
     "grade",
     "transcribe_line",
     "transcribe_file",
