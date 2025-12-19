@@ -1,0 +1,37 @@
+<div class="text-field-container">
+  <div class="field-header">
+    <label>
+      {{ label }}
+      <span class="info-icon" *ngIf="tooltip" [title]="tooltip">?</span>
+    </label>
+    <div class="controls">
+      <button type="button" class="mode-toggle-btn" (click)="toggleMode()" title="Toggle read/edit mode">
+        {{ readMode ? 'Read Mode' : 'Write Mode' }}
+      </button>
+      <button type="button" class="font-size-btn" (click)="adjustFontSize(-1)" title="Decrease font size">A-</button>
+      <span class="font-size-display">{{ fontSize }}px</span>
+      <button type="button" class="font-size-btn" (click)="adjustFontSize(1)" title="Increase font size">A+</button>
+      <button type="button" class="copy-btn" (click)="copyToClipboard()" title="Copy to clipboard" [disabled]="!value">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <textarea 
+    *ngIf="!readMode" 
+    [(ngModel)]="value" 
+    [rows]="rows" 
+    [placeholder]="placeholder" 
+    [style.font-size.px]="fontSize">
+  </textarea>
+  <div 
+    *ngIf="readMode" 
+    class="markdown-view" 
+    [class.empty]="!value"
+    [style.font-size.px]="fontSize">
+    <span *ngIf="!value" class="placeholder-text">{{ placeholder }}</span>
+    <span *ngIf="value" [innerHTML]="formatMarkdown(value)"></span>
+  </div>
+</div>

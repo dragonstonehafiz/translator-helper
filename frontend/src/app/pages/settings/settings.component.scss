@@ -2,7 +2,7 @@
   padding: 40px 20px;
   max-width: 1200px;
   margin: 0 auto;
-  margin-left: 240px;
+  margin-left: calc(220px + max(0px, (100vw - 220px - 1200px) / 2));
 }
 
 .header-container {

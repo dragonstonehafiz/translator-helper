@@ -1,3 +1,58 @@
+<app-sidebar></app-sidebar>
+
 <div class="page-container">
-  <h1>Transcribe</h1>
+  <div class="header-container">
+    <h1>Transcribe</h1>
+    <span class="tooltip-icon" title="Transcribe audio files to subtitle format (.ass)">?</span>
+  </div>
+
+  <div class="form-section">
+    <app-subsection 
+      title="Translate Line" 
+      [collapsed]="translateLineCollapsed"
+      tooltip="Record audio from your microphone to transcribe into subtitle format">
+      
+      <div class="recording-container">
+        <div class="form-group">
+          <label for="inputLanguage">Input Language</label>
+          <select id="inputLanguage" [(ngModel)]="inputLanguage">
+            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+          </select>
+        </div>
+
+        <canvas #waveformCanvas class="waveform-canvas"></canvas>
+        <audio #audioPlayer controls [src]="recordedAudioUrl" class="audio-player"></audio>
+        
+        <div class="recording-controls">
+          <span class="duration" *ngIf="isRecording">{{ formatDuration(recordingDuration) }}</span>
+          <button 
+            *ngIf="!isRecording" 
+            class="record-btn" 
+            (click)="startRecording()">
+            <span class="btn-icon">●</span>
+            Start Recording
+          </button>
+          <button 
+            *ngIf="isRecording" 
+            class="stop-btn" 
+            (click)="stopRecording()">
+            <span class="btn-icon">■</span>
+            Stop Recording
+          </button>
+        </div>
+
+        <button class="transcribe-btn" (click)="transcribeAudio()" [disabled]="!recordedAudioUrl || isTranscribing">
+          {{ isTranscribing ? 'Transcribing...' : 'Transcribe' }}
+        </button>
+
+        <app-text-field 
+          label="Transcript" 
+          placeholder="Transcript will appear here..."
+          [rows]="10"
+          [(ngModel)]="transcript">
+        </app-text-field>
+      </div>
+      
+    </app-subsection>
+  </div>
 </div>

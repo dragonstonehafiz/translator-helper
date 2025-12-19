@@ -64,22 +64,31 @@ export class ApiService {
     return this.http.get<{status: string, result?: {type: string, data: string}, message?: string}>(`${this.baseUrl}/context/result`);
   }
 
-  generateCharacterList(transcript: string, context: any, inputLang: string, outputLang: string): Observable<{status: string, character_list?: string, message?: string}> {
-    return this.http.post<{status: string, character_list?: string, message?: string}>(`${this.baseUrl}/context/generate-character-list`, {
-      transcript: transcript,
-      context: context,
-      input_lang: inputLang,
-      output_lang: outputLang
-    });
+  generateCharacterList(file: File, context: any, inputLang: string, outputLang: string): Observable<{status: string, character_list?: string, message?: string}> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('context', JSON.stringify(context));
+    formData.append('input_lang', inputLang);
+    formData.append('output_lang', outputLang);
+    return this.http.post<{status: string, character_list?: string, message?: string}>(`${this.baseUrl}/context/generate-character-list`, formData);
   }
 
-  generateSummary(transcript: string, context: any, inputLang: string, outputLang: string): Observable<{status: string, summary?: string, message?: string}> {
-    return this.http.post<{status: string, summary?: string, message?: string}>(`${this.baseUrl}/context/generate-high-level-summary`, {
-      transcript: transcript,
-      context: context,
-      input_lang: inputLang,
-      output_lang: outputLang
-    });
+  generateSynopsis(file: File, context: any, inputLang: string, outputLang: string): Observable<{status: string, synopsis?: string, message?: string}> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('context', JSON.stringify(context));
+    formData.append('input_lang', inputLang);
+    formData.append('output_lang', outputLang);
+    return this.http.post<{status: string, synopsis?: string, message?: string}>(`${this.baseUrl}/context/generate-synopsis`, formData);
+  }
+
+  generateSummary(file: File, context: any, inputLang: string, outputLang: string): Observable<{status: string, summary?: string, message?: string}> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('context', JSON.stringify(context));
+    formData.append('input_lang', inputLang);
+    formData.append('output_lang', outputLang);
+    return this.http.post<{status: string, summary?: string, message?: string}>(`${this.baseUrl}/context/generate-high-level-summary`, formData);
   }
 
   generateRecap(contexts: any[], inputLang: string, outputLang: string): Observable<{status: string, recap?: string, message?: string}> {
@@ -88,5 +97,16 @@ export class ApiService {
       input_lang: inputLang,
       output_lang: outputLang
     });
+  }
+
+  transcribeAudio(audioFile: File, language: string): Observable<{status: string, message?: string}> {
+    const formData = new FormData();
+    formData.append('file', audioFile);
+    formData.append('language', language);
+    return this.http.post<{status: string, message?: string}>(`${this.baseUrl}/transcribe/transcribe-line`, formData);
+  }
+
+  getTranscriptionResult(): Observable<{status: string, result?: {type: string, data: string}, message?: string}> {
+    return this.http.get<{status: string, result?: {type: string, data: string}, message?: string}>(`${this.baseUrl}/transcribe/result`);
   }
 }

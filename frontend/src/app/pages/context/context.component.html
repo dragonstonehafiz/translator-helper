@@ -7,11 +7,20 @@
   </div>
 
   <div class="form-section">
-    <!-- Import/Export Section -->
+    <!-- File Download/Upload Section -->
     <app-subsection 
-      title="Import/Export" 
-      [collapsed]="importExportCollapsed"
-      tooltip="Save your context to a JSON file for future use, or load a previously saved context">
+      title="File Download/Upload" 
+      [collapsed]="fileUploadCollapsed"
+      tooltip="Import and export context data, and upload subtitle files for processing">
+      
+      <!-- Import/Export Context -->
+      <div class="section-header">
+        <h3>
+          Import/Export Context
+          <span class="info-icon" title="Save your context to a JSON file for future use, or load a previously saved context">?</span>
+        </h3>
+      </div>
+      
       <app-file-upload
         accept=".json"
         placeholder="Import Context"
@@ -20,12 +29,14 @@
         (filesSelected)="onImportFilesSelected($event)">
       </app-file-upload>
       <button class="action-button" (click)="exportContext()">Export Context</button>
-    </app-subsection>
 
-    <app-subsection 
-      title="File Upload" 
-      [collapsed]="fileUploadCollapsed"
-      tooltip="Upload subtitle files (.ass or .srt) to be used for context generation">
+      <!-- Subtitle File Upload -->
+      <div class="section-header">
+        <h3>
+          Subtitle File Upload
+          <span class="info-icon" title="Upload subtitle files (.ass or .srt) to be used for context generation">?</span>
+        </h3>
+      </div>
       <div class="form-row">
         <div class="form-group">
           <div class="label-container">
@@ -57,9 +68,17 @@
     </app-subsection>
 
     <app-subsection 
-      title="Web Search" 
-      [collapsed]="webContextCollapsed"
-      tooltip="Gather contextual information from web search using series name and keywords">
+      title="Context" 
+      [collapsed]="contextCollapsed"
+      tooltip="Generate and manage translation context including web research, character lists, summaries, and recaps">
+      
+      <!-- Web Search -->
+      <div class="section-header">
+        <h3>
+          Web Search
+          <span class="info-icon" title="Gather contextual information from web search using series name and keywords">?</span>
+        </h3>
+      </div>
       <div class="form-row">
         <div class="form-group">
           <div class="label-container">
@@ -81,40 +100,23 @@
       <button class="action-button" (click)="gatherWebContext()" [disabled]="runningContext">Gather Web Context</button>
 
       <div class="form-group">
-        <div class="textarea-header">
-          <label for="webContext">Gathered Web Context</label>
-          <div class="font-size-controls">
-            <button type="button" class="mode-toggle-btn" (click)="toggleWebContextMode()" title="Toggle read/edit mode">
-              {{ webContextReadMode ? 'Read Mode' : 'Write Mode' }}
-            </button>
-            <button type="button" class="font-size-btn" (click)="adjustWebContextFontSize(-1)" title="Decrease font size">A-</button>
-            <span class="font-size-display">{{ webContextFontSize }}px</span>
-            <button type="button" class="font-size-btn" (click)="adjustWebContextFontSize(1)" title="Increase font size">A+</button>
-          </div>
-        </div>
-        <textarea *ngIf="!webContextReadMode" id="webContext" [(ngModel)]="webContext" (ngModelChange)="updateWebContext()" rows="8" placeholder="Web context will appear here..." [style.font-size.px]="webContextFontSize"></textarea>
-        <div *ngIf="webContextReadMode" class="markdown-view" [innerHTML]="formatMarkdown(webContext)" [style.font-size.px]="webContextFontSize"></div>
+        <app-text-field 
+          label="Gathered Web Context" 
+          placeholder="Web context will appear here..."
+          [(ngModel)]="webContext"
+          (ngModelChange)="updateWebContext()">
+        </app-text-field>
       </div>
-    </app-subsection>
 
-    <app-subsection 
-      title="Context" 
-      [collapsed]="contextCollapsed"
-      tooltip="Generate character lists and summaries from uploaded subtitle files using AI">
+      <!-- Character List -->
       <div class="form-group">
-        <div class="textarea-header">
-          <label for="characterList">Character List</label>
-          <div class="font-size-controls">
-            <button type="button" class="mode-toggle-btn" (click)="toggleCharacterListMode()" title="Toggle read/edit mode">
-              {{ characterListReadMode ? 'Read Mode' : 'Write Mode' }}
-            </button>
-            <button type="button" class="font-size-btn" (click)="adjustCharacterListFontSize(-1)" title="Decrease font size">A-</button>
-            <span class="font-size-display">{{ characterListFontSize }}px</span>
-            <button type="button" class="font-size-btn" (click)="adjustCharacterListFontSize(1)" title="Increase font size">A+</button>
-          </div>
-        </div>
-        <textarea *ngIf="!characterListReadMode" id="characterList" [(ngModel)]="characterList" (ngModelChange)="updateCharacterList()" rows="8" placeholder="Enter character names and descriptions..." [style.font-size.px]="characterListFontSize"></textarea>
-        <div *ngIf="characterListReadMode" class="markdown-view" [innerHTML]="formatMarkdown(characterList)" [style.font-size.px]="characterListFontSize"></div>
+        <app-text-field 
+          label="Character List" 
+          tooltip="Generate a list of characters with descriptions from the subtitle file"
+          placeholder="Enter character names and descriptions..."
+          [(ngModel)]="characterList"
+          (ngModelChange)="updateCharacterList()">
+        </app-text-field>
       </div>
 
       <div class="context-options">
@@ -129,20 +131,38 @@
       </div>
       <button class="action-button" (click)="generateCharacterList()" [disabled]="runningContext">Generate Character List</button>
 
+      <!-- Synopsis -->
       <div class="form-group">
-        <div class="textarea-header">
-          <label for="summary">Summary</label>
-          <div class="font-size-controls">
-            <button type="button" class="mode-toggle-btn" (click)="toggleSummaryMode()" title="Toggle read/edit mode">
-              {{ summaryReadMode ? 'Read Mode' : 'Write Mode' }}
-            </button>
-            <button type="button" class="font-size-btn" (click)="adjustSummaryFontSize(-1)" title="Decrease font size">A-</button>
-            <span class="font-size-display">{{ summaryFontSize }}px</span>
-            <button type="button" class="font-size-btn" (click)="adjustSummaryFontSize(1)" title="Increase font size">A+</button>
-          </div>
-        </div>
-        <textarea *ngIf="!summaryReadMode" id="summary" [(ngModel)]="summary" (ngModelChange)="updateSummary()" rows="8" placeholder="Enter summary..." [style.font-size.px]="summaryFontSize"></textarea>
-        <div *ngIf="summaryReadMode" class="markdown-view" [innerHTML]="formatMarkdown(summary)" [style.font-size.px]="summaryFontSize"></div>
+        <app-text-field 
+          label="Synopsis" 
+          tooltip="Generate a synopsis of the episode or scene"
+          placeholder="Enter synopsis..."
+          [(ngModel)]="synopsis"
+          (ngModelChange)="updateSynopsis()">
+        </app-text-field>
+      </div>
+
+      <div class="context-options">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="synopsisUseWebContext">
+          <span>Include Web Context</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="synopsisUseCharacterList">
+          <span>Include Character List</span>
+        </label>
+      </div>
+      <button class="action-button" (click)="generateSynopsis()" [disabled]="runningContext">Generate Synopsis</button>
+
+      <!-- Summary -->
+      <div class="form-group">
+        <app-text-field 
+          label="Summary" 
+          tooltip="Generate a high-level summary of the episode or content"
+          placeholder="Enter summary..."
+          [(ngModel)]="summary"
+          (ngModelChange)="updateSummary()">
+        </app-text-field>
       </div>
 
       <div class="context-options">
@@ -154,6 +174,10 @@
           <input type="checkbox" [(ngModel)]="summaryUseCharacterList">
           <span>Include Character List</span>
         </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="summaryUseSynopsis">
+          <span>Include Synopsis</span>
+        </label>
       </div>
       <button class="action-button" (click)="generateSummary()" [disabled]="runningContext">Generate Summary</button>
     </app-subsection>
@@ -162,6 +186,7 @@
       title="Recap" 
       [collapsed]="recapCollapsed"
       tooltip="Generate a comprehensive recap from multiple context files for continuity across episodes">
+      
       <app-file-upload
         accept=".json"
         [multiple]="true"
@@ -171,63 +196,55 @@
         (filesSelected)="onRecapFilesSelected($event)">
       </app-file-upload>
 
-        <div class="file-table-container" *ngIf="recapContextFiles.length > 0">
-          <div class="file-table-header">
-            <span>Uploaded Context Files</span>
-            <span class="info-icon" title="Files are processed in the order shown. Use ↑/↓ buttons to reorder them for proper chronological sequence.">?</span>
-          </div>
-          <table class="file-table">
-            <thead>
-              <tr>
-                <th class="col-reorder"></th>
-                <th class="col-index">#</th>
-                <th class="col-filename">Filename</th>
-                <th class="col-remove"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let file of recapContextFiles; let i = index">
-                <td class="col-reorder">
-                  <div class="reorder-buttons">
-                    <button type="button" 
-                            class="reorder-btn" 
-                            (click)="moveRecapFileUp(i)" 
-                            [disabled]="i === 0"
-                            title="Move up">↑</button>
-                    <button type="button" 
-                            class="reorder-btn" 
-                            (click)="moveRecapFileDown(i)" 
-                            [disabled]="i === recapContextFiles.length - 1"
-                            title="Move down">↓</button>
-                  </div>
-                </td>
-                <td class="col-index">{{ i + 1 }}</td>
-                <td class="col-filename">{{ file.name }}</td>
-                <td class="col-remove">
-                  <button type="button" class="remove-btn" (click)="removeRecapFile(i)" title="Remove file">✕</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <div class="file-table-container" *ngIf="recapContextFiles.length > 0">
+        <div class="file-table-header">
+          <span>Uploaded Context Files</span>
+          <span class="info-icon" title="Files are processed in the order shown. Use ↑/↓ buttons to reorder them for proper chronological sequence.">?</span>
         </div>
+        <table class="file-table">
+          <thead>
+            <tr>
+              <th class="col-reorder"></th>
+              <th class="col-index">#</th>
+              <th class="col-filename">Filename</th>
+              <th class="col-remove"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let file of recapContextFiles; let i = index">
+              <td class="col-reorder">
+                <div class="reorder-buttons">
+                  <button type="button" 
+                          class="reorder-btn" 
+                          (click)="moveRecapFileUp(i)" 
+                          [disabled]="i === 0"
+                          title="Move up">↑</button>
+                  <button type="button" 
+                          class="reorder-btn" 
+                          (click)="moveRecapFileDown(i)" 
+                          [disabled]="i === recapContextFiles.length - 1"
+                          title="Move down">↓</button>
+                </div>
+              </td>
+              <td class="col-index">{{ i + 1 }}</td>
+              <td class="col-filename">{{ file.name }}</td>
+              <td class="col-remove">
+                <button type="button" class="remove-btn" (click)="removeRecapFile(i)" title="Remove file">✕</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-        <button class="action-button" (click)="generateRecap()" [disabled]="runningContext || recapContextFiles.length === 0">Generate Recap</button>
+      <button class="action-button" (click)="generateRecap()" [disabled]="runningContext || recapContextFiles.length === 0">Generate Recap</button>
 
-        <div class="form-group">
-          <div class="textarea-header">
-            <label for="recap">Generated Recap</label>
-            <div class="font-size-controls">
-              <button type="button" class="mode-toggle-btn" (click)="toggleRecapMode()" title="Toggle read/edit mode">
-                {{ recapReadMode ? 'Read Mode' : 'Write Mode' }}
-              </button>
-              <button type="button" class="font-size-btn" (click)="adjustRecapFontSize(-1)" title="Decrease font size">A-</button>
-              <span class="font-size-display">{{ recapFontSize }}px</span>
-              <button type="button" class="font-size-btn" (click)="adjustRecapFontSize(1)" title="Increase font size">A+</button>
-            </div>
-          </div>
-          <textarea *ngIf="!recapReadMode" id="recap" [(ngModel)]="recap" rows="8" placeholder="Recap will appear here..." [style.font-size.px]="recapFontSize"></textarea>
-          <div *ngIf="recapReadMode" class="markdown-view" [innerHTML]="formatMarkdown(recap)" [style.font-size.px]="recapFontSize"></div>
-        </div>
+      <div class="form-group">
+        <app-text-field 
+          label="Generated Recap" 
+          placeholder="Recap will appear here..."
+          [(ngModel)]="recap">
+        </app-text-field>
+      </div>
     </app-subsection>
   </div>
 </div>

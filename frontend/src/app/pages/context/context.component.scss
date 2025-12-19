@@ -2,7 +2,7 @@
   padding: 40px 20px;
   max-width: 1200px;
   margin: 0 auto;
-  margin-left: 240px;
+  margin-left: calc(220px + max(0px, (100vw - 220px - 1200px) / 2));
 }
 
 .header-container {
@@ -43,6 +43,43 @@
   display: flex;
   flex-direction: column;
   gap: 40px;
+}
+
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: #667eea;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: bold;
+  cursor: help;
+  flex-shrink: 0;
+  transition: background-color 0.3s ease;
+
+  &:hover {
+    background-color: #5568d3;
+  }
+}
+
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-header h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.35rem;
+  color: #667eea;
+  margin: 0;
+  font-weight: 600;
 }
 
 .subsection {
@@ -150,26 +187,6 @@
     margin: 0;
   }
 
-  .info-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background-color: #667eea;
-    color: white;
-    font-size: 0.8rem;
-    font-weight: bold;
-    cursor: help;
-    flex-shrink: 0;
-    transition: background-color 0.3s ease;
-
-    &:hover {
-      background-color: #5568d3;
-    }
-  }
-
   input[type="text"], select {
     padding: 12px 15px;
     border: 2px solid #ddd;
@@ -235,7 +252,7 @@
     font-size: 1.1rem;
     font-weight: 600;
     color: #333;
-    margin-bottom: 5px;
+    margin-bottom: 2px;
   }
 
   .upload-subtext {
@@ -276,7 +293,6 @@
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.3s ease;
-  margin-bottom: 30px;
 
   &:hover:not(:disabled) {
     background-color: #5568d3;
@@ -496,26 +512,7 @@ textarea {
   font-weight: 600;
   font-size: 1.3rem;
   color: #667eea;
-  margin-bottom: 16px;
-
-  .info-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background-color: #667eea;
-    color: white;
-    font-size: 0.85rem;
-    font-weight: bold;
-    cursor: help;
-    transition: background-color 0.3s ease;
-
-    &:hover {
-      background-color: #5568d3;
-    }
-  }
+  margin-bottom: 2px;
 }
 
 .file-table {

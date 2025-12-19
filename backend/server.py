@@ -2,14 +2,19 @@
 FastAPI server for Translator Helper backend.
 """
 
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from settings import settings
 import threading
-from business.context import generate_web_context, generate_character_list, generate_high_level_summary, generate_recap
+from business.context import generate_web_context, generate_character_list, generate_high_level_summary, generate_synopsis, generate_recap
+from business.transcribe import transcribe_line
 from langchain_tavily import TavilySearch
+from utils.utils import load_sub_data
+import tempfile
+import os
+from pprint import pprint
 
 # Server state variables
 tavily_api_key_available = False
@@ -31,6 +36,8 @@ loading_gpt_model = False
 loading_tavily_api = False
 context_result = None
 context_error = None
+transcription_result = None
+transcription_error = None
 
 # Startup function to load models based on settings
 def startup_load_models():
@@ -241,13 +248,18 @@ def generate_web_context_background(series_name: str, keywords: str, input_lang:
     finally:
         running_context = False
 
-def generate_character_list_background(transcript: str, input_lang: str, output_lang: str, context: dict):
+def generate_character_list_background(file_path: str, input_lang: str, output_lang: str, context: dict):
     """Generate character list in background."""
     global running_context, context_result, context_error, gpt_model
     try:
         running_context = True
         context_result = None
         context_error = None
+        
+        # Extract transcript from subtitle file
+        transcript_lines = load_sub_data(file_path, include_speaker=True)
+        transcript = "\n".join(transcript_lines)
+        
         result = generate_character_list(
             model=gpt_model,
             input_lang=input_lang,
@@ -261,14 +273,26 @@ def generate_character_list_background(transcript: str, input_lang: str, output_
         context_error = str(e)
     finally:
         running_context = False
+        # Cleanup temp file
+        try:
+            os.remove(file_path)
+        except:
+            pass
 
-def generate_summary_background(transcript: str, input_lang: str, output_lang: str, context: dict):
+def generate_summary_background(file_path: str, input_lang: str, output_lang: str, context: dict):
     """Generate high-level summary in background."""
     global running_context, context_result, context_error, gpt_model
     try:
         running_context = True
         context_result = None
         context_error = None
+        
+        # Extract transcript from subtitle file
+        transcript_lines = load_sub_data(file_path, include_speaker=True)
+        transcript = "\n".join(transcript_lines)
+
+        
+        
         result = generate_high_level_summary(
             model=gpt_model,
             input_lang=input_lang,
@@ -282,6 +306,42 @@ def generate_summary_background(transcript: str, input_lang: str, output_lang: s
         context_error = str(e)
     finally:
         running_context = False
+        # Cleanup temp file
+        try:
+            os.remove(file_path)
+        except:
+            pass
+
+def generate_synopsis_background(file_path: str, input_lang: str, output_lang: str, context: dict):
+    """Generate synopsis in background."""
+    global running_context, context_result, context_error, gpt_model
+    try:
+        running_context = True
+        context_result = None
+        context_error = None
+        
+        # Extract transcript from subtitle file
+        transcript_lines = load_sub_data(file_path, include_speaker=True)
+        transcript = "\n".join(transcript_lines)
+        
+        result = generate_synopsis(
+            model=gpt_model,
+            input_lang=input_lang,
+            output_lang=output_lang,
+            transcript=transcript,
+            context=context if context else None
+        )
+        context_result = {"type": "synopsis", "data": result}
+    except Exception as e:
+        print(f"Error generating synopsis: {e}")
+        context_error = str(e)
+    finally:
+        running_context = False
+        # Cleanup temp file
+        try:
+            os.remove(file_path)
+        except:
+            pass
 
 def generate_recap_background(input_lang: str, output_lang: str, contexts: list[dict]):
     """Generate recap from multiple contexts in background."""
@@ -302,6 +362,78 @@ def generate_recap_background(input_lang: str, output_lang: str, contexts: list[
         context_error = str(e)
     finally:
         running_context = False
+
+def transcribe_audio_background(file_path: str, language: str):
+    """Transcribe audio in background."""
+    global running_transcription, transcription_result, transcription_error, whisper_model
+    try:
+        running_transcription = True
+        transcription_result = None
+        transcription_error = None
+        
+        result = transcribe_line(
+            model=whisper_model,
+            filepath=file_path,
+            language=language
+        )
+        transcription_result = {"type": "transcription", "data": result}
+    except Exception as e:
+        print(f"Error transcribing audio: {e}")
+        transcription_error = str(e)
+    finally:
+        running_transcription = False
+        # Cleanup temp file
+        try:
+            os.remove(file_path)
+        except:
+            pass
+
+@app.post("/api/transcribe/transcribe-line")
+async def transcribe_audio_line(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    language: str = Form(...)
+):
+    """Transcribe audio file using Whisper model."""
+    global running_transcription, whisper_model
+    
+    if running_transcription:
+        return {"status": "error", "message": "Transcription is already running"}
+    
+    if not whisper_model:
+        return {"status": "error", "message": "Whisper model not loaded"}
+    
+    try:
+        # Save uploaded file to temp location
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp_file:
+            content = await file.read()
+            tmp_file.write(content)
+            tmp_file_path = tmp_file.name
+        
+        # Start background transcription
+        background_tasks.add_task(transcribe_audio_background, tmp_file_path, language)
+        
+        return {"status": "processing", "message": "Transcription started"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.get("/api/transcribe/result")
+async def get_transcription_result():
+    """Get the result of the transcription."""
+    global transcription_result, transcription_error, running_transcription
+    
+    if running_transcription:
+        return {"status": "processing", "result": None, "error": None}
+    elif transcription_error:
+        error = transcription_error
+        transcription_error = None  # Clear error after reading
+        return {"status": "error", "result": None, "error": error}
+    elif transcription_result:
+        result = transcription_result
+        transcription_result = None  # Clear result after reading
+        return {"status": "complete", "result": result, "error": None}
+    else:
+        return {"status": "idle", "result": None, "error": None}
 
 @app.post("/api/load-whisper-model")
 async def load_whisper(request: LoadWhisperRequest, background_tasks: BackgroundTasks):
@@ -360,8 +492,14 @@ async def api_generate_web_context(request: GenerateWebContextRequest, backgroun
     return {"status": "processing", "message": "Web context generation started"}
 
 @app.post("/api/context/generate-character-list")
-async def api_generate_character_list(request: GenerateCharacterListRequest, background_tasks: BackgroundTasks):
-    """Generate character list from transcript."""
+async def api_generate_character_list(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    input_lang: str = Form("ja"),
+    output_lang: str = Form("en"),
+    context: str = Form("{}")
+):
+    """Generate character list from subtitle file."""
     global gpt_model, running_context
     
     if not gpt_model:
@@ -370,18 +508,34 @@ async def api_generate_character_list(request: GenerateCharacterListRequest, bac
     if running_context:
         return {"status": "error", "message": "Context generation already running"}
     
+    # Save uploaded file temporarily
+    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+    
+    # Parse context from JSON string
+    import json
+    context_dict = json.loads(context) if context else {}
+    
     background_tasks.add_task(
         generate_character_list_background,
-        request.transcript,
-        request.input_lang,
-        request.output_lang,
-        request.context
+        tmp_path,
+        input_lang,
+        output_lang,
+        context_dict
     )
     return {"status": "processing", "message": "Character list generation started"}
 
 @app.post("/api/context/generate-high-level-summary")
-async def api_generate_high_level_summary(request: GenerateHighLevelSummaryRequest, background_tasks: BackgroundTasks):
-    """Generate high-level summary from transcript."""
+async def api_generate_high_level_summary(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    input_lang: str = Form("ja"),
+    output_lang: str = Form("en"),
+    context: str = Form("{}")
+):
+    """Generate high-level summary from subtitle file."""
     global gpt_model, running_context
     
     if not gpt_model:
@@ -390,14 +544,60 @@ async def api_generate_high_level_summary(request: GenerateHighLevelSummaryReque
     if running_context:
         return {"status": "error", "message": "Context generation already running"}
     
+    # Save uploaded file temporarily
+    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+    
+    # Parse context from JSON string
+    import json
+    context_dict = json.loads(context) if context else {}
+    
     background_tasks.add_task(
         generate_summary_background,
-        request.transcript,
-        request.input_lang,
-        request.output_lang,
-        request.context
+        tmp_path,
+        input_lang,
+        output_lang,
+        context_dict
     )
     return {"status": "processing", "message": "Summary generation started"}
+
+@app.post("/api/context/generate-synopsis")
+async def api_generate_synopsis(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    input_lang: str = Form("ja"),
+    output_lang: str = Form("en"),
+    context: str = Form("{}")
+):
+    """Generate synopsis from subtitle file."""
+    global gpt_model, running_context
+    
+    if not gpt_model:
+        return {"status": "error", "message": "GPT model not loaded"}
+    
+    if running_context:
+        return {"status": "error", "message": "Context generation already running"}
+    
+    # Save uploaded file temporarily
+    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+    
+    # Parse context from JSON string
+    import json
+    context_dict = json.loads(context) if context else {}
+    
+    background_tasks.add_task(
+        generate_synopsis_background,
+        tmp_path,
+        input_lang,
+        output_lang,
+        context_dict
+    )
+    return {"status": "processing", "message": "Synopsis generation started"}
 
 @app.post("/api/context/generate-recap")
 async def api_generate_recap(request: GenerateRecapRequest, background_tasks: BackgroundTasks):

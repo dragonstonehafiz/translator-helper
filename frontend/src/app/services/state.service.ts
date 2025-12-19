@@ -27,6 +27,9 @@ export class StateService {
   private summarySubject = new BehaviorSubject<string>('');
   public summary$: Observable<string> = this.summarySubject.asObservable();
 
+  private synopsisSubject = new BehaviorSubject<string>('');
+  public synopsis$: Observable<string> = this.synopsisSubject.asObservable();
+
   private recapSubject = new BehaviorSubject<string>('');
   public recap$: Observable<string> = this.recapSubject.asObservable();
 
@@ -77,6 +80,14 @@ export class StateService {
 
   getSummary(): string {
     return this.summarySubject.value;
+  }
+
+  setSynopsis(synopsis: string): void {
+    this.synopsisSubject.next(synopsis);
+  }
+
+  getSynopsis(): string {
+    return this.synopsisSubject.value;
   }
 
   setRecap(recap: string): void {

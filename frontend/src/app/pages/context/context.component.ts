@@ -7,11 +7,12 @@ import { Subscription, interval } from 'rxjs';
 import { SidebarComponent } from '../../components/sidebar/sidebar.component';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
+import { TextFieldComponent } from '../../components/text-field/text-field.component';
 
 @Component({
   selector: 'app-context',
   standalone: true,
-  imports: [CommonModule, FormsModule, SidebarComponent, SubsectionComponent, FileUploadComponent],
+  imports: [CommonModule, FormsModule, SidebarComponent, SubsectionComponent, FileUploadComponent, TextFieldComponent],
   templateUrl: './context.component.html',
   styleUrl: './context.component.scss'
 })
@@ -19,6 +20,7 @@ export class ContextComponent implements OnInit, OnDestroy {
   seriesName = '';
   keywords = '';
   characterList = '';
+  synopsis = '';
   summary = '';
   webContext = '';
   selectedFile: File | null = null;
@@ -31,20 +33,27 @@ export class ContextComponent implements OnInit, OnDestroy {
   // Font sizes for textareas
   webContextFontSize = 14;
   characterListFontSize = 14;
+  synopsisFontSize = 14;
   summaryFontSize = 14;
   
   // View modes (true = read mode, false = edit mode)
   webContextReadMode = true;
-  characterListReadMode = false;
-  summaryReadMode = false;
+  characterListReadMode = true;
+  synopsisReadMode = true;
+  summaryReadMode = true;
   
   // Context checkboxes for character list generation
   characterListUseWebContext = true;
   characterListUseSummary = false;
   
+  // Context checkboxes for synopsis generation
+  synopsisUseWebContext = true;
+  synopsisUseCharacterList = true;
+  
   // Context checkboxes for summary generation
   summaryUseWebContext = true;
   summaryUseCharacterList = true;
+  summaryUseSynopsis = true;
   
   // Collapsible section states
   importExportCollapsed = false;
@@ -97,6 +106,7 @@ export class ContextComponent implements OnInit, OnDestroy {
     // Load existing values from state
     this.webContext = this.stateService.getWebContext();
     this.characterList = this.stateService.getCharacterList();
+    this.synopsis = this.stateService.getSynopsis();
     this.summary = this.stateService.getSummary();
     this.recap = this.stateService.getRecap();
 
@@ -136,6 +146,9 @@ export class ContextComponent implements OnInit, OnDestroy {
           } else if (response.result.type === 'character_list') {
             this.characterList = response.result.data;
             this.stateService.setCharacterList(response.result.data);
+          } else if (response.result.type === 'synopsis') {
+            this.synopsis = response.result.data;
+            this.stateService.setSynopsis(response.result.data);
           } else if (response.result.type === 'summary') {
             this.summary = response.result.data;
             this.stateService.setSummary(response.result.data);
@@ -202,6 +215,10 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.stateService.setCharacterList(this.characterList);
   }
 
+  updateSynopsis(): void {
+    this.stateService.setSynopsis(this.synopsis);
+  }
+
   updateSummary(): void {
     this.stateService.setSummary(this.summary);
   }
@@ -214,6 +231,10 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.characterListFontSize = Math.max(10, Math.min(24, this.characterListFontSize + delta));
   }
 
+  adjustSynopsisFontSize(delta: number): void {
+    this.synopsisFontSize = Math.max(10, Math.min(24, this.synopsisFontSize + delta));
+  }
+
   adjustSummaryFontSize(delta: number): void {
     this.summaryFontSize = Math.max(10, Math.min(24, this.summaryFontSize + delta));
   }
@@ -224,6 +245,10 @@ export class ContextComponent implements OnInit, OnDestroy {
 
   toggleCharacterListMode(): void {
     this.characterListReadMode = !this.characterListReadMode;
+  }
+
+  toggleSynopsisMode(): void {
+    this.synopsisReadMode = !this.synopsisReadMode;
   }
 
   toggleSummaryMode(): void {
@@ -240,40 +265,72 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Read file content (simplified - in production you'd want proper file reading)
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const transcript = e.target?.result as string;
-      
-      // Build context dict with only checked and non-empty fields
-      const context: any = {};
-      if (this.characterListUseWebContext && this.webContext.trim()) {
-        context.web_context = this.webContext;
-      }
-      if (this.characterListUseSummary && this.summary.trim()) {
-        context.summary = this.summary;
-      }
-      
-      this.apiService.generateCharacterList(
-        transcript,
-        context,
-        this.inputLanguage,
-        this.outputLanguage
-      ).subscribe({
-        next: (response) => {
-          if (response.status === 'processing') {
-            console.log('Character list generation started, waiting for result...');
-          } else if (response.status === 'error') {
-            alert(`Error: ${response.message}`);
-          }
-        },
-        error: (err) => {
-          console.error('Error generating character list:', err);
-          alert('Failed to generate character list. Please try again.');
+    // Build context dict with only checked and non-empty fields
+    const context: any = {};
+    if (this.characterListUseWebContext && this.webContext.trim()) {
+      context.web_context = this.webContext;
+    }
+    if (this.characterListUseSummary && this.summary.trim()) {
+      context.summary = this.summary;
+    }
+    
+    this.apiService.generateCharacterList(
+      this.selectedFile,
+      context,
+      this.inputLanguage,
+      this.outputLanguage
+    ).subscribe({
+      next: (response) => {
+        if (response.status === 'processing') {
+          console.log('Character list generation started, waiting for result...');
+        } else if (response.status === 'error') {
+          alert(`Error: ${response.message}`);
         }
-      });
-    };
-    reader.readAsText(this.selectedFile);
+      },
+      error: (err) => {
+        console.error('Error generating character list:', err);
+        alert('Failed to generate character list. Please try again.');
+      }
+    });
+  }
+
+  generateSynopsis(): void {
+    if (!this.selectedFile) {
+      alert('Please upload a subtitle file first');
+      return;
+    }
+
+    if (this.runningContext) {
+      return;
+    }
+
+    // Build context dict with only checked and non-empty fields
+    const context: any = {};
+    if (this.synopsisUseWebContext && this.webContext.trim()) {
+      context.web_context = this.webContext;
+    }
+    if (this.synopsisUseCharacterList && this.characterList.trim()) {
+      context.character_list = this.characterList;
+    }
+    
+    this.apiService.generateSynopsis(
+      this.selectedFile,
+      context,
+      this.inputLanguage,
+      this.outputLanguage
+    ).subscribe({
+      next: (response) => {
+        if (response.status === 'processing') {
+          console.log('Synopsis generation started, waiting for result...');
+        } else if (response.status === 'error') {
+          alert(`Error: ${response.message}`);
+        }
+      },
+      error: (err) => {
+        console.error('Error generating synopsis:', err);
+        alert('Failed to generate synopsis. Please try again.');
+      }
+    });
   }
 
   generateSummary(): void {
@@ -286,40 +343,36 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Read file content
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const transcript = e.target?.result as string;
-      
-      // Build context dict with only checked and non-empty fields
-      const context: any = {};
-      if (this.summaryUseWebContext && this.webContext.trim()) {
-        context.web_context = this.webContext;
-      }
-      if (this.summaryUseCharacterList && this.characterList.trim()) {
-        context.character_list = this.characterList;
-      }
-      
-      this.apiService.generateSummary(
-        transcript,
-        context,
-        this.inputLanguage,
-        this.outputLanguage
-      ).subscribe({
-        next: (response) => {
-          if (response.status === 'processing') {
-            console.log('Summary generation started, waiting for result...');
-          } else if (response.status === 'error') {
-            alert(`Error: ${response.message}`);
-          }
-        },
-        error: (err) => {
-          console.error('Error generating summary:', err);
-          alert('Failed to generate summary. Please try again.');
+    // Build context dict with only checked and non-empty fields
+    const context: any = {};
+    if (this.summaryUseWebContext && this.webContext.trim()) {
+      context.web_context = this.webContext;
+    }
+    if (this.summaryUseCharacterList && this.characterList.trim()) {
+      context.character_list = this.characterList;
+    }
+    if (this.summaryUseSynopsis && this.synopsis.trim()) {
+      context.synopsis = this.synopsis;
+    }
+    
+    this.apiService.generateSummary(
+      this.selectedFile,
+      context,
+      this.inputLanguage,
+      this.outputLanguage
+    ).subscribe({
+      next: (response) => {
+        if (response.status === 'processing') {
+          console.log('Summary generation started, waiting for result...');
+        } else if (response.status === 'error') {
+          alert(`Error: ${response.message}`);
         }
-      });
-    };
-    reader.readAsText(this.selectedFile);
+      },
+      error: (err) => {
+        console.error('Error generating summary:', err);
+        alert('Failed to generate summary. Please try again.');
+      }
+    });
   }
 
   exportContext(): void {
@@ -330,6 +383,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       outputLanguage: this.outputLanguage,
       webContext: this.webContext,
       characterList: this.characterList,
+      synopsis: this.synopsis,
       summary: this.summary,
       recap: this.recap,
       exportDate: new Date().toISOString()
@@ -338,8 +392,16 @@ export class ContextComponent implements OnInit, OnDestroy {
     const blob = new Blob([JSON.stringify(contextData, null, 2)], { type: 'application/json' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
+    
+    // Use subtitle file name without extension, or default to generated-context
+    let filename = 'generated-context.json';
+    if (this.selectedFile) {
+      const baseName = this.selectedFile.name.replace(/\.(ass|srt)$/i, '');
+      filename = `${baseName}.json`;
+    }
+    
     a.href = url;
-    a.download = `context-${this.seriesName || 'export'}-${Date.now()}.json`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -377,6 +439,10 @@ export class ContextComponent implements OnInit, OnDestroy {
         if (data.characterList !== undefined) {
           this.characterList = data.characterList;
           this.stateService.setCharacterList(data.characterList);
+        }
+        if (data.synopsis !== undefined) {
+          this.synopsis = data.synopsis;
+          this.stateService.setSynopsis(data.synopsis);
         }
         if (data.summary !== undefined) {
           this.summary = data.summary;

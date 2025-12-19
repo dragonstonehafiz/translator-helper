@@ -288,6 +288,81 @@ def generate_high_level_summary(model: ChatOpenAI,
     return result.content
 
 
+def generate_synopsis(model: ChatOpenAI, 
+                      input_lang: str, output_lang: str, 
+                      transcript: str, context: Optional[dict] = None):
+    """
+    Generate a synopsis from a transcript.
+    
+    Args:
+        model: ChatOpenAI model
+        input_lang: Input language code
+        output_lang: Output language code
+        transcript: The dialogue transcript
+        context: Optional dictionary with context data (e.g., {"character_list": "...", "web_context": "..."})
+    """
+    context = context or {}
+    
+    # Build context section dynamically from all context keys
+    context_sections = []
+    for key, value in context.items():
+        if value:
+            # Format key as title (e.g., "character_list" -> "Character List")
+            title = key.replace('_', ' ').title()
+            context_sections.append(f"### {title}\n\n{value}")
+    
+    context_text = "\n\n".join(context_sections) if context_sections else "No additional context provided."
+    
+    prompt_str = """
+    # Role: {input_lang} Synopsis Generator
+
+    ## Input
+
+    {context_text}
+
+    ### Transcript
+
+    {transcript}
+
+    ## Instructions
+
+    You are creating a comprehensive synopsis of this episode or scene in {output_lang}.
+
+    Using the supporting information and the transcript, describe everything that happens:
+
+    - All plot points and story developments in order
+    - All character moments and interactions
+    - All revelations, decisions, and turning points
+    - Scene changes and topic shifts
+
+    Be thorough and complete. Cover all events from the transcript without omitting details.
+
+    ## Output Format
+
+    Write a comprehensive synopsis in natural {output_lang}. Include all events and developments - do not limit length.
+    """
+
+    synopsis_prompt = ChatPromptTemplate.from_template(prompt_str)
+
+    synopsis_chain = (
+        RunnableMap({
+            "transcript": lambda x: x["transcript"],
+            "input_lang": lambda x: x.get("input_lang", "ja"),
+            "output_lang": lambda x: x.get("output_lang", "en"),
+            "context_text": lambda x: x["context_text"],
+        }) | synopsis_prompt | model
+    )
+
+    result = synopsis_chain.invoke({
+        "transcript": transcript,
+        "input_lang": input_lang,
+        "output_lang": output_lang,
+        "context_text": context_text
+    })
+
+    return result.content
+
+
 def generate_recap(model: ChatOpenAI,
                    input_lang: str, output_lang: str,
                    contexts: list[dict]) -> str:
@@ -309,38 +384,41 @@ def generate_recap(model: ChatOpenAI,
     Returns:
         A comprehensive recap string in output_lang
     """
-    # Extract all character lists and synopses from contexts
-    all_character_lists = []
-    all_synopses = []
-    
+    # Collect all unique keys across all contexts
+    all_keys = set()
     for ctx in contexts:
-        # Extract character list
-        char_list = ctx.get("character_list", "")
-        if char_list and char_list.strip():
-            all_character_lists.append(char_list.strip())
-        
-        # Extract summary
-        summary = ctx.get("summary", "")
-        if summary and summary.strip():
-            all_synopses.append(summary.strip())
+        all_keys.update(ctx.keys())
     
-    # Build the sections for the prompt
-    character_section = ""
-    if all_character_lists:
-        # Combine all character lists (dedupe happens naturally in LLM prompt)
-        combined_chars = "\n\n".join([f"### Part {i+1}\n{chars}" 
-                                      for i, chars in enumerate(all_character_lists)])
-        character_section = f"## Characters\n\n{combined_chars}"
+    # Remove metadata keys that shouldn't be included in recap
+    metadata_keys = {'seriesName', 'keywords', 'inputLanguage', 'outputLanguage', 'exportDate'}
+    all_keys = all_keys - metadata_keys
     
-    synopsis_section = ""
-    if all_synopses:
-        combined_synopses = "\n\n".join([f"### Part {i+1}\n{syn}" 
-                                         for i, syn in enumerate(all_synopses)])
-        synopsis_section = f"## Previous Summaries\n\n{combined_synopses}"
+    # Extract values for each key across all contexts
+    sections_data = {}
+    for key in all_keys:
+        values = []
+        for i, ctx in enumerate(contexts):
+            value = ctx.get(key, "")
+            if value and str(value).strip():
+                values.append((i, str(value).strip()))
+        if values:
+            sections_data[key] = values
     
     # If no data provided, return empty string
-    if not character_section and not synopsis_section:
+    if not sections_data:
         return ""
+    
+    # Build the sections dynamically
+    context_sections = []
+    for key, values in sections_data.items():
+        # Format key as title (e.g., "character_list" -> "Character List")
+        title = key.replace('_', ' ').title()
+        
+        # Combine values from different parts
+        combined = "\n\n".join([f"### Part {i+1}\n{val}" for i, val in values])
+        context_sections.append(f"## {title}\n\n{combined}")
+    
+    all_context = "\n\n".join(context_sections)
     
     prompt_str = """
     # Role: Continuity Recap Generator for Translators
@@ -356,45 +434,37 @@ def generate_recap(model: ChatOpenAI,
 
     ## Input Context
 
-    {character_section}
-
-    {synopsis_section}
+    {all_context}
 
     ## Instructions
 
-    Create a comprehensive recap in {output_lang} that includes:
+    Create a comprehensive recap in {output_lang} that includes all information from the provided contexts:
 
-    1. **All Established Characters**: List every character that has appeared, with their key personality traits, roles, and relationships. Merge duplicate entries naturally.
+    1. **All Established Characters**: List every character that has appeared, with their key personality traits, roles, and relationships. Merge duplicate entries.
 
-    2. **Story Progression**: Summarize the major events and developments in chronological order, showing how the story has evolved.
+    2. **All Story Events**: Include all events and developments in chronological order. Do not summarize or condense - include all details.
 
-    3. **Tone and Setting**: Capture the overall tone, setting, and any important thematic elements.
+    3. **All Context Information**: Include tone, setting, and any other information provided.
 
-    **Important**: Be thorough, not brief. The translator needs enough detail to handle returning characters and ongoing plot threads naturally. This recap should serve as a complete reference for continuity.
+    **Important**: Be thorough and complete. The translator needs all details to handle returning characters and ongoing plot threads. Include everything from the contexts without omitting details.
 
     ## Output Format
 
-    Write a comprehensive recap in natural {output_lang}. Use clear paragraphs organized by:
-    - First paragraph(s): Characters and their roles/personalities
-    - Following paragraph(s): Story events and developments in order
-
-    Do not use headings or bullet points in your output - write in flowing paragraph form.
+    Write a comprehensive recap in natural {output_lang}. Organize the information clearly but include all details from the contexts. Do not limit length.
     """
 
     recap_prompt = ChatPromptTemplate.from_template(prompt_str)
     
     recap_chain = (
         RunnableMap({
-            "character_section": lambda x: x["character_section"],
-            "synopsis_section": lambda x: x["synopsis_section"],
+            "all_context": lambda x: x["all_context"],
             "input_lang": lambda x: x["input_lang"],
             "output_lang": lambda x: x["output_lang"]
         }) | recap_prompt | model
     )
     
     result = recap_chain.invoke({
-        "character_section": character_section,
-        "synopsis_section": synopsis_section,
+        "all_context": all_context,
         "input_lang": input_lang,
         "output_lang": output_lang
     })
