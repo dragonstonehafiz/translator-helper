@@ -15,6 +15,10 @@ from utils.utils import load_sub_data
 import tempfile
 import os
 from pprint import pprint
+from utils.logger import setup_logger
+
+# Setup logger
+logger = setup_logger()
 
 # Server state variables
 tavily_api_key_available = False
@@ -182,48 +186,60 @@ def load_whisper_background(model_name: str, device: str):
     global whisper_model, whisper_model_ready, loading_whisper_model, current_whisper_model, current_device
     try:
         loading_whisper_model = True
+        logger.info(f"Starting Whisper model load: model='{model_name}', device='{device}'")
         from utils.load_models import load_whisper_model
         whisper_model = load_whisper_model(model_name, device)
         whisper_model_ready = True
         current_whisper_model = model_name
         current_device = device
+        logger.info(f"Successfully loaded Whisper model: model='{model_name}', device='{device}'")
     except Exception as e:
+        logger.error(f"Error loading Whisper model: {e}")
         print(f"Error loading Whisper model: {e}")
         whisper_model_ready = False
     finally:
         loading_whisper_model = False
+        logger.info(f"Whisper model load completed: model='{model_name}'")
 
 def load_gpt_background(model_name: str, api_key: str, temperature: float):
     """Load GPT model in background."""
     global gpt_model, openai_api_key_available, openai_api_key, loading_gpt_model, current_openai_model, current_temperature
     try:
         loading_gpt_model = True
+        logger.info(f"Starting GPT model load: model='{model_name}', temperature={temperature}")
         from utils.load_models import load_gpt_model
         gpt_model = load_gpt_model(api_key, model_name, temperature)
         openai_api_key = api_key
         openai_api_key_available = True
         current_openai_model = model_name
         current_temperature = temperature
+        logger.info(f"Successfully loaded GPT model: model='{model_name}'")
     except Exception as e:
+        logger.error(f"Error loading GPT model: {e}")
         print(f"Error loading GPT model: {e}")
         openai_api_key_available = False
     finally:
         loading_gpt_model = False
+        logger.info(f"GPT model load completed: model='{model_name}'")
 
 def load_tavily_background(api_key: str):
     """Load Tavily API in background."""
     global tavily_api_key_available, tavily_api_key, loading_tavily_api
     try:
         loading_tavily_api = True
+        logger.info("Starting Tavily API load")
         from utils.load_models import load_tavily_api
         load_tavily_api(api_key)
         tavily_api_key = api_key
         tavily_api_key_available = True
+        logger.info("Successfully loaded Tavily API")
     except Exception as e:
+        logger.error(f"Error loading Tavily API: {e}")
         print(f"Error loading Tavily API: {e}")
         tavily_api_key_available = False
     finally:
         loading_tavily_api = False
+        logger.info("Tavily API load completed")
 
 def generate_web_context_background(series_name: str, keywords: str, input_lang: str, output_lang: str):
     """Generate web context in background."""
@@ -232,6 +248,7 @@ def generate_web_context_background(series_name: str, keywords: str, input_lang:
         running_context = True
         context_result = None
         context_error = None
+        logger.info(f"Starting web context generation: series='{series_name}', keywords='{keywords}'")
         search_tool = TavilySearch(api_key=tavily_api_key)
         result = generate_web_context(
             model=gpt_model,
@@ -242,11 +259,14 @@ def generate_web_context_background(series_name: str, keywords: str, input_lang:
             keywords=keywords
         )
         context_result = {"type": "web_context", "data": result}
+        logger.info(f"Successfully completed web context generation: series='{series_name}'")
     except Exception as e:
+        logger.error(f"Error generating web context: {e}")
         print(f"Error generating web context: {e}")
         context_error = str(e)
     finally:
         running_context = False
+        logger.info("Web context generation process completed")
 
 def generate_character_list_background(file_path: str, input_lang: str, output_lang: str, context: dict):
     """Generate character list in background."""
@@ -255,6 +275,7 @@ def generate_character_list_background(file_path: str, input_lang: str, output_l
         running_context = True
         context_result = None
         context_error = None
+        logger.info(f"Starting character list generation: file='{file_path}'")
         
         # Extract transcript from subtitle file
         transcript_lines = load_sub_data(file_path, include_speaker=True)
@@ -268,11 +289,14 @@ def generate_character_list_background(file_path: str, input_lang: str, output_l
             context=context if context else None
         )
         context_result = {"type": "character_list", "data": result}
+        logger.info("Successfully completed character list generation")
     except Exception as e:
+        logger.error(f"Error generating character list: {e}")
         print(f"Error generating character list: {e}")
         context_error = str(e)
     finally:
         running_context = False
+        logger.info("Character list generation process completed")
         # Cleanup temp file
         try:
             os.remove(file_path)
@@ -286,6 +310,7 @@ def generate_summary_background(file_path: str, input_lang: str, output_lang: st
         running_context = True
         context_result = None
         context_error = None
+        logger.info(f"Starting summary generation: file='{file_path}'")
         
         # Extract transcript from subtitle file
         transcript_lines = load_sub_data(file_path, include_speaker=True)
@@ -301,11 +326,14 @@ def generate_summary_background(file_path: str, input_lang: str, output_lang: st
             context=context if context else None
         )
         context_result = {"type": "summary", "data": result}
+        logger.info("Successfully completed summary generation")
     except Exception as e:
+        logger.error(f"Error generating summary: {e}")
         print(f"Error generating summary: {e}")
         context_error = str(e)
     finally:
         running_context = False
+        logger.info("Summary generation process completed")
         # Cleanup temp file
         try:
             os.remove(file_path)
@@ -319,6 +347,7 @@ def generate_synopsis_background(file_path: str, input_lang: str, output_lang: s
         running_context = True
         context_result = None
         context_error = None
+        logger.info(f"Starting synopsis generation: file='{file_path}'")
         
         # Extract transcript from subtitle file
         transcript_lines = load_sub_data(file_path, include_speaker=True)
@@ -332,11 +361,14 @@ def generate_synopsis_background(file_path: str, input_lang: str, output_lang: s
             context=context if context else None
         )
         context_result = {"type": "synopsis", "data": result}
+        logger.info("Successfully completed synopsis generation")
     except Exception as e:
+        logger.error(f"Error generating synopsis: {e}")
         print(f"Error generating synopsis: {e}")
         context_error = str(e)
     finally:
         running_context = False
+        logger.info("Synopsis generation process completed")
         # Cleanup temp file
         try:
             os.remove(file_path)
@@ -350,6 +382,7 @@ def generate_recap_background(input_lang: str, output_lang: str, contexts: list[
         running_context = True
         context_result = None
         context_error = None
+        logger.info(f"Starting recap generation: contexts={len(contexts)}")
         result = generate_recap(
             model=gpt_model,
             input_lang=input_lang,
@@ -357,11 +390,14 @@ def generate_recap_background(input_lang: str, output_lang: str, contexts: list[
             contexts=contexts
         )
         context_result = {"type": "recap", "data": result}
+        logger.info("Successfully completed recap generation")
     except Exception as e:
+        logger.error(f"Error generating recap: {e}")
         print(f"Error generating recap: {e}")
         context_error = str(e)
     finally:
         running_context = False
+        logger.info("Recap generation process completed")
 
 def transcribe_audio_background(file_path: str, language: str):
     """Transcribe audio in background."""
@@ -370,6 +406,7 @@ def transcribe_audio_background(file_path: str, language: str):
         running_transcription = True
         transcription_result = None
         transcription_error = None
+        logger.info(f"Starting audio transcription: file='{file_path}', language='{language}'")
         
         result = transcribe_line(
             model=whisper_model,
@@ -377,11 +414,14 @@ def transcribe_audio_background(file_path: str, language: str):
             language=language
         )
         transcription_result = {"type": "transcription", "data": result}
+        logger.info("Successfully completed audio transcription")
     except Exception as e:
+        logger.error(f"Error transcribing audio: {e}")
         print(f"Error transcribing audio: {e}")
         transcription_error = str(e)
     finally:
         running_transcription = False
+        logger.info("Audio transcription process completed")
         # Cleanup temp file
         try:
             os.remove(file_path)

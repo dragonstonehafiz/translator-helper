@@ -5,4 +5,5 @@ config.json
 output/*.ass
 output/*.srt
 context/*.json
+outputs/
 .env
