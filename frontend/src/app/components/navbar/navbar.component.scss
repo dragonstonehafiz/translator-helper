@@ -17,6 +17,59 @@
   width: 100%;
 }
 
+.subnav {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #e9ecef;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  z-index: 99;
+}
+
+.subnav-content {
+  display: flex;
+  gap: 5px;
+  padding: 0 20px;
+  height: 50px;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 4px;
+  }
+
+  a {
+    color: #333;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.9rem;
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    flex-shrink: 0;
+
+    &:hover {
+      background-color: #e9ecef;
+      color: #667eea;
+    }
+
+    &.active {
+      background-color: #667eea;
+      color: white;
+    }
+  }
+}
+
 .navbar-brand {
   a {
     color: white;

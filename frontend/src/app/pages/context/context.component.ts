@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { StateService } from '../../services/state.service';
 import { ApiService } from '../../services/api.service';
 import { Subscription, interval } from 'rxjs';
-import { SidebarComponent } from '../../components/sidebar/sidebar.component';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 import { TextFieldComponent } from '../../components/text-field/text-field.component';
@@ -12,7 +11,7 @@ import { TextFieldComponent } from '../../components/text-field/text-field.compo
 @Component({
   selector: 'app-context',
   standalone: true,
-  imports: [CommonModule, FormsModule, SidebarComponent, SubsectionComponent, FileUploadComponent, TextFieldComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent],
   templateUrl: './context.component.html',
   styleUrl: './context.component.scss'
 })

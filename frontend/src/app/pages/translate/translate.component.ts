@@ -1,7 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { SidebarComponent } from '../../components/sidebar/sidebar.component';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
 import { TextFieldComponent } from '../../components/text-field/text-field.component';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
@@ -11,7 +10,7 @@ import { StateService } from '../../services/state.service';
 @Component({
   selector: 'app-translate',
   standalone: true,
-  imports: [CommonModule, FormsModule, SidebarComponent, SubsectionComponent, TextFieldComponent, FileUploadComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, FileUploadComponent],
   templateUrl: './translate.component.html',
   styleUrl: './translate.component.scss'
 })

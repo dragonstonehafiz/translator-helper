@@ -11,3 +11,13 @@
     </div>
   </div>
 </nav>
+
+<nav class="subnav" *ngIf="sections.length > 0">
+  <div class="subnav-content">
+    <a *ngFor="let section of sections" 
+       [class.active]="section.isActive"
+       (click)="scrollToSection(section.id)">
+      {{ section.title }}
+    </a>
+  </div>
+</nav>

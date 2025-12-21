@@ -2,7 +2,6 @@ import { Component, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef, OnD
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { SidebarComponent } from '../../components/sidebar/sidebar.component';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 import { TextFieldComponent } from '../../components/text-field/text-field.component';
@@ -12,7 +11,7 @@ import { StateService } from '../../services/state.service';
 @Component({
   selector: 'app-transcribe',
   standalone: true,
-  imports: [CommonModule, FormsModule, SidebarComponent, SubsectionComponent, FileUploadComponent, TextFieldComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent],
   templateUrl: './transcribe.component.html',
   styleUrl: './transcribe.component.scss'
 })

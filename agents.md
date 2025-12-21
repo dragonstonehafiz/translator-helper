@@ -8,25 +8,35 @@ Translator Helper is a full-stack application for transcribing, translating, and
 - **Frontend**: Angular 17.3.12 standalone application with TypeScript and SCSS
 - **Backend**: FastAPI Python server with Whisper (transcription), OpenAI (translation/context), and Tavily (web search)
 
+## Navigation
+
+### app-navbar
+**Location**: `frontend/src/app/components/navbar/`
+
+**Purpose**: Fixed top navigation bar with page links and automatic subsection navigation.
+
+**Features**:
+- **Main navbar** (60px height): Contains brand logo and direct links to all pages (Settings, Context, Transcribe, Translate)
+- **Subnav** (50px height): Automatically detects and displays subsection links for the current page
+- Subsection links scroll smoothly to the corresponding section on click
+- Active subsection is highlighted in purple
+- Both navbars are fixed at the top with z-index layering
+
+**Layout Impact**:
+- Pages should have `padding-top: 130px` to account for both navbars (60px + 50px + 20px offset)
+- Subsection links are auto-generated from `app-subsection` components on the page
+
+**How it works**:
+- Detects all `<app-subsection>` elements on the current page
+- Reads the `title` attribute from each subsection
+- Creates clickable links in the subnav
+- Updates active state based on scroll position
+
+---
+
 ## Reusable Frontend Components
 
 The application uses several reusable standalone components located in `frontend/src/app/components/`. **Always use these components instead of creating duplicate markup.**
-
-### app-sidebar
-**Location**: `frontend/src/app/components/sidebar/`
-
-**Purpose**: Fixed left navigation sidebar with links to all pages.
-
-**When to use**: Include on every page layout.
-
-**Usage**:
-```html
-<app-sidebar></app-sidebar>
-```
-
-**Properties**: None
-
----
 
 ### app-subsection
 **Location**: `frontend/src/app/components/subsection/`
@@ -175,8 +185,9 @@ Long-running operations use FastAPI's BackgroundTasks with polling:
 - **Text**: `#333`
 
 ### Layout
-- **Sidebar**: Fixed 220px width on left
-- **Page Container**: Max-width 1200px, centered with left margin calculation: `calc(220px + max(0px, (100vw - 220px - 1200px) / 2))`
+- **Navbar**: Fixed 60px height at top, with 50px subnav below when subsections exist
+- **Page Container**: Max-width 1200px, centered with `margin: 0 auto`
+- **Page Padding**: `padding: 130px 20px 40px` (top accounts for navbar + subnav + offset)
 - **Responsive**: None currently - desktop-focused
 
 ### Form Elements
@@ -198,6 +209,26 @@ Long-running operations use FastAPI's BackgroundTasks with polling:
 - If creating textarea with controls, use `app-text-field`
 - If creating file upload, use `app-file-upload`
 - If creating sections, use `app-subsection`
+
+### Page Layout
+- Use standard page container with proper padding for navbar
+- Example page structure:
+```html
+<div class="page-container">
+  <div class="header-container">
+    <h1>Page Title</h1>
+  </div>
+  <!-- Page content with app-subsection components -->
+</div>
+```
+- SCSS for page container:
+```scss
+.page-container {
+  padding: 130px 20px 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+```
 
 ### State Management
 - Use `StateService` for cross-component state
@@ -271,9 +302,9 @@ translator-helper/
 ### Adding a New Page
 1. Create page component in `frontend/src/app/pages/`
 2. Add route in `frontend/src/app/app.routes.ts`
-3. Add link in `sidebar.component.html`
-4. Include `<app-sidebar></app-sidebar>` in page template
-5. Use `app-subsection` for content organization
+3. Add link in `navbar.component.html` (main navbar menu)
+4. Use standard page container structure with proper padding (130px top)
+5. Use `app-subsection` components for content organization (will automatically appear in subnav)
 
 ### Adding a New Text Field
 Use `app-text-field` instead of creating a new textarea:
