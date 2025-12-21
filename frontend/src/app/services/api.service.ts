@@ -109,4 +109,27 @@ export class ApiService {
   getTranscriptionResult(): Observable<{status: string, result?: {type: string, data: string}, message?: string}> {
     return this.http.get<{status: string, result?: {type: string, data: string}, message?: string}>(`${this.baseUrl}/transcribe/result`);
   }
+
+  translateLine(text: string, context: any, inputLang: string, outputLang: string): Observable<{status: string, message?: string}> {
+    const formData = new FormData();
+    formData.append('text', text);
+    formData.append('context', JSON.stringify(context));
+    formData.append('input_lang', inputLang);
+    formData.append('output_lang', outputLang);
+    return this.http.post<{status: string, message?: string}>(`${this.baseUrl}/translate/translate-line`, formData);
+  }
+
+  translateFile(file: File, context: any, inputLang: string, outputLang: string, contextWindow: number): Observable<{status: string, message?: string}> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('context', JSON.stringify(context));
+    formData.append('input_lang', inputLang);
+    formData.append('output_lang', outputLang);
+    formData.append('context_window', contextWindow.toString());
+    return this.http.post<{status: string, message?: string}>(`${this.baseUrl}/translate/translate-file`, formData);
+  }
+
+  getTranslationResult(): Observable<{status: string, result?: {type: string, data: string, filename?: string}, message?: string}> {
+    return this.http.get<{status: string, result?: {type: string, data: string, filename?: string}, message?: string}>(`${this.baseUrl}/translate/result`);
+  }
 }

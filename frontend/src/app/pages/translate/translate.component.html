@@ -1,3 +1,177 @@
+<app-sidebar></app-sidebar>
+
 <div class="page-container">
-  <h1>Translate</h1>
+  <div class="header-container">
+    <h1>Translate</h1>
+    <span class="tooltip-icon" title="Translate text and subtitle files">?</span>
+  </div>
+
+  <div class="form-section">
+    <app-subsection 
+      title="Context" 
+      [collapsed]="contextCollapsed"
+      tooltip="Saved context from the Context page">
+      
+      <app-text-field 
+        label="Web Context" 
+        placeholder="No web context available..."
+        [rows]="6"
+        [(ngModel)]="webContext">
+      </app-text-field>
+
+      <app-text-field 
+        label="Character List" 
+        placeholder="No character list available..."
+        [rows]="6"
+        [(ngModel)]="characterList">
+      </app-text-field>
+
+      <app-text-field 
+        label="Synopsis" 
+        placeholder="No synopsis available..."
+        [rows]="6"
+        [(ngModel)]="synopsis">
+      </app-text-field>
+
+      <app-text-field 
+        label="Summary" 
+        placeholder="No summary available..."
+        [rows]="6"
+        [(ngModel)]="summary">
+      </app-text-field>
+
+      <app-text-field 
+        label="Recap" 
+        placeholder="No recap available..."
+        [rows]="6"
+        [(ngModel)]="recap">
+      </app-text-field>
+    </app-subsection>
+
+    <app-subsection 
+      title="Translate Line" 
+      [collapsed]="translateLineCollapsed"
+      tooltip="Translate a single line of text">
+      
+      <div class="checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="lineUseWebContext">
+          <span>Web Context</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="lineUseCharacterList">
+          <span>Character List</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="lineUseSynopsis">
+          <span>Synopsis</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="lineUseSummary">
+          <span>Summary</span>
+        </label>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="lineInputLanguage">Input Language</label>
+          <select id="lineInputLanguage" [(ngModel)]="lineInputLanguage">
+            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="lineOutputLanguage">Output Language</label>
+          <select id="lineOutputLanguage" [(ngModel)]="lineOutputLanguage">
+            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+          </select>
+        </div>
+      </div>
+
+      <app-text-field 
+        label="Text to Translate" 
+        placeholder="Enter text to translate..."
+        [rows]="4"
+        [(ngModel)]="lineTextToTranslate">
+      </app-text-field>
+
+      <button class="translate-btn" (click)="translateLine()" [disabled]="!lineTextToTranslate || isTranslatingLine">
+        {{ isTranslatingLine ? 'Translating...' : 'Translate Line' }}
+      </button>
+
+      <app-text-field 
+        label="Translation Result" 
+        placeholder="Translation will appear here..."
+        [rows]="4"
+        [(ngModel)]="lineTranslationResult">
+      </app-text-field>
+    </app-subsection>
+
+    <app-subsection 
+      title="Translate File" 
+      [collapsed]="translateFileCollapsed"
+      tooltip="Translate an entire subtitle file">
+      
+      <div class="checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="fileUseWebContext">
+          <span>Web Context</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="fileUseCharacterList">
+          <span>Character List</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="fileUseSynopsis">
+          <span>Synopsis</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="fileUseSummary">
+          <span>Summary</span>
+        </label>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="fileInputLanguage">Input Language</label>
+          <select id="fileInputLanguage" [(ngModel)]="fileInputLanguage">
+            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="fileOutputLanguage">Output Language</label>
+          <select id="fileOutputLanguage" [(ngModel)]="fileOutputLanguage">
+            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="contextWindow">Context Window</label>
+        <input type="number" id="contextWindow" [(ngModel)]="contextWindow" min="1" max="10">
+      </div>
+
+      <app-file-upload
+        accept=".ass,.srt"
+        placeholder="Upload Subtitle File"
+        subtext=".ass / .srt"
+        [selectedFiles]="fileToTranslate ? [fileToTranslate] : []"
+        (filesSelected)="onFileSelected($event)">
+      </app-file-upload>
+
+      <button class="translate-btn" (click)="translateFile()" [disabled]="!fileToTranslate || isTranslatingFile">
+        {{ isTranslatingFile ? 'Translating...' : 'Translate File' }}
+      </button>
+
+      <div *ngIf="fileTranslationResult" class="result-section">
+        <h3>Translation Complete</h3>
+        <button class="download-btn" (click)="downloadTranslatedFile()">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 14L5 9H8V3H12V9H15L10 14Z" fill="currentColor"/>
+            <path d="M17 15V17H3V15H1V17C1 18.1 1.9 19 3 19H17C18.1 19 19 18.1 19 17V15H17Z" fill="currentColor"/>
+          </svg>
+          Download {{ translatedFileName }}
+        </button>
+      </div>
+    </app-subsection>
+  </div>
 </div>

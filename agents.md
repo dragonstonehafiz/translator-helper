@@ -151,6 +151,11 @@ The application uses several reusable standalone components located in `frontend
 - `POST /api/transcribe/transcribe-line`: Transcribe audio file
 - `GET /api/transcribe/result`: Poll for transcription result
 
+**Translation** (`business/translate.py`):
+- `POST /api/translate/translate-line`: Translate text line with context (FormData: text, context JSON, input_lang, output_lang)
+- `POST /api/translate/translate-file`: Translate subtitle file with context window (FormData: file, context JSON, input_lang, output_lang, context_window)
+- `GET /api/translate/result`: Poll for translation result
+
 ### Background Tasks
 
 Long-running operations use FastAPI's BackgroundTasks with polling:
@@ -195,7 +200,10 @@ Long-running operations use FastAPI's BackgroundTasks with polling:
 - If creating sections, use `app-subsection`
 
 ### State Management
-- Use `StateService` for cross-component state (not yet fully implemented)
+- Use `StateService` for cross-component state
+  - `getState()`: Returns Observable with all saved context data (webContext, characterList, synopsis, summary, recap)
+  - Individual getters: `getWebContext()`, `getCharacterList()`, `getSynopsis()`, `getSummary()`, `getRecap()`
+  - Individual setters: `setWebContext()`, `setCharacterList()`, etc.
 - Use component-level state for local UI state
 - Use `ApiService` for all backend API calls
 
@@ -238,7 +246,7 @@ translator-helper/
 │   ├── business/              # Business logic
 │   │   ├── context.py         # Context generation
 │   │   ├── transcribe.py      # Audio transcription
-│   │   └── translate.py       # Translation (not yet used)
+│   │   └── translate.py       # Translation with context
 │   └── utils/                 # Utilities
 │       ├── config.py
 │       ├── load_models.py

@@ -10,6 +10,7 @@ from settings import settings
 import threading
 from business.context import generate_web_context, generate_character_list, generate_high_level_summary, generate_synopsis, generate_recap
 from business.transcribe import transcribe_line
+from business.translate import translate_sub, translate_subs
 from langchain_tavily import TavilySearch
 from utils.utils import load_sub_data
 import tempfile
@@ -42,6 +43,8 @@ context_result = None
 context_error = None
 transcription_result = None
 transcription_error = None
+translation_result = None
+translation_error = None
 
 # Startup function to load models based on settings
 def startup_load_models():
@@ -399,7 +402,7 @@ def generate_recap_background(input_lang: str, output_lang: str, contexts: list[
         running_context = False
         logger.info("Recap generation process completed")
 
-def transcribe_audio_background(file_path: str, language: str):
+def transcribe_line_background(file_path: str, language: str):
     """Transcribe audio in background."""
     global running_transcription, transcription_result, transcription_error, whisper_model
     try:
@@ -428,8 +431,97 @@ def transcribe_audio_background(file_path: str, language: str):
         except:
             pass
 
+def translate_line_background(text: str, context: dict, input_lang: str, output_lang: str):
+    """Translate a single line in background."""
+    global running_translation, translation_result, translation_error, gpt_model
+    try:
+        running_translation = True
+        translation_result = None
+        translation_error = None
+        logger.info(f"Starting line translation: input_lang='{input_lang}', output_lang='{output_lang}'")
+        
+        result = translate_sub(
+            llm=gpt_model,
+            text=text,
+            context=context if context else {},
+            input_lang=input_lang,
+            target_lang=output_lang
+        )
+        translation_result = {"type": "line_translation", "data": result}
+        logger.info("Successfully completed line translation")
+    except Exception as e:
+        logger.error(f"Error translating line: {e}")
+        print(f"Error translating line: {e}")
+        translation_error = str(e)
+    finally:
+        running_translation = False
+        logger.info("Line translation process completed")
+
+def translate_file_background(file_path: str, context: dict, input_lang: str, output_lang: str, context_window: int):
+    """Translate subtitle file in background."""
+    global running_translation, translation_result, translation_error, gpt_model
+    try:
+        running_translation = True
+        translation_result = None
+        translation_error = None
+        logger.info(f"Starting file translation: file='{file_path}', input_lang='{input_lang}', output_lang='{output_lang}'")
+        
+        # Load subtitle file
+        import pysubs2
+        subs = pysubs2.load(file_path)
+        
+        # Translate
+        translated_subs = translate_subs(
+            llm=gpt_model,
+            subs=subs,
+            context=context if context else {},
+            context_window=context_window,
+            input_lang=input_lang,
+            target_lang=output_lang
+        )
+        
+        # Save to temp file
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=os.path.splitext(file_path)[1], encoding='utf-8') as tmp_file:
+            translated_subs.save(tmp_file.name)
+            output_path = tmp_file.name
+        
+        # Read the file content
+        with open(output_path, 'r', encoding='utf-8') as f:
+            output_content = f.read()
+        
+        # Get original filename and create translated filename
+        original_filename = os.path.basename(file_path)
+        name, ext = os.path.splitext(original_filename)
+        translated_filename = f"{name}_translated{ext}"
+        
+        translation_result = {
+            "type": "file_translation", 
+            "data": output_content, 
+            "filename": translated_filename
+        }
+        logger.info("Successfully completed file translation")
+        
+        # Cleanup output file
+        try:
+            os.remove(output_path)
+        except:
+            pass
+    except Exception as e:
+        logger.error(f"Error translating file: {e}")
+        print(f"Error translating file: {e}")
+        translation_error = str(e)
+    finally:
+        running_translation = False
+        logger.info("File translation process completed")
+        # Cleanup input file
+        try:
+            os.remove(file_path)
+        except:
+            pass
+
 @app.post("/api/transcribe/transcribe-line")
-async def transcribe_audio_line(
+async def api_transcribe_line(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     language: str = Form(...)
@@ -451,7 +543,7 @@ async def transcribe_audio_line(
             tmp_file_path = tmp_file.name
         
         # Start background transcription
-        background_tasks.add_task(transcribe_audio_background, tmp_file_path, language)
+        background_tasks.add_task(transcribe_line_background, tmp_file_path, language)
         
         return {"status": "processing", "message": "Transcription started"}
     except Exception as e:
@@ -474,7 +566,87 @@ async def get_transcription_result():
         return {"status": "complete", "result": result, "error": None}
     else:
         return {"status": "idle", "result": None, "error": None}
+@app.post("/api/translate/translate-line")
+async def api_translate_line(
+    background_tasks: BackgroundTasks,
+    text: str = Form(...),
+    context: str = Form("{}"),
+    input_lang: str = Form("ja"),
+    output_lang: str = Form("en")
+):
+    """Translate a single line of text."""
+    global running_translation, gpt_model
+    
+    if running_translation:
+        return {"status": "error", "message": "Translation is already running"}
+    
+    if not gpt_model:
+        return {"status": "error", "message": "GPT model not loaded"}
+    
+    try:
+        import json
+        context_dict = json.loads(context) if context else {}
+        
+        # Start background translation
+        background_tasks.add_task(translate_line_background, text, context_dict, input_lang, output_lang)
+        
+        return {"status": "processing", "message": "Translation started"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
+@app.post("/api/translate/translate-file")
+async def api_translate_file(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    context: str = Form("{}"),
+    input_lang: str = Form("ja"),
+    output_lang: str = Form("en"),
+    context_window: int = Form(3)
+):
+    """Translate a subtitle file (.ass or .srt)."""
+    global running_translation, gpt_model
+    
+    if running_translation:
+        return {"status": "error", "message": "Translation is already running"}
+    
+    if not gpt_model:
+        return {"status": "error", "message": "GPT model not loaded"}
+    
+    try:
+        import json
+        context_dict = json.loads(context) if context else {}
+        
+        # Save uploaded file to temp location
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp_file:
+            content = await file.read()
+            tmp_file.write(content)
+            tmp_file_path = tmp_file.name
+        
+        # Start background translation
+        background_tasks.add_task(translate_file_background, tmp_file_path, context_dict, input_lang, output_lang, context_window)
+        
+        return {"status": "processing", "message": "Translation started"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.get("/api/translate/result")
+async def get_translation_result():
+    """Get the result of the translation."""
+    global translation_result, translation_error, running_translation
+    
+    if running_translation:
+        return {"status": "processing", "result": None, "error": None}
+    elif translation_error:
+        error = translation_error
+        translation_error = None  # Clear error after reading
+        return {"status": "error", "result": None, "message": error}
+    elif translation_result:
+        result = translation_result
+        translation_result = None  # Clear result after reading
+        return {"status": "complete", "result": result}
+    else:
+        return {"status": "idle", "result": None, "error": None}
+    
 @app.post("/api/load-whisper-model")
 async def load_whisper(request: LoadWhisperRequest, background_tasks: BackgroundTasks):
     """Load Whisper model in background."""

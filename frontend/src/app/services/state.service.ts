@@ -105,4 +105,23 @@ export class StateService {
   getRunningContext(): boolean {
     return this.runningContextSubject.value;
   }
+
+  getState(): Observable<{
+    webContext: string;
+    characterList: string;
+    synopsis: string;
+    summary: string;
+    recap: string;
+  }> {
+    return new Observable(observer => {
+      observer.next({
+        webContext: this.getWebContext(),
+        characterList: this.getCharacterList(),
+        synopsis: this.getSynopsis(),
+        summary: this.getSummary(),
+        recap: this.getRecap()
+      });
+      observer.complete();
+    });
+  }
 }
