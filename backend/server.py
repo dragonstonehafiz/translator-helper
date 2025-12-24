@@ -520,6 +520,31 @@ def translate_file_background(file_path: str, context: dict, input_lang: str, ou
         except:
             pass
 
+def analyze_subtitle_file(file_path: str):
+    """Return dialogue stats for an ASS/SRT subtitle file."""
+    import pysubs2
+
+    subs = pysubs2.load(file_path)
+    total_lines = 0
+    total_characters = 0
+
+    for event in subs.events:
+        text = event.plaintext.strip()
+        if not text:
+            continue
+
+        speaker = event.name.strip() if event.name else ""
+        line_text = f"{speaker}: {text}" if speaker else text
+        total_lines += 1
+        total_characters += len(line_text)
+
+    average_characters = total_characters / total_lines if total_lines else 0
+    return {
+        "total_lines": str(total_lines),
+        "character_count": str(total_characters),
+        "average_character_count": f"{average_characters:.2f}"
+    }
+
 @app.post("/api/transcribe/transcribe-line")
 async def api_transcribe_line(
     background_tasks: BackgroundTasks,
@@ -566,6 +591,33 @@ async def get_transcription_result():
         return {"status": "complete", "result": result, "error": None}
     else:
         return {"status": "idle", "result": None, "error": None}
+
+@app.post("/api/transcribe/get-file-info/")
+async def api_get_transcribe_file_info(file: UploadFile = File(...)):
+    """Return stats about an uploaded ASS or SRT subtitle file."""
+    allowed_extensions = {".ass", ".srt"}
+    filename_lower = file.filename.lower()
+    if not any(filename_lower.endswith(ext) for ext in allowed_extensions):
+        return {"status": "error", "message": "Only .ass or .srt files are supported for this endpoint"}
+
+    try:
+        suffix = os.path.splitext(file.filename)[1] or ".ass"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+            content = await file.read()
+            tmp_file.write(content)
+            tmp_path = tmp_file.name
+
+        stats = analyze_subtitle_file(tmp_path)
+        return {"status": "success", "result": stats}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    finally:
+        if 'tmp_path' in locals() and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
 @app.post("/api/translate/translate-line")
 async def api_translate_line(
     background_tasks: BackgroundTasks,
@@ -586,6 +638,8 @@ async def api_translate_line(
     try:
         import json
         context_dict = json.loads(context) if context else {}
+        context_keys = sorted(context_dict.keys()) if isinstance(context_dict, dict) else []
+        logger.info(f"Translate line context keys: {context_keys if context_keys else 'none'}")
         
         # Start background translation
         background_tasks.add_task(translate_line_background, text, context_dict, input_lang, output_lang)
@@ -615,6 +669,8 @@ async def api_translate_file(
     try:
         import json
         context_dict = json.loads(context) if context else {}
+        context_keys = sorted(context_dict.keys()) if isinstance(context_dict, dict) else []
+        logger.info(f"Translate file context keys: {context_keys if context_keys else 'none'}")
         
         # Save uploaded file to temp location
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp_file:

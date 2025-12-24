@@ -143,9 +143,39 @@
         </div>
       </div>
 
-      <div class="form-group">
-        <label for="contextWindow">Context Window</label>
-        <input type="number" id="contextWindow" [(ngModel)]="contextWindow" min="1" max="10">
+      <div class="form-row context-info-row">
+        <div class="form-group context-window-group">
+          <label for="contextWindow">Context Window</label>
+          <input type="number" id="contextWindow" [(ngModel)]="contextWindow" min="1" max="10">
+        </div>
+        <div class="file-info-panel">
+          <div class="file-info-heading">File Details</div>
+          <div *ngIf="isFetchingFileInfo" class="file-info-status">Analyzing file...</div>
+          <ng-container *ngIf="!isFetchingFileInfo">
+            <div *ngIf="fileInfo; else fileInfoStatus" class="file-info-grid">
+              <div>
+                <span class="info-label">Lines</span>
+                <span class="info-value">{{ fileInfo.totalLines }}</span>
+              </div>
+              <div>
+                <span class="info-label">Characters</span>
+                <span class="info-value">{{ fileInfo.characterCount }}</span>
+              </div>
+              <div>
+                <span class="info-label">Average Characters per Line</span>
+                <span class="info-value">{{ fileInfo.averageCharacterCount }}</span>
+              </div>
+            </div>
+            <ng-template #fileInfoStatus>
+              <div class="file-info-status" *ngIf="fileInfoError; else fileInfoPrompt">
+                {{ fileInfoError }}
+              </div>
+              <ng-template #fileInfoPrompt>
+                <div class="file-info-status">Upload a file to view stats.</div>
+              </ng-template>
+            </ng-template>
+          </ng-container>
+        </div>
       </div>
 
       <app-file-upload

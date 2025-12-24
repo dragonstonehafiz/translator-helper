@@ -51,6 +51,9 @@ export class TranslateComponent implements OnInit, OnDestroy {
   fileTranslationResult = '';
   translatedFileName = '';
   isTranslatingFile = false;
+  isFetchingFileInfo = false;
+  fileInfoError = '';
+  fileInfo: { totalLines: string; characterCount: string; averageCharacterCount: string } | null = null;
   private filePollingInterval?: any;
 
   languageOptions = [
@@ -181,6 +184,38 @@ export class TranslateComponent implements OnInit, OnDestroy {
 
   onFileSelected(files: File[]): void {
     this.fileToTranslate = files.length > 0 ? files[0] : null;
+    this.fileInfo = null;
+    this.fileInfoError = '';
+
+    if (this.fileToTranslate) {
+      this.fetchFileInfo(this.fileToTranslate);
+    }
+  }
+
+  private fetchFileInfo(file: File): void {
+    this.isFetchingFileInfo = true;
+    this.apiService.getTranscribeFileInfo(file).subscribe({
+      next: (response: {status: string, result?: {total_lines: string, character_count: string, average_character_count: string}, message?: string}) => {
+        if (response.status === 'success' && response.result) {
+          this.fileInfo = {
+            totalLines: response.result.total_lines,
+            characterCount: response.result.character_count,
+            averageCharacterCount: response.result.average_character_count
+          };
+          this.fileInfoError = '';
+        } else {
+          this.fileInfoError = response.message || 'Unable to analyze file.';
+          this.fileInfo = null;
+        }
+        this.isFetchingFileInfo = false;
+      },
+      error: (error: any) => {
+        console.error('Failed to get file info:', error);
+        this.fileInfoError = 'Failed to fetch file info. Please try again.';
+        this.fileInfo = null;
+        this.isFetchingFileInfo = false;
+      }
+    });
   }
 
   translateFile(): void {

@@ -159,6 +159,7 @@ The application uses several reusable standalone components located in `frontend
 
 **Transcription** (`business/transcribe.py`):
 - `POST /api/transcribe/transcribe-line`: Transcribe audio file
+- `POST /api/transcribe/get-file-info/`: Upload an ASS or SRT file to get dialogue count, total characters (Speaker: dialogue), and average characters per line
 - `GET /api/transcribe/result`: Poll for transcription result
 
 **Translation** (`business/translate.py`):
