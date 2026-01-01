@@ -174,12 +174,18 @@ export class SettingsComponent implements OnInit, OnDestroy {
   }
 
   loadGptModel(): void {
-    if (this.loadingGpt || !this.openaiApiKey) {
+    if (this.loadingGpt) {
+      return;
+    }
+
+    if (!this.openaiApiKey && !this.openaiReady) {
       alert('Please enter OpenAI API key');
       return;
     }
 
-    this.apiService.loadGptModel(this.openaiModel, this.openaiApiKey, this.temperature).subscribe({
+    const apiKeyToSend = this.openaiApiKey ? this.openaiApiKey : null;
+
+    this.apiService.loadGptModel(this.openaiModel, apiKeyToSend, this.temperature).subscribe({
       next: (response) => {
         console.log(response.message);
         this.stateService.setLoadingGpt(true);

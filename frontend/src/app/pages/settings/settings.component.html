@@ -117,7 +117,7 @@
             <input type="range" id="temperature" [(ngModel)]="temperature" min="0" max="1.5" step="0.05" [disabled]="loadingGpt">
           </div>
         </div>
-      <button class="load-button" (click)="loadGptModel()" [disabled]="loadingGpt || !openaiApiKey">
+      <button class="load-button" (click)="loadGptModel()" [disabled]="loadingGpt || (!openaiApiKey && !openaiReady)">
         <span *ngIf="!loadingGpt">Load GPT Model</span>
         <span *ngIf="loadingGpt">Loading...</span>
       </button>

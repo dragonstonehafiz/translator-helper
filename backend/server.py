@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from settings import settings
 import threading
+from typing import Optional
 from business.context import generate_web_context, generate_character_list, generate_high_level_summary, generate_synopsis, generate_recap
 from business.transcribe import transcribe_line
 from business.translate import translate_sub, translate_subs
@@ -154,7 +155,7 @@ class LoadWhisperRequest(BaseModel):
 
 class LoadGptRequest(BaseModel):
     model_name: str
-    api_key: str
+    api_key: Optional[str] = None
     temperature: float
 
 class LoadTavilyRequest(BaseModel):
@@ -204,15 +205,19 @@ def load_whisper_background(model_name: str, device: str):
         loading_whisper_model = False
         logger.info(f"Whisper model load completed: model='{model_name}'")
 
-def load_gpt_background(model_name: str, api_key: str, temperature: float):
+def load_gpt_background(model_name: str, api_key: Optional[str], temperature: float):
     """Load GPT model in background."""
     global gpt_model, openai_api_key_available, openai_api_key, loading_gpt_model, current_openai_model, current_temperature
     try:
         loading_gpt_model = True
         logger.info(f"Starting GPT model load: model='{model_name}', temperature={temperature}")
+        key_to_use = api_key or openai_api_key
+        if not key_to_use:
+            raise ValueError("OpenAI API key not provided and no stored key is available.")
         from utils.load_models import load_gpt_model
-        gpt_model = load_gpt_model(api_key, model_name, temperature)
-        openai_api_key = api_key
+        gpt_model = load_gpt_model(key_to_use, model_name, temperature)
+        if api_key:
+            openai_api_key = api_key
         openai_api_key_available = True
         current_openai_model = model_name
         current_temperature = temperature

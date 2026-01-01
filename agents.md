@@ -126,6 +126,7 @@ The application uses several reusable standalone components located in `frontend
 
 **Features**:
 - Toggle between Read Mode (markdown view) and Write Mode (editable textarea)
+- Collapse/expand button to hide the text area when you need to save vertical space
 - Font size controls (A- / A+) with range 12-24px
 - Copy button with SVG icon to copy content to clipboard
 - Markdown rendering in read mode (bold, italic, line breaks)
@@ -145,7 +146,7 @@ The application uses several reusable standalone components located in `frontend
 **Settings**:
 - `GET /api/devices`: Get available compute devices
 - `POST /api/load-whisper-model`: Load Whisper transcription model
-- `POST /api/load-gpt-model`: Load OpenAI GPT model
+- `POST /api/load-gpt-model`: Load OpenAI GPT model (API key optional—omit it to reuse the stored key)
 - `POST /api/load-tavily-api`: Load Tavily search API
 - `GET /api/server/variables`: Get current server configuration
 

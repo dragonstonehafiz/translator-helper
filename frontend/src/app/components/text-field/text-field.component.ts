@@ -26,6 +26,7 @@ export class TextFieldComponent implements ControlValueAccessor {
   private _value = '';
   readMode = true;
   fontSize = 14;
+  collapsed = false;
   
   private onChange: (value: string) => void = () => {};
   private onTouched: () => void = () => {};
@@ -56,6 +57,10 @@ export class TextFieldComponent implements ControlValueAccessor {
 
   toggleMode(): void {
     this.readMode = !this.readMode;
+  }
+
+  toggleCollapsed(): void {
+    this.collapsed = !this.collapsed;
   }
 
   adjustFontSize(delta: number): void {

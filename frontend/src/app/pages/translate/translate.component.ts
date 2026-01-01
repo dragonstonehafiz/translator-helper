@@ -44,6 +44,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
   fileUseCharacterList = false;
   fileUseSynopsis = false;
   fileUseSummary = false;
+  fileUseRecap = false;
   fileInputLanguage = 'ja';
   fileOutputLanguage = 'en';
   contextWindow = 3;
@@ -107,12 +108,13 @@ export class TranslateComponent implements OnInit, OnDestroy {
     });
   }
 
-  buildContext(useWebContext: boolean, useCharacterList: boolean, useSynopsis: boolean, useSummary: boolean): any {
+  buildContext(useWebContext: boolean, useCharacterList: boolean, useSynopsis: boolean, useSummary: boolean, useRecap = false): any {
     const context: any = {};
     if (useWebContext && this.webContext) context.web_context = this.webContext;
     if (useCharacterList && this.characterList) context.character_list = this.characterList;
     if (useSynopsis && this.synopsis) context.synopsis = this.synopsis;
     if (useSummary && this.summary) context.summary = this.summary;
+    if (useRecap && this.recap) context.recap = this.recap;
     return context;
   }
 
@@ -228,7 +230,8 @@ export class TranslateComponent implements OnInit, OnDestroy {
       this.fileUseWebContext,
       this.fileUseCharacterList,
       this.fileUseSynopsis,
-      this.fileUseSummary
+      this.fileUseSummary,
+      this.fileUseRecap
     );
 
     this.apiService.translateFile(

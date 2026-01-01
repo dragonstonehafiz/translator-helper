@@ -5,6 +5,9 @@
       <span class="info-icon" *ngIf="tooltip" [title]="tooltip">?</span>
     </label>
     <div class="controls">
+      <button type="button" class="collapse-btn" (click)="toggleCollapsed()" [attr.aria-expanded]="!collapsed" title="Collapse or expand field">
+        {{ collapsed ? 'Expand' : 'Collapse' }}
+      </button>
       <button type="button" class="mode-toggle-btn" (click)="toggleMode()" title="Toggle read/edit mode">
         {{ readMode ? 'Read Mode' : 'Write Mode' }}
       </button>
@@ -19,19 +22,25 @@
       </button>
     </div>
   </div>
-  <textarea 
-    *ngIf="!readMode" 
-    [(ngModel)]="value" 
-    [rows]="rows" 
-    [placeholder]="placeholder" 
-    [style.font-size.px]="fontSize">
-  </textarea>
-  <div 
-    *ngIf="readMode" 
-    class="markdown-view" 
-    [class.empty]="!value"
-    [style.font-size.px]="fontSize">
-    <span *ngIf="!value" class="placeholder-text">{{ placeholder }}</span>
-    <span *ngIf="value" [innerHTML]="formatMarkdown(value)"></span>
-  </div>
+  <ng-container *ngIf="!collapsed; else collapsedNotice">
+    <textarea 
+      *ngIf="!readMode" 
+      [(ngModel)]="value" 
+      [rows]="rows" 
+      [placeholder]="placeholder" 
+      [style.font-size.px]="fontSize">
+    </textarea>
+    <div 
+      *ngIf="readMode" 
+      class="markdown-view" 
+      [class.empty]="!value"
+      [style.font-size.px]="fontSize">
+      <span *ngIf="!value" class="placeholder-text">{{ placeholder }}</span>
+      <span *ngIf="value" [innerHTML]="formatMarkdown(value)"></span>
+    </div>
+  </ng-container>
+
+  <ng-template #collapsedNotice>
+    <div class="collapsed-message">Field hidden</div>
+  </ng-template>
 </div>

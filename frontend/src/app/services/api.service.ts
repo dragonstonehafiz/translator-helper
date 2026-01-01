@@ -33,12 +33,17 @@ export class ApiService {
     });
   }
 
-  loadGptModel(modelName: string, apiKey: string, temperature: number): Observable<{status: string, message: string}> {
-    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/load-gpt-model`, {
+  loadGptModel(modelName: string, apiKey: string | null, temperature: number): Observable<{status: string, message: string}> {
+    const payload: { model_name: string; temperature: number; api_key?: string | null } = {
       model_name: modelName,
-      api_key: apiKey,
       temperature: temperature
-    });
+    };
+
+    if (apiKey) {
+      payload.api_key = apiKey;
+    }
+
+    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/load-gpt-model`, payload);
   }
 
   loadTavilyApi(apiKey: string): Observable<{status: string, message: string}> {

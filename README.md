@@ -1,98 +1,185 @@
 # Translator Helper
 
-A Streamlit-powered assistant for transcribing, translating, and grading Japanese Drama CDs.
+A full-stack web application for transcribing, translating, and managing subtitle files. Built with Angular 17 (frontend) and FastAPI (backend), featuring Whisper transcription, OpenAI translation, and Tavily web search integration.
 
 ## Features
 
-| Page | Tab / Section | Purpose |
-|------|---------------|---------|
-| **Settings** | — (single tab) | Adjust input/output language codes, pick the Whisper size + device from `get_device_map`, choose the OpenAI chat model, supply OpenAI/Tavily API keys, set temperature, and persist the configuration to `config.json`. |
-| **Translate** | **Context Inputs** | Author or paste Web Context, Character List, and High Level Summary in expandable editors, toggling each block on/off to control what gets injected into translations. |
-| | **Translate Line** | Submit ad-hoc source text to `translate_multi_response`, which uses the active context payload plus the session’s language pair for GPT translations. |
-| | **Translate File** | Upload `.ass`/`.srt`, review line/character stats and a preview, pick a context window, and run `translate_subs`; translated `.ass` files are saved under `output/` for download. |
-| **Transcribe** | **Transcribe Soundbite** | Record audio in-browser, visualize the waveform, and send the clip through `transcribe_line` with the loaded Whisper model. |
-| | **Transcribe File** | Upload longer audio, preview the waveform, and run `transcribe_file` to generate subtitle events; name the output and download the `.ass` produced in `output/`. |
-| **Context** | **Generate from Subtitle** | Provide series metadata, upload `.ass`/`.srt`, and run automated helpers (Tavily web search, character list extraction, synopsis generation) in dependency order. |
-| | **Load / Save Context** | Save the current context bundle to `/context/*.json` or reload an existing snapshot to rehydrate the UI fields. |
-| | **Context Editors** | Persistent Web Context, Character List, and High Level Summary text areas for manual editing on any page visit. |
+### Settings Page
+- **Status**: Real-time monitoring of API readiness (Tavily, OpenAI, Whisper) and active operations (Context Generation, Translation, Transcription)
+- **Transcription Settings**: Select Whisper model size and compute device (CPU/CUDA), load model into memory
+- **Translation Settings**: Configure OpenAI model (GPT-4o, GPT-4, GPT-3.5), set temperature, input API key
+- **Web Search Settings**: Input Tavily API key for context gathering
+
+### Context Page
+- **File Download/Upload**: Import/export context as JSON files, upload subtitle files for processing
+- **Web Search**: Gather contextual information using series name and keywords via Tavily API
+- **Character List**: Auto-generate character names and descriptions from subtitle files (optional: include web context or summary)
+- **Synopsis**: Generate episode or scene synopsis (optional: include web context or character list)
+- **Summary**: Generate high-level summary (optional: include web context, character list, or synopsis)
+- **Recap**: Generate comprehensive recap from multiple context JSON files for multi-episode continuity
+
+### Transcribe Page
+- **Transcribe Line**: Record audio from microphone with waveform visualization, transcribe to text using Whisper
+
+### Translate Page
+- **Context**: View and edit all saved context (web context, character list, synopsis, summary, recap)
+- **Translate Line**: Translate single lines with selectable context sources (checkboxes for web context, character list, synopsis, summary)
+- **Translate File**: Upload subtitle files (.ass/.srt) with context window support, download translated output
 
 
 ## Dependencies
 
+### Backend
 - Python 3.10+
-- [Streamlit](https://streamlit.io/) for UI
-- [LangChain](https://www.langchain.com/) for prompt orchestration
-- [PyTorch](https://pytorch.org/get-started/locally/). I used CUDA 11.8 and have not tested other CUDA versions.
-- [OpenAI API (Chat Models)](https://platform.openai.com/docs)
+- [uv](https://docs.astral.sh/uv/) for fast Python package management
+- [FastAPI](https://fastapi.tiangolo.com/) for REST API server
+- [LangChain](https://www.langchain.com/) for LLM orchestration (OpenAI & Tavily integrations)
+- [PyTorch](https://pytorch.org/get-started/locally/) for GPU acceleration (I used CUDA 12.8)
 - [Whisper](https://github.com/openai/whisper) for audio transcription
-- [Tavily](https://app.tavily.com/) for web search context
-- `pysubs2` for subtitle file parsing and generation
+- [OpenAI API (Chat Models)](https://platform.openai.com/docs) for translation and context generation
+- [Tavily API](https://app.tavily.com/) for web search context gathering
+- `pysubs2` for subtitle file parsing (.ass/.srt);;
 
-## Getting Started
+### Frontend
+- [Node.js](https://nodejs.org/) 18+ and npm
+- [Angular](https://angular.io/) 17.3.12 standalone components
+
+## Setting Up the Backend and Frontend
 
 ### 1. Clone the Repository
+
 ```bash
 git clone https://github.com/dragonstonehafiz/translator-helper.git
 cd translator-helper
 ```
 
-### 2. Installing PyTorch (For Hardware Acceleration)
-
-If you are going to use hardware acceleration for transcribing, you will need to install PyTorch with CUDA [here](https://pytorch.org/get-started/locally/). The line provided below is the one I used.
+### 2. Creating A Virtual Environment
 
 ```bash
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+cd backend
+uv venv
+.venv\scripts\activate
+uv pip install -r requirements.txt
 ```
 
-### 3. Installing Other Dependencies
+### 3. Installing PyTorch with CUDA (Optional/For Hardware Acceleration)
+
+You can skip this section if you have no intention of using **hardware acceleration during transcription**. Translation uses online APIs, so translation speed will be unaffected. Before doing anything, you will need to install the [CUDA toolkit](https://developer.nvidia.com/cuda-downloads). If you are on windows, you will need to install [Microsoft Visual Studio 2022](https://aka.ms/vs/17/release/vs_community.exe) before doing that.
+
+If you intend on using hardware acceleration please take note of which PyTorch versions works with your GPU. For example, 50 Series GPUs do not work with older PyTorch versions. 
+
+All commands that you need to run to install PyTorch with CUDA can be found [here](https://pytorch.org/get-started/locally/). If you need to install older PyTorch versions, check [here](https://pytorch.org/get-started/previous-versions/). Below will be the command I personally used. 
+
 ```bash
-pip install -r requirements.txt
+uv pip uninstall torch torchvision
+uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 ```
 
-### 4. Set Up API Keys
-Create a `config.json` file in the root directory (or use the Configuration tab in the UI):
+### 4. Getting API Keys and setting up the .env file
 
-```json
-{
-  "input_lang": "ja",
-  "output_lang": "en",
-  "whisper_model": "medium",
-  "openai_model": "gpt-4o",
-  "openai_api_key": "YOUR_OPENAI_KEY",
-  "tavily_api_key": "YOUR_TAVILY_KEY",
-  "temperature": 0.7
-}
+In the backend directory, you should see a file called `.env.example`. Make a copy of that file in the same directory and rename to .env. Then generate an API key for [Tavily](https://app.tavily.com/) and [OpenAI](https://platform.openai.com/). With the two API keys, open the `.env` file you just created and copy them over.
+
+```python
+TAVILY_API_KEY="API_KEY"
+OPENAI_API_KEY="API_KEY"
 ```
 
-### 4. Run the App
+You may notice other lines on the `.env` file like **WHISPER_MODEL**. You can update these too if you would like the backend to start with certain settings when you start the backend server.
+
+Once this is done, the backend should be ready for use.
+
+### 5. Setting up the Frontend
+
 ```bash
-streamlit run app.py
+cd ..
+cd frontend
+npm install
 ```
+
+## Using the App
+
+### 1. Start the Backend Server
+
+From the root directory of this project.
+
+```bash
+cd backend
+.venv\scripts\activate
+python server.py
+```
+
+If you have set the whisper model to something like turbo/large, startup may take a bit longer. If there are no issues, you should see this:
+
+```bash
+INFO:     Started server process [24084]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+```
+
+This means the server has started up successfully.
+
+### 2. Start the Frontend
+
+```bash
+cd ..
+cd frontend
+npm run start
+```
+
+If the frontend starts successfully, you should see this:
+
+```bash
+Watch mode enabled. Watching for file changes...
+  ➜  Local:   http://localhost:4200/
+  ➜  press h + enter to show help
+```
+
+### 3. Access the App
+
+Once the two previous steps are completed, you can access the app by going to http://localhost:4200/.
 
 ## Project Structure
 
 ```plaintext
 translator-helper/
-├── app.py
-├── requirements.txt
-├── src/
-│   ├── logic/
-│   │   ├── config.py
-│   │   ├── context.py
-│   │   ├── grade.py
-│   │   ├── load_models.py
-│   │   ├── transcribe.py
-│   │   ├── translate.py
-│   │   ├── utils.py
-│   │   └── validate_api_keys.py
-│   └── ui/
-│       ├── config_ui.py
-│       ├── context_ui.py
-│       ├── grade_ui.py
-│       ├── init_ui.py
-│       ├── load_models_ui.py
-│       ├── shared_ui.py
-│       ├── transcribe_ui.py
-│       └── translate_ui.py
+├── backend/                    # FastAPI backend server
+│   ├── server.py              # Main FastAPI application entry point
+│   ├── settings.py            # Environment variable configuration
+│   ├── requirements.txt       # Python dependencies
+│   ├── .env.example           # Example environment variables
+│   ├── business/              # Business logic modules
+│   │   ├── context.py         # Context generation (web search, character list, synopsis, summary, recap)
+│   │   ├── transcribe.py      # Audio transcription with Whisper
+│   │   ├── translate.py       # Translation with context
+│   │   └── grade.py           # Translation quality evaluation
+│   ├── utils/                 # Utility modules
+│   │   ├── config.py          # Configuration management
+│   │   ├── load_models.py     # Model loading (Whisper, OpenAI, Tavily)
+│   │   ├── logger.py          # Logging setup
+│   │   ├── utils.py           # General utilities
+│   │   └── validate_api_keys.py # API key validation
+│   └── outputs/               # Generated subtitle files (.ass)
+├── frontend/                  # Angular 17 frontend application
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── components/    # Reusable components
+│   │   │   │   ├── navbar/    # Navigation bar with subsection links
+│   │   │   │   ├── subsection/ # Collapsible section container
+│   │   │   │   ├── file-upload/ # File upload with drag-and-drop
+│   │   │   │   └── text-field/ # Text area with read/write modes
+│   │   │   ├── pages/         # Page components
+│   │   │   │   ├── settings/  # API and model configuration
+│   │   │   │   ├── context/   # Context generation and management
+│   │   │   │   ├── transcribe/ # Audio transcription
+│   │   │   │   └── translate/ # Text and file translation
+│   │   │   └── services/      # Angular services
+│   │   │       ├── api.service.ts    # Backend API client
+│   │   │       └── state.service.ts  # Context state management
+│   │   └── assets/            # Static assets
+│   ├── angular.json
+│   └── package.json
+├── data/                      # Sample subtitle files for testing
+│   └── sample/
 └── README.md
 ```
