@@ -68,44 +68,8 @@
     <app-subsection 
       title="Context" 
       [collapsed]="contextCollapsed"
-      tooltip="Generate and manage translation context including web research, character lists, summaries, and recaps">
+      tooltip="Generate and manage translation context including character lists, summaries, and recaps">
       
-      <!-- Web Search -->
-      <div class="section-header">
-        <h3>
-          Web Search
-          <span class="info-icon" title="Gather contextual information from web search using series name and keywords">?</span>
-        </h3>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <div class="label-container">
-            <label for="seriesName">Series Name</label>
-            <span class="info-icon" title="Used for gathering context from web search">?</span>
-          </div>
-          <input type="text" id="seriesName" [(ngModel)]="seriesName" placeholder="Enter series name...">
-        </div>
-
-        <div class="form-group">
-          <div class="label-container">
-            <label for="keywords">Keywords</label>
-            <span class="info-icon" title="Used for gathering context from web search">?</span>
-          </div>
-          <input type="text" id="keywords" [(ngModel)]="keywords" placeholder="Enter keywords...">
-        </div>
-      </div>
-
-      <button class="action-button" (click)="gatherWebContext()" [disabled]="runningContext">Gather Web Context</button>
-
-      <div class="form-group">
-        <app-text-field 
-          label="Gathered Web Context" 
-          placeholder="Web context will appear here..."
-          [(ngModel)]="webContext"
-          (ngModelChange)="updateWebContext()">
-        </app-text-field>
-      </div>
-
       <!-- Character List -->
       <div class="form-group">
         <app-text-field 
@@ -117,17 +81,7 @@
         </app-text-field>
       </div>
 
-      <div class="context-options">
-        <label class="checkbox-label">
-          <input type="checkbox" [(ngModel)]="characterListUseWebContext">
-          <span>Include Web Context</span>
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" [(ngModel)]="characterListUseSummary">
-          <span>Include Summary</span>
-        </label>
-      </div>
-      <button class="action-button" (click)="generateCharacterList()" [disabled]="runningContext">Generate Character List</button>
+      <button class="action-button" (click)="generateCharacterList()" [disabled]="runningLlm">Generate Character List</button>
 
       <!-- Synopsis -->
       <div class="form-group">
@@ -142,15 +96,11 @@
 
       <div class="context-options">
         <label class="checkbox-label">
-          <input type="checkbox" [(ngModel)]="synopsisUseWebContext">
-          <span>Include Web Context</span>
-        </label>
-        <label class="checkbox-label">
           <input type="checkbox" [(ngModel)]="synopsisUseCharacterList">
           <span>Include Character List</span>
         </label>
       </div>
-      <button class="action-button" (click)="generateSynopsis()" [disabled]="runningContext">Generate Synopsis</button>
+      <button class="action-button" (click)="generateSynopsis()" [disabled]="runningLlm">Generate Synopsis</button>
 
       <!-- Summary -->
       <div class="form-group">
@@ -165,19 +115,11 @@
 
       <div class="context-options">
         <label class="checkbox-label">
-          <input type="checkbox" [(ngModel)]="summaryUseWebContext">
-          <span>Include Web Context</span>
-        </label>
-        <label class="checkbox-label">
           <input type="checkbox" [(ngModel)]="summaryUseCharacterList">
           <span>Include Character List</span>
         </label>
-        <label class="checkbox-label">
-          <input type="checkbox" [(ngModel)]="summaryUseSynopsis">
-          <span>Include Synopsis</span>
-        </label>
       </div>
-      <button class="action-button" (click)="generateSummary()" [disabled]="runningContext">Generate Summary</button>
+      <button class="action-button" (click)="generateSummary()" [disabled]="runningLlm">Generate Summary</button>
     </app-subsection>
 
     <app-subsection 
@@ -234,7 +176,7 @@
         </table>
       </div>
 
-      <button class="action-button" (click)="generateRecap()" [disabled]="runningContext || recapContextFiles.length === 0">Generate Recap</button>
+      <button class="action-button" (click)="generateRecap()" [disabled]="runningLlm || recapContextFiles.length === 0">Generate Recap</button>
 
       <div class="form-group">
         <app-text-field 

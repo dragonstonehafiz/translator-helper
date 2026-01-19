@@ -11,13 +11,6 @@
       tooltip="Saved context from the Context page">
       
       <app-text-field 
-        label="Web Context" 
-        placeholder="No web context available..."
-        [rows]="6"
-        [(ngModel)]="webContext">
-      </app-text-field>
-
-      <app-text-field 
         label="Character List" 
         placeholder="No character list available..."
         [rows]="6"
@@ -52,10 +45,6 @@
       tooltip="Translate a single line of text">
       
       <div class="checkbox-group">
-        <label class="checkbox-label">
-          <input type="checkbox" [(ngModel)]="lineUseWebContext">
-          <span>Web Context</span>
-        </label>
         <label class="checkbox-label">
           <input type="checkbox" [(ngModel)]="lineUseCharacterList">
           <span>Character List</span>
@@ -110,10 +99,6 @@
       tooltip="Translate an entire subtitle file">
       
       <div class="checkbox-group">
-        <label class="checkbox-label">
-          <input type="checkbox" [(ngModel)]="fileUseWebContext">
-          <span>Web Context</span>
-        </label>
         <label class="checkbox-label">
           <input type="checkbox" [(ngModel)]="fileUseCharacterList">
           <span>Character List</span>

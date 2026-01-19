@@ -21,14 +21,12 @@ export class TranslateComponent implements OnInit, OnDestroy {
   translateFileCollapsed = false;
 
   // Context data
-  webContext = '';
   characterList = '';
   synopsis = '';
   summary = '';
   recap = '';
 
   // Translate Line
-  lineUseWebContext = false;
   lineUseCharacterList = false;
   lineUseSynopsis = false;
   lineUseSummary = false;
@@ -40,7 +38,6 @@ export class TranslateComponent implements OnInit, OnDestroy {
   private linePollingInterval?: any;
 
   // Translate File
-  fileUseWebContext = false;
   fileUseCharacterList = false;
   fileUseSynopsis = false;
   fileUseSummary = false;
@@ -94,13 +91,11 @@ export class TranslateComponent implements OnInit, OnDestroy {
 
   loadContextFromState(): void {
     this.stateService.getState().subscribe((state: {
-      webContext: string;
       characterList: string;
       synopsis: string;
       summary: string;
       recap: string;
     }) => {
-      if (state.webContext) this.webContext = state.webContext;
       if (state.characterList) this.characterList = state.characterList;
       if (state.synopsis) this.synopsis = state.synopsis;
       if (state.summary) this.summary = state.summary;
@@ -108,9 +103,8 @@ export class TranslateComponent implements OnInit, OnDestroy {
     });
   }
 
-  buildContext(useWebContext: boolean, useCharacterList: boolean, useSynopsis: boolean, useSummary: boolean, useRecap = false): any {
+  buildContext(useCharacterList: boolean, useSynopsis: boolean, useSummary: boolean, useRecap = false): any {
     const context: any = {};
-    if (useWebContext && this.webContext) context.web_context = this.webContext;
     if (useCharacterList && this.characterList) context.character_list = this.characterList;
     if (useSynopsis && this.synopsis) context.synopsis = this.synopsis;
     if (useSummary && this.summary) context.summary = this.summary;
@@ -125,7 +119,6 @@ export class TranslateComponent implements OnInit, OnDestroy {
     this.lineTranslationResult = '';
 
     const context = this.buildContext(
-      this.lineUseWebContext,
       this.lineUseCharacterList,
       this.lineUseSynopsis,
       this.lineUseSummary
@@ -227,7 +220,6 @@ export class TranslateComponent implements OnInit, OnDestroy {
     this.fileTranslationResult = '';
 
     const context = this.buildContext(
-      this.fileUseWebContext,
       this.fileUseCharacterList,
       this.fileUseSynopsis,
       this.fileUseSummary,

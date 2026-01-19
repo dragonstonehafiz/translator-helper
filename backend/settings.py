@@ -9,8 +9,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
-    
-    tavily_api_key: str = ""
+
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
     temperature: float = 0.5

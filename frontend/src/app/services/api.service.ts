@@ -10,12 +10,12 @@ export class ApiService {
 
   constructor(private http: HttpClient) { }
 
-  checkReady(): Observable<{is_ready: boolean, message: string, tavily_ready: boolean, openai_ready: boolean, whisper_ready: boolean}> {
-    return this.http.get<{is_ready: boolean, message: string, tavily_ready: boolean, openai_ready: boolean, whisper_ready: boolean}>(`${this.baseUrl}/ready`);
+  checkReady(): Observable<{is_ready: boolean, message: string, openai_ready: boolean, whisper_ready: boolean}> {
+    return this.http.get<{is_ready: boolean, message: string, openai_ready: boolean, whisper_ready: boolean}>(`${this.baseUrl}/ready`);
   }
 
-  checkRunning(): Observable<{running_translation: boolean, running_transcription: boolean, running_context: boolean, loading_whisper_model: boolean, loading_gpt_model: boolean, loading_tavily_api: boolean}> {
-    return this.http.get<{running_translation: boolean, running_transcription: boolean, running_context: boolean, loading_whisper_model: boolean, loading_gpt_model: boolean, loading_tavily_api: boolean}>(`${this.baseUrl}/running`);
+  checkRunning(): Observable<{running_llm: boolean, running_whisper: boolean, loading_whisper_model: boolean, loading_gpt_model: boolean}> {
+    return this.http.get<{running_llm: boolean, running_whisper: boolean, loading_whisper_model: boolean, loading_gpt_model: boolean}>(`${this.baseUrl}/running`);
   }
 
   healthCheck(): Observable<{status: string, message: string}> {
@@ -44,12 +44,6 @@ export class ApiService {
     }
 
     return this.http.post<{status: string, message: string}>(`${this.baseUrl}/load-gpt-model`, payload);
-  }
-
-  loadTavilyApi(apiKey: string): Observable<{status: string, message: string}> {
-    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/load-tavily-api`, {
-      api_key: apiKey
-    });
   }
 
   getServerVariables(): Observable<{whisper_model: string, device: string, openai_model: string, temperature: number}> {
@@ -114,7 +108,7 @@ export class ApiService {
   getTranscribeFileInfo(file: File): Observable<{status: string, result?: {total_lines: string, character_count: string, average_character_count: string}, message?: string}> {
     const formData = new FormData();
     formData.append('file', file);
-    return this.http.post<{status: string, result?: {total_lines: string, character_count: string, average_character_count: string}, message?: string}>(`${this.baseUrl}/transcribe/get-file-info/`, formData);
+    return this.http.post<{status: string, result?: {total_lines: string, character_count: string, average_character_count: string}, message?: string}>(`${this.baseUrl}/utils/get-subtitle-file-info/`, formData);
   }
 
   getTranscriptionResult(): Observable<{status: string, result?: {type: string, data: string}, message?: string}> {

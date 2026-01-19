@@ -1,29 +1,27 @@
 # Translator Helper
 
-A full-stack web application for transcribing, translating, and managing subtitle files. Built with Angular 17 (frontend) and FastAPI (backend), featuring Whisper transcription, OpenAI translation, and Tavily web search integration.
+A full-stack web application for transcribing, translating, and managing subtitle files. Built with Angular 17 (frontend) and FastAPI (backend), featuring Whisper transcription and OpenAI translation.
 
 ## Features
 
 ### Settings Page
-- **Status**: Real-time monitoring of API readiness (Tavily, OpenAI, Whisper) and active operations (Context Generation, Translation, Transcription)
-- **Transcription Settings**: Select Whisper model size and compute device (CPU/CUDA), load model into memory
-- **Translation Settings**: Configure OpenAI model (GPT-4o, GPT-4, GPT-3.5), set temperature, input API key
-- **Web Search Settings**: Input Tavily API key for context gathering
+- **Status**: Monitor API readiness (OpenAI, Whisper)
+- **Whisper Settings**: Select Whisper model size and compute device (CPU/CUDA), load model into memory
+- **OpenAI Settings**: Configure OpenAI model, set temperature, input API key
 
 ### Context Page
 - **File Download/Upload**: Import/export context as JSON files, upload subtitle files for processing
-- **Web Search**: Gather contextual information using series name and keywords via Tavily API
-- **Character List**: Auto-generate character names and descriptions from subtitle files (optional: include web context or summary)
-- **Synopsis**: Generate episode or scene synopsis (optional: include web context or character list)
-- **Summary**: Generate high-level summary (optional: include web context, character list, or synopsis)
+- **Character List**: Auto-generate character names and descriptions from subtitle files
+- **Synopsis**: Generate episode or scene synopsis (optional: include character list)
+- **Summary**: Generate high-level summary (optional: include character list)
 - **Recap**: Generate comprehensive recap from multiple context JSON files for multi-episode continuity
 
 ### Transcribe Page
 - **Transcribe Line**: Record audio from microphone with waveform visualization, transcribe to text using Whisper
 
 ### Translate Page
-- **Context**: View and edit all saved context (web context, character list, synopsis, summary, recap)
-- **Translate Line**: Translate single lines with selectable context sources (checkboxes for web context, character list, synopsis, summary)
+- **Context**: View and edit saved context (character list, synopsis, summary, recap)
+- **Translate Line**: Translate single lines with selectable context sources (character list, synopsis, summary)
 - **Translate File**: Upload subtitle files (.ass/.srt) with context window support, download translated output
 
 
@@ -33,11 +31,10 @@ A full-stack web application for transcribing, translating, and managing subtitl
 - Python 3.10+
 - [uv](https://docs.astral.sh/uv/) for fast Python package management
 - [FastAPI](https://fastapi.tiangolo.com/) for REST API server
-- [LangChain](https://www.langchain.com/) for LLM orchestration (OpenAI & Tavily integrations)
+- [LangChain](https://www.langchain.com/) for LLM orchestration (OpenAI integrations)
 - [PyTorch](https://pytorch.org/get-started/locally/) for GPU acceleration (I used CUDA 12.8)
 - [Whisper](https://github.com/openai/whisper) for audio transcription
 - [OpenAI API (Chat Models)](https://platform.openai.com/docs) for translation and context generation
-- [Tavily API](https://app.tavily.com/) for web search context gathering
 - `pysubs2` for subtitle file parsing (.ass/.srt);;
 
 ### Frontend
@@ -77,10 +74,9 @@ uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu
 
 ### 4. Getting API Keys and setting up the .env file
 
-In the backend directory, you should see a file called `.env.example`. Make a copy of that file in the same directory and rename to .env. Then generate an API key for [Tavily](https://app.tavily.com/) and [OpenAI](https://platform.openai.com/). With the two API keys, open the `.env` file you just created and copy them over.
+In the backend directory, you should see a file called `.env.example`. Make a copy of that file in the same directory and rename to .env. Then generate an API key for [OpenAI](https://platform.openai.com/). Open the `.env` file you just created and copy it over.
 
 ```python
-TAVILY_API_KEY="API_KEY"
 OPENAI_API_KEY="API_KEY"
 ```
 
@@ -145,20 +141,16 @@ Once the two previous steps are completed, you can access the app by going to ht
 translator-helper/
 ├── backend/                    # FastAPI backend server
 │   ├── server.py              # Main FastAPI application entry point
+│   ├── routes.py              # API route definitions
 │   ├── settings.py            # Environment variable configuration
 │   ├── requirements.txt       # Python dependencies
 │   ├── .env.example           # Example environment variables
-│   ├── business/              # Business logic modules
-│   │   ├── context.py         # Context generation (web search, character list, synopsis, summary, recap)
-│   │   ├── transcribe.py      # Audio transcription with Whisper
-│   │   ├── translate.py       # Translation with context
-│   │   └── grade.py           # Translation quality evaluation
+│   ├── interface/             # Interfaces for model backends
+│   ├── models/                # Concrete model implementations
 │   ├── utils/                 # Utility modules
-│   │   ├── config.py          # Configuration management
-│   │   ├── load_models.py     # Model loading (Whisper, OpenAI, Tavily)
 │   │   ├── logger.py          # Logging setup
 │   │   ├── utils.py           # General utilities
-│   │   └── validate_api_keys.py # API key validation
+│   │   └── translate_subs.py  # Translation helpers for subtitles
 │   └── outputs/               # Generated subtitle files (.ass)
 ├── frontend/                  # Angular 17 frontend application
 │   ├── src/
@@ -179,7 +171,5 @@ translator-helper/
 │   │   └── assets/            # Static assets
 │   ├── angular.json
 │   └── package.json
-├── data/                      # Sample subtitle files for testing
-│   └── sample/
-└── README.md
+└── data/                      # Sample subtitle files for testing
 ```

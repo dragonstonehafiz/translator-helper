@@ -6,7 +6,9 @@ This document provides guidelines for AI agents working on the Translator Helper
 
 Translator Helper is a full-stack application for transcribing, translating, and managing subtitle files. It consists of:
 - **Frontend**: Angular 17.3.12 standalone application with TypeScript and SCSS
-- **Backend**: FastAPI Python server with Whisper (transcription), OpenAI (translation/context), and Tavily (web search)
+- **Backend**: FastAPI Python server with Whisper (transcription) and OpenAI (translation/context)
+- **Backend Interfaces**: Abstract interfaces for LLM and audio models (see `backend/interface/`)
+- **Backend Models**: Concrete model implementations (see `backend/models/`)
 
 ## Navigation
 
@@ -147,23 +149,23 @@ The application uses several reusable standalone components located in `frontend
 - `GET /api/devices`: Get available compute devices
 - `POST /api/load-whisper-model`: Load Whisper transcription model
 - `POST /api/load-gpt-model`: Load OpenAI GPT model (API key optional—omit it to reuse the stored key)
-- `POST /api/load-tavily-api`: Load Tavily search API
 - `GET /api/server/variables`: Get current server configuration
 
-**Context Generation** (`business/context.py`):
-- `POST /api/context/generate-web-context`: Generate web-based context
+**Context Generation** (`backend/routes.py`):
 - `POST /api/context/generate-character-list`: Generate character list from subtitle file
 - `POST /api/context/generate-synopsis`: Generate synopsis from subtitle file
 - `POST /api/context/generate-high-level-summary`: Generate summary from subtitle file
 - `POST /api/context/generate-recap`: Generate recap from multiple contexts
 - `GET /api/context/result`: Poll for context generation result
 
-**Transcription** (`business/transcribe.py`):
+**Transcription** (`backend/routes.py`):
 - `POST /api/transcribe/transcribe-line`: Transcribe audio file
-- `POST /api/transcribe/get-file-info/`: Upload an ASS or SRT file to get dialogue count, total characters (Speaker: dialogue), and average characters per line
 - `GET /api/transcribe/result`: Poll for transcription result
 
-**Translation** (`business/translate.py`):
+**Utils** (`backend/routes.py`):
+- `POST /api/utils/get-subtitle-file-info/`: Upload an ASS or SRT file to get dialogue count, total characters (Speaker: dialogue), and average characters per line
+
+**Translation** (`backend/routes.py`):
 - `POST /api/translate/translate-line`: Translate text line with context (FormData: text, context JSON, input_lang, output_lang)
 - `POST /api/translate/translate-file`: Translate subtitle file with context window (FormData: file, context JSON, input_lang, output_lang, context_window)
 - `GET /api/translate/result`: Poll for translation result
@@ -234,7 +236,7 @@ Long-running operations use FastAPI's BackgroundTasks with polling:
 
 ### State Management
 - Use `StateService` for cross-component state
-  - `getState()`: Returns Observable with all saved context data (webContext, characterList, synopsis, summary, recap)
+  - `getState()`: Returns Observable with all saved context data (characterList, synopsis, summary, recap)
   - Individual getters: `getWebContext()`, `getCharacterList()`, `getSynopsis()`, `getSummary()`, `getRecap()`
   - Individual setters: `setWebContext()`, `setCharacterList()`, etc.
 - Use component-level state for local UI state
@@ -274,12 +276,11 @@ When making changes to:
 ```
 translator-helper/
 ├── backend/
+│   ├── interface/             # Interfaces for LLM and audio model backends
+│   ├── models/                # Concrete implementations for model backends
+│   ├── routes.py              # API route definitions
 │   ├── server.py              # FastAPI application
 │   ├── settings.py            # Environment configuration
-│   ├── business/              # Business logic
-│   │   ├── context.py         # Context generation
-│   │   ├── transcribe.py      # Audio transcription
-│   │   └── translate.py       # Translation with context
 │   └── utils/                 # Utilities
 │       ├── config.py
 │       ├── load_models.py
@@ -319,10 +320,9 @@ Use `app-text-field` instead of creating a new textarea:
 ```
 
 ### Adding a New Backend Endpoint
-1. Add function in appropriate `business/` module
-2. Create endpoint in `server.py`
-3. Add method to `ApiService` in frontend
-4. Call from component using the service method
+1. Add handler in `backend/routes.py`
+2. Add method to `ApiService` in frontend
+3. Call from component using the service method
 
 ## Quick Reference
 

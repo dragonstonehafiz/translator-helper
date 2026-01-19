@@ -1,9 +1,8 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { StateService } from '../../services/state.service';
-import { interval, Subscription } from 'rxjs';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
 
 @Component({
@@ -13,19 +12,13 @@ import { SubsectionComponent } from '../../components/subsection/subsection.comp
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'
 })
-export class SettingsComponent implements OnInit, OnDestroy {
-  tavilyReady = false;
+export class SettingsComponent implements OnInit {
   openaiReady = false;
   whisperReady = false;
 
   loadingWhisper = false;
   loadingGpt = false;
-  loadingTavily = false;
 
-  // Running operations
-  runningTranscription = false;
-  runningTranslation = false;
-  runningContext = false;
 
   // Current server configuration
   currentWhisperModel = '';
@@ -38,7 +31,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
   device = '';
   openaiModel = 'gpt-4o';
   openaiApiKey = '';
-  tavilyApiKey = '';
   temperature = 0.5;
 
   // Dropdown options
@@ -46,18 +38,14 @@ export class SettingsComponent implements OnInit, OnDestroy {
   openaiModels = ['gpt-4.1-mini', 'gpt-4.1', 'gpt-5.1', 'gpt-4o', 'o4-mini'];
   devices: {label: string, value: string}[] = [];
 
-  private pollingSubscription?: Subscription;
-
   constructor(
     private apiService: ApiService,
     private stateService: StateService
   ) {}
 
   ngOnInit(): void {
-    this.checkReadiness();
     this.loadDevices();
-    this.loadServerVariables();
-    this.startPolling();
+    this.loadFromState();
 
     // Subscribe to loading states
     this.stateService.loadingWhisper$.subscribe(loading => {
@@ -68,26 +56,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
       this.loadingGpt = loading;
     });
 
-    this.stateService.loadingTavily$.subscribe(loading => {
-      this.loadingTavily = loading;
-    });
-  }
-
-  ngOnDestroy(): void {
-    this.stopPolling();
-  }
-
-  startPolling(): void {
-    // Poll every 2 seconds to check loading status
-    this.pollingSubscription = interval(2000).subscribe(() => {
-      this.checkRunningStatus();
-    });
-  }
-
-  stopPolling(): void {
-    if (this.pollingSubscription) {
-      this.pollingSubscription.unsubscribe();
-    }
   }
 
   checkRunningStatus(): void {
@@ -95,15 +63,11 @@ export class SettingsComponent implements OnInit, OnDestroy {
       next: (response) => {
         this.stateService.setLoadingWhisper(response.loading_whisper_model);
         this.stateService.setLoadingGpt(response.loading_gpt_model);
-        this.stateService.setLoadingTavily(response.loading_tavily_api);
         
         // Update running operations
-        this.runningTranscription = response.running_transcription;
-        this.runningTranslation = response.running_translation;
-        this.runningContext = response.running_context;
         
         // After loading completes, check readiness
-        if (!response.loading_whisper_model || !response.loading_gpt_model || !response.loading_tavily_api) {
+        if (!response.loading_whisper_model || !response.loading_gpt_model) {
           this.checkReadiness();
         }
       },
@@ -113,11 +77,18 @@ export class SettingsComponent implements OnInit, OnDestroy {
     });
   }
 
+  checkStatus(): void {
+    this.checkRunningStatus();
+    this.loadServerVariables();
+    this.checkReadiness();
+  }
+
   checkReadiness(): void {
     this.apiService.checkReady().subscribe({
       next: (response) => {
         this.stateService.setReady(response.is_ready);
-        this.tavilyReady = response.tavily_ready;
+        this.stateService.setOpenaiReady(response.openai_ready);
+        this.stateService.setWhisperReady(response.whisper_ready);
         this.openaiReady = response.openai_ready;
         this.whisperReady = response.whisper_ready;
       },
@@ -134,9 +105,10 @@ export class SettingsComponent implements OnInit, OnDestroy {
           label,
           value
         }));
-        if (this.devices.length > 0) {
+        if (this.devices.length > 0 && !this.device) {
           this.device = this.devices[0].value;
         }
+        this.updateDeviceLabel();
       },
       error: (error) => {
         console.error('Failed to load devices:', error);
@@ -151,11 +123,72 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.currentDevice = response.device;
         this.currentOpenaiModel = response.openai_model;
         this.currentTemperature = response.temperature;
+        if (response.whisper_model) {
+          this.whisperModel = response.whisper_model;
+        }
+        if (response.device) {
+          this.device = response.device;
+        }
+        if (response.openai_model) {
+          this.openaiModel = response.openai_model;
+        }
+        if (response.temperature !== undefined && response.temperature !== null) {
+          this.temperature = response.temperature;
+        }
+        this.stateService.setServerVariables({
+          whisperModel: response.whisper_model,
+          device: response.device,
+          openaiModel: response.openai_model,
+          temperature: response.temperature
+        });
+        this.updateDeviceLabel();
       },
       error: (error) => {
         console.error('Failed to load server variables:', error);
       }
     });
+  }
+
+  loadFromState(): void {
+    const openaiReady = this.stateService.getOpenaiReady();
+    const whisperReady = this.stateService.getWhisperReady();
+    const serverVars = this.stateService.getServerVariables();
+
+    if (openaiReady !== null) {
+      this.openaiReady = openaiReady;
+    }
+    if (whisperReady !== null) {
+      this.whisperReady = whisperReady;
+    }
+    if (serverVars.whisperModel !== null) {
+      this.currentWhisperModel = serverVars.whisperModel;
+      this.whisperModel = serverVars.whisperModel;
+    }
+    if (serverVars.device !== null) {
+      this.currentDevice = serverVars.device;
+      this.device = serverVars.device;
+    }
+    if (serverVars.openaiModel !== null) {
+      this.currentOpenaiModel = serverVars.openaiModel;
+      this.openaiModel = serverVars.openaiModel;
+    }
+    if (serverVars.temperature !== null) {
+      this.currentTemperature = serverVars.temperature;
+      this.temperature = serverVars.temperature;
+    }
+
+    if (openaiReady === null || whisperReady === null) {
+      this.checkStatus();
+    }
+
+    this.updateDeviceLabel();
+  }
+
+  private updateDeviceLabel(): void {
+    const match = this.devices.find(item => item.value === this.currentDevice);
+    if (match) {
+      this.currentDevice = match.label;
+    }
   }
 
   loadWhisperModel(): void {
@@ -197,21 +230,4 @@ export class SettingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadTavilyApi(): void {
-    if (this.loadingTavily || !this.tavilyApiKey) {
-      alert('Please enter Tavily API key');
-      return;
-    }
-
-    this.apiService.loadTavilyApi(this.tavilyApiKey).subscribe({
-      next: (response) => {
-        console.log(response.message);
-        this.stateService.setLoadingTavily(true);
-      },
-      error: (error) => {
-        console.error('Failed to load Tavily API:', error);
-        alert('Failed to load Tavily API');
-      }
-    });
-  }
 }

@@ -7,6 +7,19 @@ import { BehaviorSubject, Observable } from 'rxjs';
 export class StateService {
   private isReadySubject = new BehaviorSubject<boolean>(false);
   public isReady$: Observable<boolean> = this.isReadySubject.asObservable();
+  private openaiReadySubject = new BehaviorSubject<boolean | null>(null);
+  public openaiReady$: Observable<boolean | null> = this.openaiReadySubject.asObservable();
+  private whisperReadySubject = new BehaviorSubject<boolean | null>(null);
+  public whisperReady$: Observable<boolean | null> = this.whisperReadySubject.asObservable();
+
+  private serverWhisperModelSubject = new BehaviorSubject<string | null>(null);
+  public serverWhisperModel$: Observable<string | null> = this.serverWhisperModelSubject.asObservable();
+  private serverDeviceSubject = new BehaviorSubject<string | null>(null);
+  public serverDevice$: Observable<string | null> = this.serverDeviceSubject.asObservable();
+  private serverOpenaiModelSubject = new BehaviorSubject<string | null>(null);
+  public serverOpenaiModel$: Observable<string | null> = this.serverOpenaiModelSubject.asObservable();
+  private serverTemperatureSubject = new BehaviorSubject<number | null>(null);
+  public serverTemperature$: Observable<number | null> = this.serverTemperatureSubject.asObservable();
 
   private loadingWhisperSubject = new BehaviorSubject<boolean>(false);
   public loadingWhisper$: Observable<boolean> = this.loadingWhisperSubject.asObservable();
@@ -14,12 +27,6 @@ export class StateService {
   private loadingGptSubject = new BehaviorSubject<boolean>(false);
   public loadingGpt$: Observable<boolean> = this.loadingGptSubject.asObservable();
 
-  private loadingTavilySubject = new BehaviorSubject<boolean>(false);
-  public loadingTavily$: Observable<boolean> = this.loadingTavilySubject.asObservable();
-
-  // Context data
-  private webContextSubject = new BehaviorSubject<string>('');
-  public webContext$: Observable<string> = this.webContextSubject.asObservable();
 
   private characterListSubject = new BehaviorSubject<string>('');
   public characterList$: Observable<string> = this.characterListSubject.asObservable();
@@ -33,8 +40,8 @@ export class StateService {
   private recapSubject = new BehaviorSubject<string>('');
   public recap$: Observable<string> = this.recapSubject.asObservable();
 
-  private runningContextSubject = new BehaviorSubject<boolean>(false);
-  public runningContext$: Observable<boolean> = this.runningContextSubject.asObservable();
+  private runningLlmSubject = new BehaviorSubject<boolean>(false);
+  public runningLlm$: Observable<boolean> = this.runningLlmSubject.asObservable();
 
   constructor() { }
 
@@ -46,6 +53,48 @@ export class StateService {
     return this.isReadySubject.value;
   }
 
+  setOpenaiReady(ready: boolean | null): void {
+    this.openaiReadySubject.next(ready);
+  }
+
+  getOpenaiReady(): boolean | null {
+    return this.openaiReadySubject.value;
+  }
+
+  setWhisperReady(ready: boolean | null): void {
+    this.whisperReadySubject.next(ready);
+  }
+
+  getWhisperReady(): boolean | null {
+    return this.whisperReadySubject.value;
+  }
+
+  setServerVariables(variables: {
+    whisperModel: string;
+    device: string;
+    openaiModel: string;
+    temperature: number;
+  }): void {
+    this.serverWhisperModelSubject.next(variables.whisperModel);
+    this.serverDeviceSubject.next(variables.device);
+    this.serverOpenaiModelSubject.next(variables.openaiModel);
+    this.serverTemperatureSubject.next(variables.temperature);
+  }
+
+  getServerVariables(): {
+    whisperModel: string | null;
+    device: string | null;
+    openaiModel: string | null;
+    temperature: number | null;
+  } {
+    return {
+      whisperModel: this.serverWhisperModelSubject.value,
+      device: this.serverDeviceSubject.value,
+      openaiModel: this.serverOpenaiModelSubject.value,
+      temperature: this.serverTemperatureSubject.value
+    };
+  }
+
   setLoadingWhisper(loading: boolean): void {
     this.loadingWhisperSubject.next(loading);
   }
@@ -54,17 +103,6 @@ export class StateService {
     this.loadingGptSubject.next(loading);
   }
 
-  setLoadingTavily(loading: boolean): void {
-    this.loadingTavilySubject.next(loading);
-  }
-
-  setWebContext(context: string): void {
-    this.webContextSubject.next(context);
-  }
-
-  getWebContext(): string {
-    return this.webContextSubject.value;
-  }
 
   setCharacterList(list: string): void {
     this.characterListSubject.next(list);
@@ -98,16 +136,15 @@ export class StateService {
     return this.recapSubject.value;
   }
 
-  setRunningContext(running: boolean): void {
-    this.runningContextSubject.next(running);
+  setRunningLlm(running: boolean): void {
+    this.runningLlmSubject.next(running);
   }
 
-  getRunningContext(): boolean {
-    return this.runningContextSubject.value;
+  getRunningLlm(): boolean {
+    return this.runningLlmSubject.value;
   }
 
   getState(): Observable<{
-    webContext: string;
     characterList: string;
     synopsis: string;
     summary: string;
@@ -115,7 +152,6 @@ export class StateService {
   }> {
     return new Observable(observer => {
       observer.next({
-        webContext: this.getWebContext(),
         characterList: this.getCharacterList(),
         synopsis: this.getSynopsis(),
         summary: this.getSummary(),

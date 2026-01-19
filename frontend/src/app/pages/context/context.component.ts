@@ -16,48 +16,37 @@ import { TextFieldComponent } from '../../components/text-field/text-field.compo
   styleUrl: './context.component.scss'
 })
 export class ContextComponent implements OnInit, OnDestroy {
-  seriesName = '';
-  keywords = '';
   characterList = '';
   synopsis = '';
   summary = '';
-  webContext = '';
   selectedFile: File | null = null;
   importFile: File | null = null;
   inputLanguage = 'ja';
   outputLanguage = 'en';
-  runningContext = false;
+  runningLlm = false;
   private pollingSubscription?: Subscription;
   
   // Font sizes for textareas
-  webContextFontSize = 14;
   characterListFontSize = 14;
   synopsisFontSize = 14;
   summaryFontSize = 14;
   
   // View modes (true = read mode, false = edit mode)
-  webContextReadMode = true;
   characterListReadMode = true;
   synopsisReadMode = true;
   summaryReadMode = true;
   
   // Context checkboxes for character list generation
-  characterListUseWebContext = true;
-  characterListUseSummary = false;
   
   // Context checkboxes for synopsis generation
-  synopsisUseWebContext = true;
   synopsisUseCharacterList = true;
   
   // Context checkboxes for summary generation
-  summaryUseWebContext = true;
   summaryUseCharacterList = true;
-  summaryUseSynopsis = true;
   
   // Collapsible section states
   importExportCollapsed = false;
   fileUploadCollapsed = false;
-  webContextCollapsed = false;
   contextCollapsed = false;
   recapCollapsed = false;
   
@@ -103,7 +92,6 @@ export class ContextComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     // Load existing values from state
-    this.webContext = this.stateService.getWebContext();
     this.characterList = this.stateService.getCharacterList();
     this.synopsis = this.stateService.getSynopsis();
     this.summary = this.stateService.getSummary();
@@ -121,12 +109,12 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.pollingSubscription = interval(500).subscribe(() => {
       this.apiService.checkRunning().subscribe({
         next: (status) => {
-          const wasRunning = this.runningContext;
-          this.runningContext = status.running_context;
-          this.stateService.setRunningContext(status.running_context);
+          const wasRunning = this.runningLlm;
+          this.runningLlm = status.running_llm;
+          this.stateService.setRunningLlm(status.running_llm);
           
           // If context just finished running, check for result
-          if (wasRunning && !status.running_context) {
+          if (wasRunning && !status.running_llm) {
             this.checkContextResult();
           }
         },
@@ -139,10 +127,7 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.apiService.getContextResult().subscribe({
       next: (response) => {
         if (response.status === 'success' && response.result) {
-          if (response.result.type === 'web_context') {
-            this.webContext = response.result.data;
-            this.stateService.setWebContext(response.result.data);
-          } else if (response.result.type === 'character_list') {
+          if (response.result.type === 'character_list') {
             this.characterList = response.result.data;
             this.stateService.setCharacterList(response.result.data);
           } else if (response.result.type === 'synopsis') {
@@ -174,42 +159,6 @@ export class ContextComponent implements OnInit, OnDestroy {
     }
   }
 
-  gatherWebContext(): void {
-    if (!this.seriesName || !this.keywords) {
-      alert('Please enter both series name and keywords');
-      return;
-    }
-
-    if (this.runningContext) {
-      return;
-    }
-
-    this.apiService.generateWebContext(
-      this.seriesName,
-      this.keywords,
-      this.inputLanguage,
-      this.outputLanguage
-    ).subscribe({
-      next: (response) => {
-        if (response.status === 'processing') {
-          console.log('Web context generation started, waiting for result...');
-          // Result will be picked up by polling
-        } else if (response.status === 'error') {
-          alert(`Error: ${response.message}`);
-        }
-      },
-      error: (err) => {
-        console.error('Error generating web context:', err);
-        alert('Failed to generate web context. Please try again.');
-      }
-    });
-  }
-
-  // Save to state service whenever values change
-  updateWebContext(): void {
-    this.stateService.setWebContext(this.webContext);
-  }
-
   updateCharacterList(): void {
     this.stateService.setCharacterList(this.characterList);
   }
@@ -222,10 +171,6 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.stateService.setSummary(this.summary);
   }
 
-  adjustWebContextFontSize(delta: number): void {
-    this.webContextFontSize = Math.max(10, Math.min(24, this.webContextFontSize + delta));
-  }
-
   adjustCharacterListFontSize(delta: number): void {
     this.characterListFontSize = Math.max(10, Math.min(24, this.characterListFontSize + delta));
   }
@@ -236,10 +181,6 @@ export class ContextComponent implements OnInit, OnDestroy {
 
   adjustSummaryFontSize(delta: number): void {
     this.summaryFontSize = Math.max(10, Math.min(24, this.summaryFontSize + delta));
-  }
-
-  toggleWebContextMode(): void {
-    this.webContextReadMode = !this.webContextReadMode;
   }
 
   toggleCharacterListMode(): void {
@@ -260,18 +201,12 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.runningContext) {
+    if (this.runningLlm) {
       return;
     }
 
     // Build context dict with only checked and non-empty fields
     const context: any = {};
-    if (this.characterListUseWebContext && this.webContext.trim()) {
-      context.web_context = this.webContext;
-    }
-    if (this.characterListUseSummary && this.summary.trim()) {
-      context.summary = this.summary;
-    }
     
     this.apiService.generateCharacterList(
       this.selectedFile,
@@ -299,15 +234,12 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.runningContext) {
+    if (this.runningLlm) {
       return;
     }
 
     // Build context dict with only checked and non-empty fields
     const context: any = {};
-    if (this.synopsisUseWebContext && this.webContext.trim()) {
-      context.web_context = this.webContext;
-    }
     if (this.synopsisUseCharacterList && this.characterList.trim()) {
       context.character_list = this.characterList;
     }
@@ -338,20 +270,14 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.runningContext) {
+    if (this.runningLlm) {
       return;
     }
 
     // Build context dict with only checked and non-empty fields
     const context: any = {};
-    if (this.summaryUseWebContext && this.webContext.trim()) {
-      context.web_context = this.webContext;
-    }
     if (this.summaryUseCharacterList && this.characterList.trim()) {
       context.character_list = this.characterList;
-    }
-    if (this.summaryUseSynopsis && this.synopsis.trim()) {
-      context.synopsis = this.synopsis;
     }
     
     this.apiService.generateSummary(
@@ -376,11 +302,8 @@ export class ContextComponent implements OnInit, OnDestroy {
 
   exportContext(): void {
     const contextData = {
-      seriesName: this.seriesName,
-      keywords: this.keywords,
       inputLanguage: this.inputLanguage,
       outputLanguage: this.outputLanguage,
-      webContext: this.webContext,
       characterList: this.characterList,
       synopsis: this.synopsis,
       summary: this.summary,
@@ -427,14 +350,8 @@ export class ContextComponent implements OnInit, OnDestroy {
         const data = JSON.parse(e.target?.result as string);
         
         // Load all fields from the imported data
-        if (data.seriesName !== undefined) this.seriesName = data.seriesName;
-        if (data.keywords !== undefined) this.keywords = data.keywords;
         if (data.inputLanguage !== undefined) this.inputLanguage = data.inputLanguage;
         if (data.outputLanguage !== undefined) this.outputLanguage = data.outputLanguage;
-        if (data.webContext !== undefined) {
-          this.webContext = data.webContext;
-          this.stateService.setWebContext(data.webContext);
-        }
         if (data.characterList !== undefined) {
           this.characterList = data.characterList;
           this.stateService.setCharacterList(data.characterList);
@@ -543,7 +460,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.runningContext) {
+    if (this.runningLlm) {
       return;
     }
 

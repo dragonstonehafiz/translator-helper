@@ -1,0 +1,87 @@
+import os
+from typing import Optional
+
+import pysubs2
+import whisper
+
+from interface.audio_model_interface import AudioModelInterface
+
+
+class AudioWhisper(AudioModelInterface):
+    def __init__(self, model_name: str = "medium", device: str = "cpu"):
+        self._model_name = model_name
+        self._device = device
+        self._model = None
+        self._running = False
+
+    def configure(self, settings: dict):
+        if not settings:
+            return
+        if "model_name" in settings:
+            self._model_name = settings["model_name"]
+        if "device" in settings:
+            self._device = settings["device"]
+
+    def initialize(self):
+        self._model = self._build_model()
+
+    def change_model(self, model_name: str):
+        self._model_name = model_name
+        if self._model is not None:
+            self._model = self._build_model()
+
+    def transcribe_line(self, audio_path: str, language: str):
+        if not os.path.isfile(audio_path):
+            return "File not detected. Did you put the right path?"
+        model = self._model or self._build_model()
+        result = model.transcribe(audio_path, language=language)
+        return result["text"]
+
+    def transcribe_file(self, audio_path: str, language: str) -> pysubs2.SSAFile:
+        if not os.path.isfile(audio_path):
+            return "File not detected. Did you put the right path?"
+        model = self._model or self._build_model()
+        result = model.transcribe(audio_path, language=language)
+        segments = result["segments"]
+
+        subs = pysubs2.SSAFile()
+        style = subs.styles["Default"]
+        style.fontsize = 55
+        style.fontname = "Arial"
+        subs.styles["Default"] = style
+
+        for seg in segments:
+            line = pysubs2.SSAEvent(
+                start=seg["start"] * 1000,
+                end=seg["end"] * 1000,
+                text=seg["text"]
+            )
+            subs.events.append(line)
+        return subs
+
+    def shutdown(self):
+        self._model = None
+
+    def get_model(self) -> str:
+        return self._model_name
+
+    def is_running(self) -> bool:
+        return self._running
+
+    def set_running(self, running: bool):
+        self._running = running
+
+    def set_device(self, device: str):
+        self._device = device
+
+    def get_device(self) -> str:
+        return self._device
+
+    def _build_model(self):
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
+        return whisper.load_model(self._model_name, device=self._device)

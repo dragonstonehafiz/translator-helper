@@ -7,14 +7,6 @@
     <app-subsection title="Status">
     
     <div class="status-row">
-      <div class="status-box" [class.ready]="tavilyReady" [class.not-ready]="!tavilyReady">
-        <h3 class="component-name">Tavily API</h3>
-        <div class="status-content">
-          <div class="status-indicator"></div>
-          <span class="status-text">{{ tavilyReady ? 'Ready' : 'Not Ready' }}</span>
-        </div>
-      </div>
-      
       <div class="status-box" [class.ready]="openaiReady" [class.not-ready]="!openaiReady">
         <h3 class="component-name">OpenAI API</h3>
         <div class="status-content">
@@ -28,7 +20,7 @@
       </div>
       
       <div class="status-box" [class.ready]="whisperReady" [class.not-ready]="!whisperReady">
-        <h3 class="component-name">Whisper Model</h3>
+        <h3 class="component-name">Whisper</h3>
         <div class="status-content">
           <div class="status-indicator"></div>
           <span class="status-text">{{ whisperReady ? 'Ready' : 'Not Ready' }}</span>
@@ -40,43 +32,19 @@
       </div>
     </div>
 
-    <div class="status-row">
-      <div class="status-box" [class.ready]="runningContext" [class.not-ready]="!runningContext">
-        <h3 class="component-name">Context Generation</h3>
-        <div class="status-content">
-          <div class="spinner" *ngIf="runningContext"></div>
-          <span class="status-text">{{ runningContext ? 'Running' : 'Not Running' }}</span>
-        </div>
-      </div>
-      
-      <div class="status-box" [class.ready]="runningTranslation" [class.not-ready]="!runningTranslation">
-        <h3 class="component-name">Translation</h3>
-        <div class="status-content">
-          <div class="spinner" *ngIf="runningTranslation"></div>
-          <span class="status-text">{{ runningTranslation ? 'Running' : 'Not Running' }}</span>
-        </div>
-      </div>
-      
-      <div class="status-box" [class.ready]="runningTranscription" [class.not-ready]="!runningTranscription">
-        <h3 class="component-name">Transcription</h3>
-        <div class="status-content">
-          <div class="spinner" *ngIf="runningTranscription"></div>
-          <span class="status-text">{{ runningTranscription ? 'Running' : 'Not Running' }}</span>
-        </div>
-      </div>
-    </div>
 
-      <div class="instructions-section" *ngIf="!tavilyReady || !openaiReady || !whisperReady">
-        <div class="instruction-box" *ngIf="!tavilyReady || !openaiReady">
-          Please input Tavily/OpenAI API key below
+      <div class="instructions-section" *ngIf="!openaiReady || !whisperReady">
+        <div class="instruction-box" *ngIf="!openaiReady">
+          Please input OpenAI API key below
         </div>
         <div class="instruction-box" *ngIf="!whisperReady">
           Please initiate the transcription model below
         </div>
       </div>
+      <button class="load-button" (click)="checkStatus()">Check Status</button>
     </app-subsection>
 
-    <app-subsection title="Transcription Settings">
+    <app-subsection title="Whisper Settings">
         <div class="form-row">
           <div class="form-group">
             <label for="whisperModel">Whisper Model</label>
@@ -123,15 +91,5 @@
       </button>
     </app-subsection>
 
-    <app-subsection title="Tavily API Key">
-        <div class="form-group">
-          <label for="tavilyApiKey">Tavily API Key</label>
-          <input type="password" id="tavilyApiKey" [(ngModel)]="tavilyApiKey" placeholder="tvly-..." [disabled]="loadingTavily">
-        </div>
-      <button class="load-button" (click)="loadTavilyApi()" [disabled]="loadingTavily || !tavilyApiKey">
-        <span *ngIf="!loadingTavily">Load Tavily API</span>
-        <span *ngIf="loadingTavily">Loading...</span>
-      </button>
-    </app-subsection>
   </div>
 </div>
