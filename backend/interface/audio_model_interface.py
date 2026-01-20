@@ -18,6 +18,11 @@ class AudioModelInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_settings_schema(self) -> dict:
+        """Return a schema describing configurable settings."""
+        raise NotImplementedError
+
+    @abstractmethod
     def transcribe_line(self, audio_path: str, language: str):
         """Transcribe audio to a single text line."""
         raise NotImplementedError
@@ -50,6 +55,16 @@ class AudioModelInterface(ABC):
     @abstractmethod
     def get_device(self) -> str:
         """Return the current device identifier."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_available_devices(self) -> dict:
+        """Return available device options."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_server_variables(self) -> dict:
+        """Return current server variables for status display."""
         raise NotImplementedError
 
     @abstractmethod

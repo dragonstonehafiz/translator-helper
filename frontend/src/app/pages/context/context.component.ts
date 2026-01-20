@@ -106,7 +106,7 @@ export class ContextComponent implements OnInit, OnDestroy {
   }
 
   startPolling(): void {
-    this.pollingSubscription = interval(500).subscribe(() => {
+    this.pollingSubscription = interval(1000).subscribe(() => {
       this.apiService.checkRunning().subscribe({
         next: (status) => {
           const wasRunning = this.runningLlm;

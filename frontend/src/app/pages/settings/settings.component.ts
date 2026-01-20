@@ -1,8 +1,13 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription, interval } from 'rxjs';
 import { ApiService } from '../../services/api.service';
-import { StateService } from '../../services/state.service';
+import {
+  SettingsSchema,
+  SettingsSchemaBundle,
+  StateService
+} from '../../services/state.service';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
 
 @Component({
@@ -12,31 +17,34 @@ import { SubsectionComponent } from '../../components/subsection/subsection.comp
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'
 })
-export class SettingsComponent implements OnInit {
-  openaiReady = false;
-  whisperReady = false;
+export class SettingsComponent implements OnInit, OnDestroy {
+  openaiReady: boolean | null = null;
+  whisperReady: boolean | null = null;
 
   loadingWhisper = false;
   loadingGpt = false;
 
-
   // Current server configuration
   currentWhisperModel = '';
   currentDevice = '';
+  currentDeviceLabel = '';
   currentOpenaiModel = '';
   currentTemperature = 0;
 
-  // Settings form fields
-  whisperModel = 'large';
-  device = '';
-  openaiModel = 'gpt-4o';
-  openaiApiKey = '';
-  temperature = 0.5;
+  audioSchema: SettingsSchema | null = null;
+  llmSchema: SettingsSchema | null = null;
+  llmApiKeyRequired = false;
 
-  // Dropdown options
-  whisperModels = ['tiny', 'base', 'small', 'medium', 'large', 'turbo'];
-  openaiModels = ['gpt-4.1-mini', 'gpt-4.1', 'gpt-5.1', 'gpt-4o', 'o4-mini'];
-  devices: {label: string, value: string}[] = [];
+  settingsValues: {
+    audio: Record<string, string | number | boolean>;
+    llm: Record<string, string | number | boolean>;
+  } = {
+    audio: {},
+    llm: {}
+  };
+
+  private statusPollSub: Subscription | null = null;
+  private hasInitializedForm = false;
 
   constructor(
     private apiService: ApiService,
@@ -44,7 +52,7 @@ export class SettingsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadDevices();
+    this.loadSettingsSchema();
     this.loadFromState();
 
     // Subscribe to loading states
@@ -56,62 +64,45 @@ export class SettingsComponent implements OnInit {
       this.loadingGpt = loading;
     });
 
+    this.startStatusPolling();
+    this.loadServerVariables();
   }
 
-  checkRunningStatus(): void {
-    this.apiService.checkRunning().subscribe({
-      next: (response) => {
-        this.stateService.setLoadingWhisper(response.loading_whisper_model);
-        this.stateService.setLoadingGpt(response.loading_gpt_model);
-        
-        // Update running operations
-        
-        // After loading completes, check readiness
-        if (!response.loading_whisper_model || !response.loading_gpt_model) {
-          this.checkReadiness();
-        }
-      },
-      error: (error) => {
-        console.error('Failed to check running status:', error);
-      }
+  ngOnDestroy(): void {
+    if (this.statusPollSub) {
+      this.statusPollSub.unsubscribe();
+      this.statusPollSub = null;
+    }
+  }
+
+  private startStatusPolling(): void {
+    if (this.statusPollSub) {
+      return;
+    }
+
+    this.statusPollSub = interval(1000).subscribe(() => {
+      this.loadServerVariables();
     });
   }
 
   checkStatus(): void {
-    this.checkRunningStatus();
     this.loadServerVariables();
-    this.checkReadiness();
   }
 
-  checkReadiness(): void {
-    this.apiService.checkReady().subscribe({
-      next: (response) => {
-        this.stateService.setReady(response.is_ready);
-        this.stateService.setOpenaiReady(response.openai_ready);
-        this.stateService.setWhisperReady(response.whisper_ready);
-        this.openaiReady = response.openai_ready;
-        this.whisperReady = response.whisper_ready;
-      },
-      error: (error) => {
-        console.error('Failed to check readiness:', error);
-      }
-    });
-  }
+  loadSettingsSchema(): void {
+    const cachedSchema = this.stateService.getSettingsSchema();
+    if (cachedSchema.audio || cachedSchema.llm) {
+      this.applySchema(cachedSchema);
+      return;
+    }
 
-  loadDevices(): void {
-    this.apiService.getDevices().subscribe({
-      next: (response) => {
-        this.devices = Object.entries(response.devices).map(([label, value]) => ({
-          label,
-          value
-        }));
-        if (this.devices.length > 0 && !this.device) {
-          this.device = this.devices[0].value;
-        }
-        this.updateDeviceLabel();
+    this.apiService.getSettingsSchema().subscribe({
+      next: (schema) => {
+        this.stateService.setSettingsSchema(schema);
+        this.applySchema(schema);
       },
       error: (error) => {
-        console.error('Failed to load devices:', error);
+        console.error('Failed to load settings schema:', error);
       }
     });
   }
@@ -119,32 +110,54 @@ export class SettingsComponent implements OnInit {
   loadServerVariables(): void {
     this.apiService.getServerVariables().subscribe({
       next: (response) => {
-        this.currentWhisperModel = response.whisper_model;
-        this.currentDevice = response.device;
-        this.currentOpenaiModel = response.openai_model;
-        this.currentTemperature = response.temperature;
-        if (response.whisper_model) {
-          this.whisperModel = response.whisper_model;
+        const audioVars = response.audio;
+        const llmVars = response.llm;
+
+        this.stateService.setReady(response.is_ready);
+        this.stateService.setOpenaiReady(response.openai_ready);
+        this.stateService.setWhisperReady(response.whisper_ready);
+        this.openaiReady = response.openai_ready;
+        this.whisperReady = response.whisper_ready;
+        if (response.openai_ready) {
+          this.stateService.setLoadingGpt(false);
         }
-        if (response.device) {
-          this.device = response.device;
+        if (response.whisper_ready) {
+          this.stateService.setLoadingWhisper(false);
         }
-        if (response.openai_model) {
-          this.openaiModel = response.openai_model;
-        }
-        if (response.temperature !== undefined && response.temperature !== null) {
-          this.temperature = response.temperature;
+
+        this.currentWhisperModel = audioVars.whisper_model;
+        this.currentDevice = audioVars.device;
+        this.currentOpenaiModel = llmVars.openai_model;
+        this.currentTemperature = llmVars.temperature;
+        if (!this.hasInitializedForm) {
+          if (audioVars.whisper_model) {
+            this.setSettingsValue('audio', 'model_name', audioVars.whisper_model);
+          }
+          if (audioVars.device) {
+            this.setSettingsValue('audio', 'device', audioVars.device);
+          }
+          if (llmVars.openai_model) {
+            this.setSettingsValue('llm', 'model_name', llmVars.openai_model);
+          }
+          if (llmVars.temperature !== undefined && llmVars.temperature !== null) {
+            this.setSettingsValue('llm', 'temperature', llmVars.temperature);
+          }
+          this.hasInitializedForm = true;
         }
         this.stateService.setServerVariables({
-          whisperModel: response.whisper_model,
-          device: response.device,
-          openaiModel: response.openai_model,
-          temperature: response.temperature
+          whisperModel: audioVars.whisper_model,
+          device: audioVars.device,
+          openaiModel: llmVars.openai_model,
+          temperature: llmVars.temperature
         });
         this.updateDeviceLabel();
       },
       error: (error) => {
         console.error('Failed to load server variables:', error);
+        this.openaiReady = null;
+        this.whisperReady = null;
+        this.stateService.setOpenaiReady(null);
+        this.stateService.setWhisperReady(null);
       }
     });
   }
@@ -162,19 +175,27 @@ export class SettingsComponent implements OnInit {
     }
     if (serverVars.whisperModel !== null) {
       this.currentWhisperModel = serverVars.whisperModel;
-      this.whisperModel = serverVars.whisperModel;
+      this.setSettingsValue('audio', 'model_name', serverVars.whisperModel);
     }
     if (serverVars.device !== null) {
       this.currentDevice = serverVars.device;
-      this.device = serverVars.device;
+      this.setSettingsValue('audio', 'device', serverVars.device);
     }
     if (serverVars.openaiModel !== null) {
       this.currentOpenaiModel = serverVars.openaiModel;
-      this.openaiModel = serverVars.openaiModel;
+      this.setSettingsValue('llm', 'model_name', serverVars.openaiModel);
     }
     if (serverVars.temperature !== null) {
       this.currentTemperature = serverVars.temperature;
-      this.temperature = serverVars.temperature;
+      this.setSettingsValue('llm', 'temperature', serverVars.temperature);
+    }
+    if (
+      serverVars.whisperModel !== null ||
+      serverVars.device !== null ||
+      serverVars.openaiModel !== null ||
+      serverVars.temperature !== null
+    ) {
+      this.hasInitializedForm = true;
     }
 
     if (openaiReady === null || whisperReady === null) {
@@ -184,17 +205,58 @@ export class SettingsComponent implements OnInit {
     this.updateDeviceLabel();
   }
 
+  private applySchema(schema: SettingsSchemaBundle): void {
+    this.audioSchema = schema.audio;
+    this.llmSchema = schema.llm;
+    this.llmApiKeyRequired = Boolean(
+      this.llmSchema?.fields.find(field => field.key === 'api_key')?.required
+    );
+
+    this.initializeSettingsValues('audio', this.audioSchema);
+    this.initializeSettingsValues('llm', this.llmSchema);
+    this.updateDeviceLabel();
+  }
+
+
+  private initializeSettingsValues(scope: 'audio' | 'llm', schema: SettingsSchema | null): void {
+    if (!schema) return;
+
+    schema.fields.forEach(field => {
+      if (this.settingsValues[scope][field.key] === undefined) {
+        if (field.default !== undefined) {
+          this.settingsValues[scope][field.key] = field.default;
+        }
+      }
+    });
+  }
+
+  private setSettingsValue(scope: 'audio' | 'llm', key: string, value: string | number | boolean): void {
+    this.settingsValues[scope][key] = value;
+  }
+
   private updateDeviceLabel(): void {
-    const match = this.devices.find(item => item.value === this.currentDevice);
-    if (match) {
-      this.currentDevice = match.label;
+    if (!this.currentDevice) {
+      this.currentDeviceLabel = '';
+      return;
     }
+
+    const deviceField = this.audioSchema?.fields.find(field => field.key === 'device');
+    const match = deviceField?.options?.find(option => option.value === this.currentDevice);
+    this.currentDeviceLabel = match ? match.label : this.currentDevice;
   }
 
   loadWhisperModel(): void {
     if (this.loadingWhisper) return;
 
-    this.apiService.loadWhisperModel(this.whisperModel, this.device).subscribe({
+    const modelName = this.settingsValues.audio['model_name'] as string | undefined;
+    const device = this.settingsValues.audio['device'] as string | undefined;
+
+    if (!modelName || !device) {
+      alert('Please select a model and device');
+      return;
+    }
+
+    this.apiService.loadWhisperModel(modelName, device).subscribe({
       next: (response) => {
         console.log(response.message);
         this.stateService.setLoadingWhisper(true);
@@ -211,14 +273,24 @@ export class SettingsComponent implements OnInit {
       return;
     }
 
-    if (!this.openaiApiKey && !this.openaiReady) {
+    const apiKey = this.settingsValues.llm['api_key'] as string | undefined;
+    const modelName = this.settingsValues.llm['model_name'] as string | undefined;
+    const temperatureValue = this.settingsValues.llm['temperature'] as number | undefined;
+    const temperature = temperatureValue !== undefined ? Number(temperatureValue) : this.currentTemperature;
+
+    if (!modelName) {
+      alert('Please select an LLM model');
+      return;
+    }
+
+    if (this.llmApiKeyRequired && !apiKey && this.openaiReady === false) {
       alert('Please enter OpenAI API key');
       return;
     }
 
-    const apiKeyToSend = this.openaiApiKey ? this.openaiApiKey : null;
+    const apiKeyToSend = apiKey ? apiKey : null;
 
-    this.apiService.loadGptModel(this.openaiModel, apiKeyToSend, this.temperature).subscribe({
+    this.apiService.loadGptModel(modelName, apiKeyToSend, temperature).subscribe({
       next: (response) => {
         console.log(response.message);
         this.stateService.setLoadingGpt(true);

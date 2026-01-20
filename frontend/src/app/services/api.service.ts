@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { SettingsSchemaBundle } from './state.service';
 
 @Injectable({
   providedIn: 'root'
@@ -10,10 +11,6 @@ export class ApiService {
 
   constructor(private http: HttpClient) { }
 
-  checkReady(): Observable<{is_ready: boolean, message: string, openai_ready: boolean, whisper_ready: boolean}> {
-    return this.http.get<{is_ready: boolean, message: string, openai_ready: boolean, whisper_ready: boolean}>(`${this.baseUrl}/ready`);
-  }
-
   checkRunning(): Observable<{running_llm: boolean, running_whisper: boolean, loading_whisper_model: boolean, loading_gpt_model: boolean}> {
     return this.http.get<{running_llm: boolean, running_whisper: boolean, loading_whisper_model: boolean, loading_gpt_model: boolean}>(`${this.baseUrl}/running`);
   }
@@ -22,8 +19,15 @@ export class ApiService {
     return this.http.get<{status: string, message: string}>(`${this.baseUrl}/health`);
   }
 
-  getDevices(): Observable<{devices: {[key: string]: string}}> {
-    return this.http.get<{devices: {[key: string]: string}}>(`${this.baseUrl}/devices`);
+  getSettingsSchema(): Observable<SettingsSchemaBundle> {
+    return this.http.get<SettingsSchemaBundle>(`${this.baseUrl}/settings/schema`);
+  }
+
+  updateSettings(provider: string, settings: Record<string, unknown>): Observable<{status: string, message: string}> {
+    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/settings/update`, {
+      provider,
+      settings
+    });
   }
 
   loadWhisperModel(modelName: string, device: string): Observable<{status: string, message: string}> {
@@ -46,8 +50,20 @@ export class ApiService {
     return this.http.post<{status: string, message: string}>(`${this.baseUrl}/load-gpt-model`, payload);
   }
 
-  getServerVariables(): Observable<{whisper_model: string, device: string, openai_model: string, temperature: number}> {
-    return this.http.get<{whisper_model: string, device: string, openai_model: string, temperature: number}>(`${this.baseUrl}/server/variables`);
+  getServerVariables(): Observable<{
+    audio: {whisper_model: string; device: string};
+    llm: {openai_model: string; temperature: number};
+    openai_ready: boolean;
+    whisper_ready: boolean;
+    is_ready: boolean;
+  }> {
+    return this.http.get<{
+      audio: {whisper_model: string; device: string};
+      llm: {openai_model: string; temperature: number};
+      openai_ready: boolean;
+      whisper_ready: boolean;
+      is_ready: boolean;
+    }>(`${this.baseUrl}/server/variables`);
   }
 
   generateWebContext(seriesName: string, keywords: string, inputLang: string, outputLang: string): Observable<{status: string, context?: string, message?: string}> {

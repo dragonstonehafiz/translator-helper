@@ -1,6 +1,33 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 
+export type SettingsFieldType = 'select' | 'text' | 'password' | 'number' | 'boolean';
+
+export interface SettingsField {
+  key: string;
+  label: string;
+  type: SettingsFieldType;
+  default?: string | number | boolean;
+  required?: boolean;
+  options?: {label: string; value: string}[];
+  min?: number;
+  max?: number;
+  step?: number;
+  placeholder?: string;
+  help?: string;
+}
+
+export interface SettingsSchema {
+  provider: string;
+  title: string;
+  fields: SettingsField[];
+}
+
+export interface SettingsSchemaBundle {
+  audio: SettingsSchema | null;
+  llm: SettingsSchema | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -42,6 +69,12 @@ export class StateService {
 
   private runningLlmSubject = new BehaviorSubject<boolean>(false);
   public runningLlm$: Observable<boolean> = this.runningLlmSubject.asObservable();
+
+  private settingsSchemaSubject = new BehaviorSubject<SettingsSchemaBundle>({
+    audio: null,
+    llm: null
+  });
+  public settingsSchema$: Observable<SettingsSchemaBundle> = this.settingsSchemaSubject.asObservable();
 
   constructor() { }
 
@@ -142,6 +175,14 @@ export class StateService {
 
   getRunningLlm(): boolean {
     return this.runningLlmSubject.value;
+  }
+
+  setSettingsSchema(schema: SettingsSchemaBundle): void {
+    this.settingsSchemaSubject.next(schema);
+  }
+
+  getSettingsSchema(): SettingsSchemaBundle {
+    return this.settingsSchemaSubject.value;
   }
 
   getState(): Observable<{

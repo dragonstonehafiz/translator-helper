@@ -23,6 +23,11 @@ class LLMInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_settings_schema(self) -> dict:
+        """Return a schema describing configurable settings."""
+        raise NotImplementedError
+
+    @abstractmethod
     def infer(
         self,
         prompt: str,
@@ -66,6 +71,11 @@ class LLMInterface(ABC):
     @abstractmethod
     def get_temperature(self) -> float:
         """Return the current default temperature."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_server_variables(self) -> dict:
+        """Return current server variables for status display."""
         raise NotImplementedError
 
     @abstractmethod

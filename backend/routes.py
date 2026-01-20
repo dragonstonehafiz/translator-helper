@@ -68,6 +68,11 @@ class LoadGptRequest(BaseModel):
     temperature: float
 
 
+class UpdateSettingsRequest(BaseModel):
+    provider: str
+    settings: dict
+
+
 class GenerateCharacterListRequest(BaseModel):
     transcript: str
     context: dict = {}
@@ -482,49 +487,62 @@ async def get_running_status():
     }
 
 
-@router.get("/api/ready")
-async def get_ready_status():
-    """Check if all required components are ready."""
+@router.get("/api/server/variables")
+async def get_server_variables():
+    """Get current server configuration variables."""
     openai_ready = bool(llm_client and llm_client.is_ready())
     whisper_ready = bool(audio_client)
     is_ready = openai_ready and whisper_ready
 
-    if is_ready:
-        message = "All components are ready"
-    else:
-        missing = []
-        if not openai_ready:
-            missing.append("OpenAI API key")
-        if not whisper_ready:
-            missing.append("Whisper model")
-        message = f"Missing: {', '.join(missing)}"
-
     return {
-        "is_ready": is_ready,
-        "message": message,
+        "audio": (audio_client.get_server_variables() if audio_client else {"whisper_model": "", "device": ""}),
+        "llm": (llm_client.get_server_variables() if llm_client else {"openai_model": "", "temperature": 0.5}),
         "openai_ready": openai_ready,
-        "whisper_ready": whisper_ready
+        "whisper_ready": whisper_ready,
+        "is_ready": is_ready
     }
 
 
-@router.get("/api/devices")
-async def get_devices():
-    """Get available devices for Whisper model."""
-    from utils.utils import get_device_map
-    device_map = get_device_map()
+@router.get("/api/settings/schema")
+async def get_settings_schema():
+    """Get settings schema for model configuration."""
+    audio_schema = audio_client.get_settings_schema() if audio_client else AudioWhisper().get_settings_schema()
+    llm_schema = llm_client.get_settings_schema() if llm_client else LLM_ChatGPT().get_settings_schema()
+    return {"audio": audio_schema, "llm": llm_schema}
 
-    return {"devices": device_map}
 
+@router.post("/api/settings/update")
+async def update_settings(request: UpdateSettingsRequest):
+    """Update model settings without loading models."""
+    global audio_client, llm_client
 
-@router.get("/api/server/variables")
-async def get_server_variables():
-    """Get current server configuration variables."""
-    return {
-        "whisper_model": audio_client.get_model() if audio_client else "",
-        "device": audio_client.get_device() if audio_client else "",
-        "openai_model": llm_client.get_model() if llm_client else "",
-        "temperature": llm_client.get_temperature() if llm_client else 0.5
-    }
+    provider = request.provider.lower()
+    settings_payload = request.settings or {}
+
+    if provider == "audio":
+        if audio_client is None:
+            audio_client = AudioWhisper()
+        audio_client.configure(settings_payload)
+        if "model_name" in settings_payload:
+            audio_client.change_model(settings_payload["model_name"])
+        if "device" in settings_payload:
+            audio_client.set_device(settings_payload["device"])
+        return {"status": "ok", "message": "Audio settings updated"}
+
+    if provider == "llm":
+        if llm_client is None:
+            llm_client = LLM_ChatGPT(
+                model_name=settings_payload.get("model_name", "gpt-4o"),
+                api_key=settings_payload.get("api_key")
+            )
+        llm_client.configure(settings_payload)
+        if "model_name" in settings_payload:
+            llm_client.change_model(settings_payload["model_name"])
+        if "temperature" in settings_payload:
+            llm_client.set_temperature(settings_payload["temperature"])
+        return {"status": "ok", "message": "LLM settings updated"}
+
+    return {"status": "error", "message": "Unknown provider"}
 
 
 @router.post("/api/transcribe/transcribe-line")

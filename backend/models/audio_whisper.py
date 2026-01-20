@@ -22,6 +22,39 @@ class AudioWhisper(AudioModelInterface):
         if "device" in settings:
             self._device = settings["device"]
 
+    def get_settings_schema(self) -> dict:
+        return {
+            "provider": "audio_whisper",
+            "title": "Whisper",
+            "fields": [
+                {
+                    "key": "model_name",
+                    "label": "Model",
+                    "type": "select",
+                    "options": [
+                        {"label": "tiny", "value": "tiny"},
+                        {"label": "base", "value": "base"},
+                        {"label": "small", "value": "small"},
+                        {"label": "medium", "value": "medium"},
+                        {"label": "large", "value": "large"},
+                        {"label": "turbo", "value": "turbo"}
+                    ],
+                    "default": self._model_name,
+                    "required": True
+                },
+                {
+                    "key": "device",
+                    "label": "Device",
+                    "type": "select",
+                    "options": [
+                        {"label": label, "value": value}
+                        for label, value in self.get_available_devices().items()
+                    ],
+                    "default": self._device
+                }
+            ]
+        }
+
     def initialize(self):
         self._model = self._build_model()
 
@@ -76,6 +109,16 @@ class AudioWhisper(AudioModelInterface):
 
     def get_device(self) -> str:
         return self._device
+
+    def get_available_devices(self) -> dict:
+        from utils.utils import get_device_map
+        return get_device_map()
+
+    def get_server_variables(self) -> dict:
+        return {
+            "whisper_model": self._model_name,
+            "device": self._device
+        }
 
     def _build_model(self):
         try:

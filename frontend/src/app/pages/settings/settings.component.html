@@ -7,11 +7,13 @@
     <app-subsection title="Status">
     
     <div class="status-row">
-      <div class="status-box" [class.ready]="openaiReady" [class.not-ready]="!openaiReady">
-        <h3 class="component-name">OpenAI API</h3>
+      <div class="status-box" [class.ready]="openaiReady === true" [class.not-ready]="openaiReady === false" [class.not-connected]="openaiReady === null">
+        <h3 class="component-name">LLM</h3>
         <div class="status-content">
           <div class="status-indicator"></div>
-          <span class="status-text">{{ openaiReady ? 'Ready' : 'Not Ready' }}</span>
+          <span class="status-text">
+            {{ openaiReady === null ? 'Not Connected' : (openaiReady ? 'Ready' : 'Not Ready') }}
+          </span>
         </div>
         <div class="status-details" *ngIf="openaiReady && currentOpenaiModel">
           <div>Model: {{ currentOpenaiModel }}</div>
@@ -19,75 +21,122 @@
         </div>
       </div>
       
-      <div class="status-box" [class.ready]="whisperReady" [class.not-ready]="!whisperReady">
-        <h3 class="component-name">Whisper</h3>
+      <div class="status-box" [class.ready]="whisperReady === true" [class.not-ready]="whisperReady === false" [class.not-connected]="whisperReady === null">
+        <h3 class="component-name">Transcription Model</h3>
         <div class="status-content">
           <div class="status-indicator"></div>
-          <span class="status-text">{{ whisperReady ? 'Ready' : 'Not Ready' }}</span>
+          <span class="status-text">
+            {{ whisperReady === null ? 'Not Connected' : (whisperReady ? 'Ready' : 'Not Ready') }}
+          </span>
         </div>
         <div class="status-details" *ngIf="whisperReady && currentWhisperModel">
           <div>Model: {{ currentWhisperModel }}</div>
-          <div>Device: {{ currentDevice }}</div>
+          <div>Device: {{ currentDeviceLabel }}</div>
         </div>
       </div>
     </div>
 
 
-      <div class="instructions-section" *ngIf="!openaiReady || !whisperReady">
-        <div class="instruction-box" *ngIf="!openaiReady">
-          Please input OpenAI API key below
-        </div>
-        <div class="instruction-box" *ngIf="!whisperReady">
-          Please initiate the transcription model below
-        </div>
-      </div>
       <button class="load-button" (click)="checkStatus()">Check Status</button>
     </app-subsection>
 
-    <app-subsection title="Whisper Settings">
-        <div class="form-row">
-          <div class="form-group">
-            <label for="whisperModel">Whisper Model</label>
-            <select id="whisperModel" [(ngModel)]="whisperModel" [disabled]="loadingWhisper">
-              <option *ngFor="let model of whisperModels" [value]="model">{{ model }}</option>
+    <app-subsection *ngIf="llmSchema" title="LLM">
+      <div class="form-row">
+        <div class="form-group" *ngFor="let field of llmSchema.fields">
+          <label [for]="'llm-' + field.key">{{ field.label }}</label>
+          <ng-container [ngSwitch]="field.type">
+            <select
+              *ngSwitchCase="'select'"
+              [id]="'llm-' + field.key"
+              [(ngModel)]="settingsValues.llm[field.key]"
+              [disabled]="loadingGpt">
+              <option *ngFor="let option of field.options || []" [value]="option.value">{{ option.label }}</option>
             </select>
-          </div>
-
-          <div class="form-group">
-            <label for="device">Device</label>
-            <select id="device" [(ngModel)]="device" [disabled]="loadingWhisper">
-              <option *ngFor="let dev of devices" [value]="dev.value">{{ dev.label }}</option>
-            </select>
-          </div>
+            <input
+              *ngSwitchCase="'number'"
+              type="number"
+              [id]="'llm-' + field.key"
+              [(ngModel)]="settingsValues.llm[field.key]"
+              [min]="field.min ?? null"
+              [max]="field.max ?? null"
+              [step]="field.step ?? null"
+              [disabled]="loadingGpt">
+            <input
+              *ngSwitchCase="'password'"
+              type="password"
+              [id]="'llm-' + field.key"
+              [(ngModel)]="settingsValues.llm[field.key]"
+              [placeholder]="field.placeholder"
+              [disabled]="loadingGpt">
+            <input
+              *ngSwitchCase="'boolean'"
+              type="checkbox"
+              [id]="'llm-' + field.key"
+              [(ngModel)]="settingsValues.llm[field.key]"
+              [disabled]="loadingGpt">
+            <input
+              *ngSwitchDefault
+              type="text"
+              [id]="'llm-' + field.key"
+              [(ngModel)]="settingsValues.llm[field.key]"
+              [placeholder]="field.placeholder"
+              [disabled]="loadingGpt">
+          </ng-container>
         </div>
-      <button class="load-button" (click)="loadWhisperModel()" [disabled]="loadingWhisper">
-        <span *ngIf="!loadingWhisper">Load Whisper Model</span>
-        <span *ngIf="loadingWhisper">Loading...</span>
+      </div>
+      <button class="load-button" (click)="loadGptModel()" [disabled]="loadingGpt || (llmApiKeyRequired && !settingsValues.llm['api_key'] && !openaiReady)">
+        <span *ngIf="!loadingGpt">Load GPT Model</span>
+        <span *ngIf="loadingGpt">Loading...</span>
       </button>
     </app-subsection>
 
-    <app-subsection title="OpenAI API Settings">
-        <div class="form-group">
-          <label for="openaiApiKey">OpenAI API Key</label>
-          <input type="password" id="openaiApiKey" [(ngModel)]="openaiApiKey" placeholder="sk-..." [disabled]="loadingGpt">
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="openaiModel">OpenAI Model</label>
-            <select id="openaiModel" [(ngModel)]="openaiModel" [disabled]="loadingGpt">
-              <option *ngFor="let model of openaiModels" [value]="model">{{ model }}</option>
+    <app-subsection *ngIf="audioSchema" title="Transcription Model">
+      <div class="form-row">
+        <div class="form-group" *ngFor="let field of audioSchema.fields">
+          <label [for]="'audio-' + field.key">{{ field.label }}</label>
+          <ng-container [ngSwitch]="field.type">
+            <select
+              *ngSwitchCase="'select'"
+              [id]="'audio-' + field.key"
+              [(ngModel)]="settingsValues.audio[field.key]"
+              [disabled]="loadingWhisper">
+              <option *ngFor="let option of field.options || []" [value]="option.value">{{ option.label }}</option>
             </select>
-          </div>
-
-          <div class="form-group">
-            <label for="temperature">Temperature: {{ temperature }}</label>
-            <input type="range" id="temperature" [(ngModel)]="temperature" min="0" max="1.5" step="0.05" [disabled]="loadingGpt">
-          </div>
+            <input
+              *ngSwitchCase="'number'"
+              type="number"
+              [id]="'audio-' + field.key"
+              [(ngModel)]="settingsValues.audio[field.key]"
+              [min]="field.min ?? null"
+              [max]="field.max ?? null"
+              [step]="field.step ?? null"
+              [disabled]="loadingWhisper">
+            <input
+              *ngSwitchCase="'password'"
+              type="password"
+              [id]="'audio-' + field.key"
+              [(ngModel)]="settingsValues.audio[field.key]"
+              [placeholder]="field.placeholder"
+              [disabled]="loadingWhisper">
+            <input
+              *ngSwitchCase="'boolean'"
+              type="checkbox"
+              [id]="'audio-' + field.key"
+              [(ngModel)]="settingsValues.audio[field.key]"
+              [disabled]="loadingWhisper">
+            <input
+              *ngSwitchDefault
+              type="text"
+              [id]="'audio-' + field.key"
+              [(ngModel)]="settingsValues.audio[field.key]"
+              [placeholder]="field.placeholder"
+              [disabled]="loadingWhisper">
+          </ng-container>
         </div>
-      <button class="load-button" (click)="loadGptModel()" [disabled]="loadingGpt || (!openaiApiKey && !openaiReady)">
-        <span *ngIf="!loadingGpt">Load GPT Model</span>
-        <span *ngIf="loadingGpt">Loading...</span>
+      </div>
+      <button class="load-button" (click)="loadWhisperModel()" [disabled]="loadingWhisper">
+        <span *ngIf="!loadingWhisper">Load Whisper Model</span>
+        <span *ngIf="loadingWhisper">Loading...</span>
       </button>
     </app-subsection>
 

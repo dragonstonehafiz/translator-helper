@@ -29,7 +29,7 @@
 .status-row {
   display: flex;
   gap: 30px;
-  justify-content: center;
+  justify-content: space-between;
   align-items: stretch;
 
   &:not(:first-child) {
@@ -39,7 +39,7 @@
 
 .status-box {
   flex: 1;
-  max-width: 300px;
+  min-width: 0;
   padding: 25px;
   border-radius: 12px;
   background-color: white;
@@ -106,12 +106,24 @@
 }
 
 .status-box.not-ready {
-  border-color: #999;
+  border-color: #dc3545;
   
+  .status-indicator {
+    background-color: #dc3545;
+  }
+  
+  .status-text {
+    color: #dc3545;
+  }
+}
+
+.status-box.not-connected {
+  border-color: #999;
+
   .status-indicator {
     background-color: #999;
   }
-  
+
   .status-text {
     color: #999;
   }

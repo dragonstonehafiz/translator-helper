@@ -29,6 +29,44 @@ class LLM_ChatGPT(LLMInterface):
         if "temperature" in settings:
             self._temperature = settings["temperature"]
 
+    def get_settings_schema(self) -> dict:
+        return {
+            "provider": "llm_chatgpt",
+            "title": "OpenAI ChatGPT",
+            "fields": [
+                {
+                    "key": "model_name",
+                    "label": "Model",
+                    "type": "select",
+                    "options": [
+                        {"label": "gpt-4.1-mini", "value": "gpt-4.1-mini"},
+                        {"label": "gpt-4.1", "value": "gpt-4.1"},
+                        {"label": "gpt-5.1", "value": "gpt-5.1"},
+                        {"label": "gpt-4o", "value": "gpt-4o"},
+                        {"label": "o4-mini", "value": "o4-mini"}
+                    ],
+                    "default": self._model_name,
+                    "required": True
+                },
+                {
+                    "key": "api_key",
+                    "label": "API Key",
+                    "type": "password",
+                    "placeholder": "sk-...",
+                    "required": True
+                },
+                {
+                    "key": "temperature",
+                    "label": "Temperature",
+                    "type": "number",
+                    "min": 0,
+                    "max": 2,
+                    "step": 0.1,
+                    "default": self._temperature
+                }
+            ]
+        }
+
     def initialize(self):
         self._llm = self._build_llm()
 
@@ -51,6 +89,12 @@ class LLM_ChatGPT(LLMInterface):
 
     def get_temperature(self) -> float:
         return self._temperature
+
+    def get_server_variables(self) -> dict:
+        return {
+            "openai_model": self._model_name,
+            "temperature": self._temperature
+        }
 
     def infer(
         self,

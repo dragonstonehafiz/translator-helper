@@ -142,14 +142,38 @@ The application uses several reusable standalone components located in `frontend
 
 **Health & Status**:
 - `GET /api/health`: Health check
-- `GET /api/ready`: Check if models/APIs are loaded
 - `GET /api/running`: Check running operations status
 
 **Settings**:
-- `GET /api/devices`: Get available compute devices
 - `POST /api/load-whisper-model`: Load Whisper transcription model
-- `POST /api/load-gpt-model`: Load OpenAI GPT model (API key optional—omit it to reuse the stored key)
-- `GET /api/server/variables`: Get current server configuration
+- `POST /api/load-gpt-model`: Load OpenAI GPT model (API key optional, omit it to reuse the stored key)
+- `GET /api/settings/schema`: Get settings schema for model configuration
+- `POST /api/settings/update`: Update model settings without loading models
+- `GET /api/server/variables`: Get current server configuration and readiness grouped by provider
+
+### Settings Schema (Backend -> Frontend)
+Model backends can expose a settings schema so the frontend can render controls dynamically.
+Schema shape is a dict with `provider`, `title`, and `fields`. Each field supports:
+- `key`, `label`, `type`, `default`, `required`
+- `options` for `select` fields as `{ "label": string, "value": string }`
+- `min`, `max`, `step` for `number` fields
+- `placeholder`, `help` for text inputs
+
+Supported `type` values: `select`, `text`, `password`, `number`, `boolean`.
+Audio models also expose `get_available_devices()` for device dropdown options.
+
+### Server Variables (Backend -> Frontend)
+The server variables endpoint returns provider-grouped data so the frontend can map
+status cards correctly:
+```json
+{
+  "audio": { "whisper_model": "...", "device": "..." },
+  "llm": { "openai_model": "...", "temperature": 0.5 },
+  "openai_ready": true,
+  "whisper_ready": true,
+  "is_ready": true
+}
+```
 
 **Context Generation** (`backend/routes.py`):
 - `POST /api/context/generate-character-list`: Generate character list from subtitle file
