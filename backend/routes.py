@@ -99,7 +99,6 @@ def load_whisper_background(model_name: str, device: str):
     global audio_client, loading_whisper_model
     try:
         loading_whisper_model = True
-        logger.info(f"Starting Whisper model load: model='{model_name}', device='{device}'")
         if audio_client is None:
             audio_client = AudioWhisper(model_name=model_name, device=device)
         else:
@@ -107,13 +106,12 @@ def load_whisper_background(model_name: str, device: str):
             audio_client.change_model(model_name)
             audio_client.set_device(device)
         audio_client.initialize()
-        logger.info(f"Successfully loaded Whisper model: model='{model_name}', device='{device}'")
+        logger.info(f"Whisper model loaded: model='{audio_client.get_model()}', device='{audio_client.get_device()}'")
     except Exception as e:
         logger.error(f"Error loading Whisper model: {e}")
         print(f"Error loading Whisper model: {e}")
     finally:
         loading_whisper_model = False
-        logger.info(f"Whisper model load completed: model='{model_name}'")
 
 
 def load_gpt_background(model_name: str, api_key: Optional[str], temperature: float):
@@ -121,7 +119,6 @@ def load_gpt_background(model_name: str, api_key: Optional[str], temperature: fl
     global llm_client, loading_gpt_model
     try:
         loading_gpt_model = True
-        logger.info(f"Starting GPT model load: model='{model_name}', temperature={temperature}")
         if not api_key and (llm_client is None or not llm_client.is_ready()):
             raise ValueError("OpenAI API key not provided and no stored key is available.")
         if llm_client is None:
@@ -132,13 +129,12 @@ def load_gpt_background(model_name: str, api_key: Optional[str], temperature: fl
             llm_client.change_model(model_name)
         llm_client.set_temperature(temperature)
         llm_client.initialize()
-        logger.info(f"Successfully loaded GPT model: model='{model_name}'")
+        logger.info(f"LLM loaded: model='{llm_client.get_model()}', temperature={llm_client.get_temperature()}")
     except Exception as e:
         logger.error(f"Error loading GPT model: {e}")
         print(f"Error loading GPT model: {e}")
     finally:
         loading_gpt_model = False
-        logger.info(f"GPT model load completed: model='{model_name}'")
 
 
 def generate_character_list_background(file_path: str, input_lang: str, output_lang: str, context: dict):
@@ -398,6 +394,8 @@ def translate_file_background(file_path: str, context: dict, input_lang: str, ou
         import pysubs2
         subs = pysubs2.load(file_path)
 
+        import time
+        start_time = time.time()
         # Translate
         translated_subs = translate_subs(
             llm=llm_client,
@@ -408,6 +406,8 @@ def translate_file_background(file_path: str, context: dict, input_lang: str, ou
             target_lang=output_lang,
             temperature=llm_client.get_temperature()
         )
+        elapsed_seconds = time.time() - start_time
+        logger.info("File translation completed in %.2fs", elapsed_seconds)
 
         # Save to temp file
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=os.path.splitext(file_path)[1], encoding='utf-8') as tmp_file:
@@ -428,7 +428,6 @@ def translate_file_background(file_path: str, context: dict, input_lang: str, ou
             "data": output_content,
             "filename": translated_filename
         }
-        logger.info("Successfully completed file translation")
 
         # Cleanup output file
         try:
