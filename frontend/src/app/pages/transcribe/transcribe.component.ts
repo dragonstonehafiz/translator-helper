@@ -3,6 +3,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
+import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon.component';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 import { TextFieldComponent } from '../../components/text-field/text-field.component';
 import { ApiService } from '../../services/api.service';
@@ -11,7 +12,7 @@ import { StateService } from '../../services/state.service';
 @Component({
   selector: 'app-transcribe',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent, TooltipIconComponent],
   templateUrl: './transcribe.component.html',
   styleUrl: './transcribe.component.scss'
 })
@@ -19,7 +20,7 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
   @ViewChild('waveformCanvas') waveformCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('audioPlayer') audioPlayer?: ElementRef<HTMLAudioElement>;
   
-  translateLineCollapsed = false;
+  translateLineCollapsed = true;
   isRecording = false;
   recordingDuration = 0;
   recordedAudioUrl: string | null = null;

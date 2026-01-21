@@ -1,12 +1,13 @@
 import { Component, Input, Output, EventEmitter, forwardRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, NG_VALUE_ACCESSOR, ControlValueAccessor } from '@angular/forms';
+import { TooltipIconComponent } from '../tooltip-icon/tooltip-icon.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-text-field',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TooltipIconComponent],
   templateUrl: './text-field.component.html',
   styleUrl: './text-field.component.scss',
   providers: [

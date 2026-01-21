@@ -67,6 +67,24 @@ The application uses several reusable standalone components located in `frontend
 
 ---
 
+### app-tooltip-icon
+**Location**: `frontend/src/app/components/tooltip-icon/`
+
+**Purpose**: Shared tooltip icon used across labels and subsection headers.
+
+**When to use**:
+- Any place you need a consistent tooltip icon
+
+**Usage**:
+```html
+<app-tooltip-icon tooltip="Helpful text"></app-tooltip-icon>
+```
+
+**Properties**:
+- `tooltip` (required): Tooltip text shown on hover
+
+---
+
 ### app-file-upload
 **Location**: `frontend/src/app/components/file-upload/`
 
@@ -261,8 +279,8 @@ Long-running operations use FastAPI's BackgroundTasks with polling:
 ### State Management
 - Use `StateService` for cross-component state
   - `getState()`: Returns Observable with all saved context data (characterList, synopsis, summary, recap)
-  - Individual getters: `getWebContext()`, `getCharacterList()`, `getSynopsis()`, `getSummary()`, `getRecap()`
-  - Individual setters: `setWebContext()`, `setCharacterList()`, etc.
+  - Individual getters: `getCharacterList()`, `getSynopsis()`, `getSummary()`, `getRecap()`
+  - Individual setters: `setCharacterList()`, `setSynopsis()`, `setSummary()`, `setRecap()`
 - Use component-level state for local UI state
 - Use `ApiService` for all backend API calls
 
@@ -306,8 +324,6 @@ translator-helper/
 │   ├── server.py              # FastAPI application
 │   ├── settings.py            # Environment configuration
 │   └── utils/                 # Utilities
-│       ├── config.py
-│       ├── load_models.py
 │       └── utils.py
 ├── frontend/
 │   ├── src/

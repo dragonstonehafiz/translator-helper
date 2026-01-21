@@ -4,21 +4,22 @@ import { FormsModule } from '@angular/forms';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
 import { TextFieldComponent } from '../../components/text-field/text-field.component';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
+import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon.component';
 import { ApiService } from '../../services/api.service';
 import { StateService } from '../../services/state.service';
 
 @Component({
   selector: 'app-translate',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, FileUploadComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, FileUploadComponent, TooltipIconComponent],
   templateUrl: './translate.component.html',
   styleUrl: './translate.component.scss'
 })
 export class TranslateComponent implements OnInit, OnDestroy {
   // Subsection collapsed states
-  contextCollapsed = false;
-  translateLineCollapsed = false;
-  translateFileCollapsed = false;
+  contextCollapsed = true;
+  translateLineCollapsed = true;
+  translateFileCollapsed = true;
 
   // Context data
   characterList = '';

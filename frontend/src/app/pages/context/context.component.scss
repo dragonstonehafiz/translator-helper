@@ -18,50 +18,10 @@
   }
 }
 
-.tooltip-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background-color: #667eea;
-  color: white;
-  font-size: 1.1rem;
-  font-weight: bold;
-  cursor: help;
-  flex-shrink: 0;
-  transition: background-color 0.3s ease;
-
-  &:hover {
-    background-color: #5568d3;
-  }
-}
-
 .form-section {
   display: flex;
   flex-direction: column;
   gap: 40px;
-}
-
-.info-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background-color: #667eea;
-  color: white;
-  font-size: 0.8rem;
-  font-weight: bold;
-  cursor: help;
-  flex-shrink: 0;
-  transition: background-color 0.3s ease;
-
-  &:hover {
-    background-color: #5568d3;
-  }
 }
 
 
@@ -132,27 +92,6 @@
     color: #666;
     font-size: 0.95rem;
     line-height: 1.5;
-  }
-
-  .subsection-info-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background-color: #667eea;
-    color: white;
-    font-size: 0.9rem;
-    font-weight: bold;
-    cursor: help;
-    margin-left: 8px;
-    flex-shrink: 0;
-    transition: background-color 0.3s ease;
-
-    &:hover {
-      background-color: #5568d3;
-    }
   }
 
   .form-group:not(:last-child),

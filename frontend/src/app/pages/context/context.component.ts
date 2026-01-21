@@ -7,11 +7,12 @@ import { Subscription, interval } from 'rxjs';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 import { TextFieldComponent } from '../../components/text-field/text-field.component';
+import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon.component';
 
 @Component({
   selector: 'app-context',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent, TooltipIconComponent],
   templateUrl: './context.component.html',
   styleUrl: './context.component.scss'
 })
@@ -45,10 +46,10 @@ export class ContextComponent implements OnInit, OnDestroy {
   summaryUseCharacterList = true;
   
   // Collapsible section states
-  importExportCollapsed = false;
-  fileUploadCollapsed = false;
-  contextCollapsed = false;
-  recapCollapsed = false;
+  importExportCollapsed = true;
+  fileUploadCollapsed = true;
+  contextCollapsed = true;
+  recapCollapsed = true;
   
   // Recap section
   recap = '';
@@ -97,30 +98,39 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.summary = this.stateService.getSummary();
     this.recap = this.stateService.getRecap();
 
-    // Start polling for running status
-    this.startPolling();
+    this.stateService.runningLlm$.subscribe(running => {
+      this.runningLlm = running;
+    });
   }
 
   ngOnDestroy(): void {
-    this.pollingSubscription?.unsubscribe();
+    this.stopPolling();
   }
 
   startPolling(): void {
+    if (this.pollingSubscription) {
+      return;
+    }
     this.pollingSubscription = interval(1000).subscribe(() => {
       this.apiService.checkRunning().subscribe({
         next: (status) => {
-          const wasRunning = this.runningLlm;
-          this.runningLlm = status.running_llm;
+          const wasRunning = this.stateService.getRunningLlm();
           this.stateService.setRunningLlm(status.running_llm);
           
           // If context just finished running, check for result
           if (wasRunning && !status.running_llm) {
             this.checkContextResult();
+            this.stopPolling();
           }
         },
         error: (err) => console.error('Error checking running status:', err)
       });
     });
+  }
+
+  stopPolling(): void {
+    this.pollingSubscription?.unsubscribe();
+    this.pollingSubscription = undefined;
   }
 
   checkContextResult(): void {
@@ -201,7 +211,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.runningLlm) {
+    if (this.stateService.getRunningLlm()) {
       return;
     }
 
@@ -217,6 +227,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       next: (response) => {
         if (response.status === 'processing') {
           console.log('Character list generation started, waiting for result...');
+          this.startPolling();
         } else if (response.status === 'error') {
           alert(`Error: ${response.message}`);
         }
@@ -234,7 +245,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.runningLlm) {
+    if (this.stateService.getRunningLlm()) {
       return;
     }
 
@@ -253,6 +264,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       next: (response) => {
         if (response.status === 'processing') {
           console.log('Synopsis generation started, waiting for result...');
+          this.startPolling();
         } else if (response.status === 'error') {
           alert(`Error: ${response.message}`);
         }
@@ -270,7 +282,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.runningLlm) {
+    if (this.stateService.getRunningLlm()) {
       return;
     }
 
@@ -289,6 +301,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       next: (response) => {
         if (response.status === 'processing') {
           console.log('Summary generation started, waiting for result...');
+          this.startPolling();
         } else if (response.status === 'error') {
           alert(`Error: ${response.message}`);
         }
@@ -460,7 +473,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.runningLlm) {
+    if (this.stateService.getRunningLlm()) {
       return;
     }
 
@@ -472,6 +485,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       next: (response) => {
         if (response.status === 'processing') {
           console.log('Recap generation started');
+          this.startPolling();
         } else if (response.status === 'error') {
           alert(response.message || 'Error generating recap');
         }

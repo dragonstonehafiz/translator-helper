@@ -2,7 +2,7 @@
   <div class="field-header">
     <label>
       {{ label }}
-      <span class="info-icon" *ngIf="tooltip" [title]="tooltip">?</span>
+      <app-tooltip-icon *ngIf="tooltip" [tooltip]="tooltip"></app-tooltip-icon>
     </label>
     <div class="controls">
       <button type="button" class="collapse-btn" (click)="toggleCollapsed()" [attr.aria-expanded]="!collapsed" title="Collapse or expand field">

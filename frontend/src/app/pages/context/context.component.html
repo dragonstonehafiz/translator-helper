@@ -1,23 +1,15 @@
 <div class="page-container">
   <div class="header-container">
     <h1>Context</h1>
-    <span class="tooltip-icon" title="Upload a subtitle file (.ass or .srt) and the app will automatically use the selected OpenAI API to generate context for translations">?</span>
+    <app-tooltip-icon tooltip="Upload a subtitle file (.ass or .srt) and the app will automatically use the selected OpenAI API to generate context for translations"></app-tooltip-icon>
   </div>
 
   <div class="form-section">
-    <!-- File Download/Upload Section -->
+    <!-- Import/Export Context Section -->
     <app-subsection 
-      title="File Download/Upload" 
+      title="Import/Export Context" 
       [collapsed]="fileUploadCollapsed"
       tooltip="Import and export context data, and upload subtitle files for processing">
-      
-      <!-- Import/Export Context -->
-      <div class="section-header">
-        <h3>
-          Import/Export Context
-          <span class="info-icon" title="Save your context to a JSON file for future use, or load a previously saved context">?</span>
-        </h3>
-      </div>
       
       <app-file-upload
         accept=".json"
@@ -28,18 +20,24 @@
       </app-file-upload>
       <button class="action-button" (click)="exportContext()">Export Context</button>
 
+    </app-subsection>
+
+    <app-subsection 
+      title="Context" 
+      [collapsed]="contextCollapsed"
+      tooltip="Generate and manage translation context including character lists, summaries, and recaps">
+
       <!-- Subtitle File Upload -->
       <div class="section-header">
         <h3>
           Subtitle File Upload
-          <span class="info-icon" title="Upload subtitle files (.ass or .srt) to be used for context generation">?</span>
+          <app-tooltip-icon tooltip="Upload subtitle files (.ass or .srt) to be used for context generation"></app-tooltip-icon>
         </h3>
       </div>
       <div class="form-row">
         <div class="form-group">
           <div class="label-container">
             <label for="inputLanguage">Input Language</label>
-            <span class="info-icon" title="Language of the subtitle file to be processed">?</span>
           </div>
           <select id="inputLanguage" [(ngModel)]="inputLanguage">
             <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
@@ -49,7 +47,6 @@
         <div class="form-group">
           <div class="label-container">
             <label for="outputLanguage">Output Language</label>
-            <span class="info-icon" title="Target language for translations and context generation">?</span>
           </div>
           <select id="outputLanguage" [(ngModel)]="outputLanguage">
             <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
@@ -63,12 +60,14 @@
         [selectedFiles]="selectedFile ? [selectedFile] : []"
         (filesSelected)="onSubtitleFilesSelected($event)">
       </app-file-upload>
-    </app-subsection>
 
-    <app-subsection 
-      title="Context" 
-      [collapsed]="contextCollapsed"
-      tooltip="Generate and manage translation context including character lists, summaries, and recaps">
+      <hr>
+      <div class="section-header">
+        <h3>
+          Context data
+          <app-tooltip-icon tooltip="Generated context fields used for translation"></app-tooltip-icon>
+        </h3>
+      </div>
       
       <!-- Character List -->
       <div class="form-group">
@@ -139,7 +138,7 @@
       <div class="file-table-container" *ngIf="recapContextFiles.length > 0">
         <div class="file-table-header">
           <span>Uploaded Context Files</span>
-          <span class="info-icon" title="Files are processed in the order shown. Use ↑/↓ buttons to reorder them for proper chronological sequence.">?</span>
+          <app-tooltip-icon tooltip="Files are processed in the order shown. Use ↑/↓ buttons to reorder them for proper chronological sequence."></app-tooltip-icon>
         </div>
         <table class="file-table">
           <thead>

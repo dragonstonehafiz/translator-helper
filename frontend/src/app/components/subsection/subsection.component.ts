@@ -1,10 +1,11 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { TooltipIconComponent } from '../tooltip-icon/tooltip-icon.component';
 
 @Component({
   selector: 'app-subsection',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TooltipIconComponent],
   templateUrl: './subsection.component.html',
   styleUrl: './subsection.component.scss'
 })
