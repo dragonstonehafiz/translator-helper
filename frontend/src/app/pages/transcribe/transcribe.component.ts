@@ -97,7 +97,13 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
   async startRecording(): Promise<void> {
     try {
       // Request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        }
+      });
       
       // Clear previous recording
       if (this.recordedAudioUrl) {
