@@ -8,11 +8,12 @@ import { SubsectionComponent } from '../../components/subsection/subsection.comp
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 import { TextFieldComponent } from '../../components/text-field/text-field.component';
 import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon.component';
+import { ContextStatusComponent } from '../../components/context-status/context-status.component';
 
 @Component({
   selector: 'app-context',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent, TooltipIconComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent, TooltipIconComponent, ContextStatusComponent],
   templateUrl: './context.component.html',
   styleUrl: './context.component.scss'
 })
@@ -50,6 +51,8 @@ export class ContextComponent implements OnInit, OnDestroy {
   fileUploadCollapsed = true;
   contextCollapsed = true;
   recapCollapsed = true;
+
+  activeContextTab: 'character' | 'synopsis' | 'summary' = 'character';
   
   // Recap section
   recap = '';
@@ -203,6 +206,18 @@ export class ContextComponent implements OnInit, OnDestroy {
 
   toggleSummaryMode(): void {
     this.summaryReadMode = !this.summaryReadMode;
+  }
+
+  setContextTab(tab: 'character' | 'synopsis' | 'summary'): void {
+    this.activeContextTab = tab;
+  }
+
+  hasContent(value: string): boolean {
+    return !!value && value.trim().length > 0;
+  }
+
+  hasAnyContextContent(): boolean {
+    return this.hasContent(this.characterList) || this.hasContent(this.synopsis) || this.hasContent(this.summary);
   }
 
   generateCharacterList(): void {

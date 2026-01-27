@@ -1,0 +1,39 @@
+.context-completion {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 16px 0 12px;
+}
+
+.completion-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #f4f6fb;
+  color: #5a647e;
+  font-weight: 600;
+  border: 1px solid #e1e6f2;
+  font-size: 0.9rem;
+}
+
+.completion-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #c2c9dc;
+  box-shadow: inset 0 0 0 2px #c2c9dc;
+}
+
+.completion-item.complete {
+  background: #eefaf1;
+  color: #1b6b3a;
+  border-color: #c9ebd3;
+}
+
+.completion-item.complete .completion-dot {
+  background: #28a745;
+  box-shadow: inset 0 0 0 2px #28a745;
+}

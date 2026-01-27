@@ -43,18 +43,16 @@ The application uses several reusable standalone components located in `frontend
 ### app-subsection
 **Location**: `frontend/src/app/components/subsection/`
 
-**Purpose**: Collapsible section container with title, optional tooltip, and content area.
+**Purpose**: Section container with title, optional tooltip, and content area.
 
 **When to use**: 
 - Grouping related form controls or content sections
-- Any section that should be collapsible
 - Organizing page content into logical sections
 
 **Usage**:
 ```html
 <app-subsection 
   title="Section Title"
-  [collapsed]="sectionCollapsed"
   tooltip="Optional tooltip text">
   <!-- Content goes here -->
 </app-subsection>
@@ -62,7 +60,6 @@ The application uses several reusable standalone components located in `frontend
 
 **Properties**:
 - `title` (required): Section title displayed in header
-- `collapsed` (optional, default: false): Two-way binding for collapsed state
 - `tooltip` (optional): Tooltip text shown on hover
 
 ---
@@ -151,6 +148,32 @@ The application uses several reusable standalone components located in `frontend
 - Copy button with SVG icon to copy content to clipboard
 - Markdown rendering in read mode (bold, italic, line breaks)
 - Shows placeholder text even in read mode when empty
+
+---
+
+### app-context-status
+**Location**: `frontend/src/app/components/context-status/`
+
+**Purpose**: Displays status pills for context completeness (Character List, Synopsis, Summary, Recap).
+
+**When to use**:
+- Any place you want a quick visual indicator of which context fields are filled
+
+**Usage**:
+```html
+<app-context-status
+  [characterList]="characterList"
+  [synopsis]="synopsis"
+  [summary]="summary"
+  [recap]="recap">
+</app-context-status>
+```
+
+**Properties**:
+- `characterList` (optional): string
+- `synopsis` (optional): string
+- `summary` (optional): string
+- `recap` (optional): string
 
 ---
 

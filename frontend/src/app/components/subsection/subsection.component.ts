@@ -13,8 +13,4 @@ export class SubsectionComponent {
   @Input() title: string = '';
   @Input() collapsed: boolean = false;
   @Input() tooltip: string = '';
-
-  toggleCollapse(): void {
-    this.collapsed = !this.collapsed;
-  }
 }

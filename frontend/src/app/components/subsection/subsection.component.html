@@ -1,10 +1,9 @@
 <div class="subsection">
-  <h2 class="subsection-title subsection-header" (click)="toggleCollapse()">
-    <span class="toggle-icon">{{ collapsed ? '▶' : '▼' }}</span>
-    {{ title }}
+  <div class="subsection-header">
+    <h2 class="subsection-title">{{ title }}</h2>
     <app-tooltip-icon *ngIf="tooltip" [tooltip]="tooltip"></app-tooltip-icon>
-  </h2>
-  <div class="subsection-content" *ngIf="!collapsed">
+  </div>
+  <div class="subsection-content">
     <ng-content></ng-content>
   </div>
 </div>

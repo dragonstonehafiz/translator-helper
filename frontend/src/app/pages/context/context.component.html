@@ -5,124 +5,21 @@
   </div>
 
   <div class="form-section">
-    <!-- Import/Export Context Section -->
-    <app-subsection 
-      title="Import/Export Context" 
-      [collapsed]="fileUploadCollapsed"
-      tooltip="Import and export context data, and upload subtitle files for processing">
-      
+    <app-subsection
+      title="Import Context JSON"
+      tooltip="Import a saved context JSON to populate all fields on this page">
+      <p class="import-context-subtext">Drop a context file here to load languages, character list, synopsis, summary, and recap.</p>
       <app-file-upload
         accept=".json"
-        placeholder="Import Context"
+        placeholder="Import Context File"
         subtext=".json"
         [selectedFiles]="importFile ? [importFile] : []"
         (filesSelected)="onImportFilesSelected($event)">
       </app-file-upload>
-      <button class="action-button" (click)="exportContext()">Export Context</button>
-
     </app-subsection>
 
     <app-subsection 
-      title="Context" 
-      [collapsed]="contextCollapsed"
-      tooltip="Generate and manage translation context including character lists, summaries, and recaps">
-
-      <!-- Subtitle File Upload -->
-      <div class="section-header">
-        <h3>
-          Subtitle File Upload
-          <app-tooltip-icon tooltip="Upload subtitle files (.ass or .srt) to be used for context generation"></app-tooltip-icon>
-        </h3>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <div class="label-container">
-            <label for="inputLanguage">Input Language</label>
-          </div>
-          <select id="inputLanguage" [(ngModel)]="inputLanguage">
-            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <div class="label-container">
-            <label for="outputLanguage">Output Language</label>
-          </div>
-          <select id="outputLanguage" [(ngModel)]="outputLanguage">
-            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
-          </select>
-        </div>
-      </div>
-      <app-file-upload
-        accept=".ass,.srt"
-        placeholder="Upload Subtitle File"
-        subtext=".ass / .srt"
-        [selectedFiles]="selectedFile ? [selectedFile] : []"
-        (filesSelected)="onSubtitleFilesSelected($event)">
-      </app-file-upload>
-
-      <hr>
-      <div class="section-header">
-        <h3>
-          Context data
-          <app-tooltip-icon tooltip="Generated context fields used for translation"></app-tooltip-icon>
-        </h3>
-      </div>
-      
-      <!-- Character List -->
-      <div class="form-group">
-        <app-text-field 
-          label="Character List" 
-          tooltip="Generate a list of characters with descriptions from the subtitle file"
-          placeholder="Enter character names and descriptions..."
-          [(ngModel)]="characterList"
-          (ngModelChange)="updateCharacterList()">
-        </app-text-field>
-      </div>
-
-      <button class="action-button" (click)="generateCharacterList()" [disabled]="runningLlm">Generate Character List</button>
-
-      <!-- Synopsis -->
-      <div class="form-group">
-        <app-text-field 
-          label="Synopsis" 
-          tooltip="Generate a synopsis of the episode or scene"
-          placeholder="Enter synopsis..."
-          [(ngModel)]="synopsis"
-          (ngModelChange)="updateSynopsis()">
-        </app-text-field>
-      </div>
-
-      <div class="context-options">
-        <label class="checkbox-label">
-          <input type="checkbox" [(ngModel)]="synopsisUseCharacterList">
-          <span>Include Character List</span>
-        </label>
-      </div>
-      <button class="action-button" (click)="generateSynopsis()" [disabled]="runningLlm">Generate Synopsis</button>
-
-      <!-- Summary -->
-      <div class="form-group">
-        <app-text-field 
-          label="Summary" 
-          tooltip="Generate a high-level summary of the episode or content"
-          placeholder="Enter summary..."
-          [(ngModel)]="summary"
-          (ngModelChange)="updateSummary()">
-        </app-text-field>
-      </div>
-
-      <div class="context-options">
-        <label class="checkbox-label">
-          <input type="checkbox" [(ngModel)]="summaryUseCharacterList">
-          <span>Include Character List</span>
-        </label>
-      </div>
-      <button class="action-button" (click)="generateSummary()" [disabled]="runningLlm">Generate Summary</button>
-    </app-subsection>
-
-    <app-subsection 
-      title="Recap" 
+      title="Recap Generation" 
       [collapsed]="recapCollapsed"
       tooltip="Generate a comprehensive recap from multiple context files for continuity across episodes">
       
@@ -184,6 +81,129 @@
           [(ngModel)]="recap">
         </app-text-field>
       </div>
+    </app-subsection>
+
+    <app-subsection
+      title="Context Generation"
+      tooltip="Choose languages and upload subtitles for context generation">
+      <div class="form-row">
+        <div class="form-group">
+          <div class="label-container">
+            <label for="inputLanguage">Input Language</label>
+          </div>
+          <select id="inputLanguage" [(ngModel)]="inputLanguage">
+            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <div class="label-container">
+            <label for="outputLanguage">Output Language</label>
+          </div>
+          <select id="outputLanguage" [(ngModel)]="outputLanguage">
+            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+          </select>
+        </div>
+      </div>
+
+      <app-file-upload
+        accept=".ass,.srt"
+        placeholder="Upload Subtitle File"
+        subtext=".ass / .srt"
+        [selectedFiles]="selectedFile ? [selectedFile] : []"
+        (filesSelected)="onSubtitleFilesSelected($event)">
+      </app-file-upload>
+
+      <hr class="context-divider">
+
+      <div class="context-tabs">
+        <button type="button"
+                class="context-tab"
+                [class.active]="activeContextTab === 'character'"
+                (click)="setContextTab('character')">Character List</button>
+        <button type="button"
+                class="context-tab"
+                [class.active]="activeContextTab === 'synopsis'"
+                (click)="setContextTab('synopsis')">Synopsis</button>
+        <button type="button"
+                class="context-tab"
+                [class.active]="activeContextTab === 'summary'"
+                (click)="setContextTab('summary')">Summary</button>
+      </div>
+
+      <div class="context-tab-content" *ngIf="activeContextTab === 'character'">
+        <div class="form-group">
+          <app-text-field 
+            label="Character List" 
+            tooltip="Generate a list of characters with descriptions from the subtitle file"
+            placeholder="Enter character names and descriptions..."
+            [(ngModel)]="characterList"
+            (ngModelChange)="updateCharacterList()">
+          </app-text-field>
+        </div>
+
+        <div class="context-options context-options--empty">
+          <label class="checkbox-label">
+            <input type="checkbox" disabled>
+            <span>No options available</span>
+          </label>
+        </div>
+
+        <button class="action-button" (click)="generateCharacterList()" [disabled]="runningLlm">Generate Character List</button>
+      </div>
+
+      <div class="context-tab-content" *ngIf="activeContextTab === 'synopsis'">
+        <div class="form-group">
+          <app-text-field 
+            label="Synopsis" 
+            tooltip="Generate a synopsis of the episode or scene"
+            placeholder="Enter synopsis..."
+            [(ngModel)]="synopsis"
+            (ngModelChange)="updateSynopsis()">
+          </app-text-field>
+        </div>
+
+        <div class="context-options">
+          <label class="checkbox-label">
+            <input type="checkbox" [(ngModel)]="synopsisUseCharacterList">
+            <span>Include Character List</span>
+          </label>
+        </div>
+        <button class="action-button" (click)="generateSynopsis()" [disabled]="runningLlm">Generate Synopsis</button>
+      </div>
+
+      <div class="context-tab-content" *ngIf="activeContextTab === 'summary'">
+        <div class="form-group">
+          <app-text-field 
+            label="Summary" 
+            tooltip="Generate a high-level summary of the episode or content"
+            placeholder="Enter summary..."
+            [(ngModel)]="summary"
+            (ngModelChange)="updateSummary()">
+          </app-text-field>
+        </div>
+
+        <div class="context-options">
+          <label class="checkbox-label">
+            <input type="checkbox" [(ngModel)]="summaryUseCharacterList">
+            <span>Include Character List</span>
+          </label>
+        </div>
+        <button class="action-button" (click)="generateSummary()" [disabled]="runningLlm">Generate Summary</button>
+      </div>
+
+      <hr class="context-divider">
+      <app-context-status
+        [characterList]="characterList"
+        [synopsis]="synopsis"
+        [summary]="summary"
+        [recap]="recap">
+      </app-context-status>
+      <button class="action-button"
+              (click)="exportContext()"
+              [disabled]="!hasAnyContextContent()">
+        Export Context
+      </button>
     </app-subsection>
   </div>
 </div>
