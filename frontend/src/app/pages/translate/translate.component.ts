@@ -5,13 +5,14 @@ import { SubsectionComponent } from '../../components/subsection/subsection.comp
 import { TextFieldComponent } from '../../components/text-field/text-field.component';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon.component';
+import { ContextStatusComponent } from '../../components/context-status/context-status.component';
 import { ApiService } from '../../services/api.service';
 import { StateService } from '../../services/state.service';
 
 @Component({
   selector: 'app-translate',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, FileUploadComponent, TooltipIconComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, FileUploadComponent, TooltipIconComponent, ContextStatusComponent],
   templateUrl: './translate.component.html',
   styleUrl: './translate.component.scss'
 })
@@ -26,6 +27,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
   synopsis = '';
   summary = '';
   recap = '';
+  activeContextTab: 'character' | 'synopsis' | 'summary' | 'recap' = 'character';
 
   // Translate Line
   lineUseCharacterList = false;
@@ -102,6 +104,10 @@ export class TranslateComponent implements OnInit, OnDestroy {
       if (state.summary) this.summary = state.summary;
       if (state.recap) this.recap = state.recap;
     });
+  }
+
+  setContextTab(tab: 'character' | 'synopsis' | 'summary' | 'recap'): void {
+    this.activeContextTab = tab;
   }
 
   buildContext(useCharacterList: boolean, useSynopsis: boolean, useSummary: boolean, useRecap = false): any {

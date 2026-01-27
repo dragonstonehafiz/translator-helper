@@ -139,6 +139,7 @@ The application uses several reusable standalone components located in `frontend
 - `placeholder` (optional): Placeholder text shown when empty
 - `tooltip` (optional): Tooltip text shown next to label
 - `rows` (optional, default: 8): Number of textarea rows
+- `readMode` (optional, default: true): Whether the field starts in read mode
 - `ngModel` (two-way binding): Text content value
 
 **Features**:

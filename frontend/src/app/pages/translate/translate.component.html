@@ -9,34 +9,68 @@
       title="Context" 
       [collapsed]="contextCollapsed"
       tooltip="Saved context from the Context page">
-      
-      <app-text-field 
-        label="Character List" 
-        placeholder="No character list available..."
-        [rows]="6"
-        [(ngModel)]="characterList">
-      </app-text-field>
 
-      <app-text-field 
-        label="Synopsis" 
-        placeholder="No synopsis available..."
-        [rows]="6"
-        [(ngModel)]="synopsis">
-      </app-text-field>
+      <app-context-status
+        [characterList]="characterList"
+        [synopsis]="synopsis"
+        [summary]="summary"
+        [recap]="recap">
+      </app-context-status>
 
-      <app-text-field 
-        label="Summary" 
-        placeholder="No summary available..."
-        [rows]="6"
-        [(ngModel)]="summary">
-      </app-text-field>
+      <div class="context-tabs">
+        <button type="button"
+                class="context-tab"
+                [class.active]="activeContextTab === 'character'"
+                (click)="setContextTab('character')">Character List</button>
+        <button type="button"
+                class="context-tab"
+                [class.active]="activeContextTab === 'synopsis'"
+                (click)="setContextTab('synopsis')">Synopsis</button>
+        <button type="button"
+                class="context-tab"
+                [class.active]="activeContextTab === 'summary'"
+                (click)="setContextTab('summary')">Summary</button>
+        <button type="button"
+                class="context-tab"
+                [class.active]="activeContextTab === 'recap'"
+                (click)="setContextTab('recap')">Recap</button>
+      </div>
 
-      <app-text-field 
-        label="Recap" 
-        placeholder="No recap available..."
-        [rows]="6"
-        [(ngModel)]="recap">
-      </app-text-field>
+      <div class="context-tab-content" *ngIf="activeContextTab === 'character'">
+        <app-text-field 
+          label="Character List" 
+          placeholder="No character list available..."
+          [rows]="6"
+          [(ngModel)]="characterList">
+        </app-text-field>
+      </div>
+
+      <div class="context-tab-content" *ngIf="activeContextTab === 'synopsis'">
+        <app-text-field 
+          label="Synopsis" 
+          placeholder="No synopsis available..."
+          [rows]="6"
+          [(ngModel)]="synopsis">
+        </app-text-field>
+      </div>
+
+      <div class="context-tab-content" *ngIf="activeContextTab === 'summary'">
+        <app-text-field 
+          label="Summary" 
+          placeholder="No summary available..."
+          [rows]="6"
+          [(ngModel)]="summary">
+        </app-text-field>
+      </div>
+
+      <div class="context-tab-content" *ngIf="activeContextTab === 'recap'">
+        <app-text-field 
+          label="Recap" 
+          placeholder="No recap available..."
+          [rows]="6"
+          [(ngModel)]="recap">
+        </app-text-field>
+      </div>
     </app-subsection>
 
     <app-subsection 
@@ -78,6 +112,7 @@
         label="Text to Translate" 
         placeholder="Enter text to translate..."
         [rows]="4"
+        [readMode]="false"
         [(ngModel)]="lineTextToTranslate">
       </app-text-field>
 

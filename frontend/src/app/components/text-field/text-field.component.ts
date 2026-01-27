@@ -23,9 +23,9 @@ export class TextFieldComponent implements ControlValueAccessor {
   @Input() tooltip = '';
   @Input() placeholder = '';
   @Input() rows = 8;
+  @Input() readMode = true;
   
   private _value = '';
-  readMode = true;
   fontSize = 14;
   collapsed = false;
   
