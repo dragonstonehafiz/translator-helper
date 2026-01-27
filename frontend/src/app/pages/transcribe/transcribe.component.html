@@ -19,29 +19,69 @@
         </div>
 
         <canvas #waveformCanvas class="waveform-canvas"></canvas>
-        <audio #audioPlayer controls [src]="recordedAudioUrl" class="audio-player"></audio>
+        <audio #audioPlayer [src]="recordedAudioUrl" class="audio-player" aria-hidden="true"></audio>
         
+        <div class="recording-status">
+          <span class="duration">
+            {{ formatDuration(getDisplayCurrentTime()) }} / {{ formatDuration(getDisplayTotalTime()) }}
+          </span>
+        </div>
+
         <div class="recording-controls">
-          <span class="duration" *ngIf="isRecording">{{ formatDuration(recordingDuration) }}</span>
+          <button 
+            class="icon-btn play-btn"
+            [disabled]="!recordedAudioUrl"
+            (click)="togglePlayback()">
+            <span class="btn-icon" aria-hidden="true">
+              <svg *ngIf="!isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
+                <polygon points="9,7 18,12 9,17"></polygon>
+              </svg>
+              <svg *ngIf="isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
+                <rect x="7" y="7" width="4" height="10" rx="1"></rect>
+                <rect x="13" y="7" width="4" height="10" rx="1"></rect>
+              </svg>
+            </span>
+            <span class="sr-only">{{ isPlaying ? 'Pause Recording' : 'Play Recording' }}</span>
+            <span class="tooltip">{{ isPlaying ? 'Pause' : 'Play' }}</span>
+          </button>
           <button 
             *ngIf="!isRecording" 
-            class="record-btn" 
+            class="icon-btn record-btn" 
             (click)="startRecording()">
-            <span class="btn-icon">●</span>
-            Start Recording
+            <span class="btn-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" role="img" focusable="false">
+                <circle cx="12" cy="12" r="6"></circle>
+              </svg>
+            </span>
+            <span class="sr-only">Start Recording</span>
+            <span class="tooltip">Start Recording</span>
           </button>
           <button 
             *ngIf="isRecording" 
-            class="stop-btn" 
+            class="icon-btn stop-btn" 
             (click)="stopRecording()">
-            <span class="btn-icon">■</span>
-            Stop Recording
+            <span class="btn-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" role="img" focusable="false">
+                <rect x="8" y="8" width="8" height="8" rx="1"></rect>
+              </svg>
+            </span>
+            <span class="sr-only">Stop Recording</span>
+            <span class="tooltip">Stop Recording</span>
+          </button>
+          <button 
+            class="icon-btn transcribe-btn"
+            [disabled]="!recordedAudioUrl || isTranscribing"
+            (click)="transcribeAudio()">
+            <span class="btn-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" role="img" focusable="false">
+                <path d="M5 6h10a2 2 0 0 1 2 2v6h-2V8H5v8h4v2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"></path>
+                <path d="M15 14h6l-2.5 3L21 20h-6l2.5-3L15 14z"></path>
+              </svg>
+            </span>
+            <span class="sr-only">Transcribe</span>
+            <span class="tooltip">{{ isTranscribing ? 'Transcribing...' : 'Transcribe' }}</span>
           </button>
         </div>
-
-        <button class="transcribe-btn" (click)="transcribeAudio()" [disabled]="!recordedAudioUrl || isTranscribing">
-          {{ isTranscribing ? 'Transcribing...' : 'Transcribe' }}
-        </button>
 
         <app-text-field 
           label="Transcript" 
