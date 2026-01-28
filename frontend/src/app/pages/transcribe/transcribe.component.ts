@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
+import { Component, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef, OnDestroy, HostListener } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -133,6 +133,15 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
       // Add cursor pointer style
       this.waveformCanvas.nativeElement.style.cursor = 'pointer';
     }
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  handleWindowKeydown(event: KeyboardEvent): void {
+    if (!this.isSpacebar(event)) return;
+    if (this.isEditableTarget(event.target)) return;
+    if (!this.recordedAudioUrl) return;
+    event.preventDefault();
+    this.togglePlayback();
   }
 
   async startRecording(): Promise<void> {
@@ -779,5 +788,18 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
     this.stopPolling();
     this.stopRecordingLoop();
     this.stopPlaybackLoop();
+  }
+
+  private isSpacebar(event: KeyboardEvent): boolean {
+    return event.code === 'Space' || event.key === ' ';
+  }
+
+  private isEditableTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    const tagName = target.tagName;
+    if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') return true;
+    if (target.isContentEditable) return true;
+    const editableAncestor = target.closest?.('[contenteditable="true"]');
+    return Boolean(editableAncestor);
   }
 }
