@@ -51,7 +51,7 @@
               *ngSwitchCase="'select'"
               [id]="'llm-' + field.key"
               [(ngModel)]="settingsValues.llm[field.key]"
-              [disabled]="loadingGpt">
+              [disabled]="loadingGpt || llmReady === null">
               <option *ngFor="let option of field.options || []" [value]="option.value">{{ option.label }}</option>
             </select>
             <input
@@ -62,27 +62,27 @@
               [min]="field.min ?? null"
               [max]="field.max ?? null"
               [step]="field.step ?? null"
-              [disabled]="loadingGpt">
+              [disabled]="loadingGpt || llmReady === null">
             <input
               *ngSwitchCase="'password'"
               type="password"
               [id]="'llm-' + field.key"
               [(ngModel)]="settingsValues.llm[field.key]"
               [placeholder]="field.placeholder"
-              [disabled]="loadingGpt">
+              [disabled]="loadingGpt || llmReady === null">
             <input
               *ngSwitchCase="'boolean'"
               type="checkbox"
               [id]="'llm-' + field.key"
               [(ngModel)]="settingsValues.llm[field.key]"
-              [disabled]="loadingGpt">
+              [disabled]="loadingGpt || llmReady === null">
             <input
               *ngSwitchDefault
               type="text"
               [id]="'llm-' + field.key"
               [(ngModel)]="settingsValues.llm[field.key]"
               [placeholder]="field.placeholder"
-              [disabled]="loadingGpt">
+              [disabled]="loadingGpt || llmReady === null">
           </ng-container>
         </div>
       </div>
@@ -103,7 +103,7 @@
               *ngSwitchCase="'select'"
               [id]="'audio-' + field.key"
               [(ngModel)]="settingsValues.audio[field.key]"
-              [disabled]="loadingWhisper">
+              [disabled]="loadingWhisper || audioReady === null">
               <option *ngFor="let option of field.options || []" [value]="option.value">{{ option.label }}</option>
             </select>
             <input
@@ -114,27 +114,27 @@
               [min]="field.min ?? null"
               [max]="field.max ?? null"
               [step]="field.step ?? null"
-              [disabled]="loadingWhisper">
+              [disabled]="loadingWhisper || audioReady === null">
             <input
               *ngSwitchCase="'password'"
               type="password"
               [id]="'audio-' + field.key"
               [(ngModel)]="settingsValues.audio[field.key]"
               [placeholder]="field.placeholder"
-              [disabled]="loadingWhisper">
+              [disabled]="loadingWhisper || audioReady === null">
             <input
               *ngSwitchCase="'boolean'"
               type="checkbox"
               [id]="'audio-' + field.key"
               [(ngModel)]="settingsValues.audio[field.key]"
-              [disabled]="loadingWhisper">
+              [disabled]="loadingWhisper || audioReady === null">
             <input
               *ngSwitchDefault
               type="text"
               [id]="'audio-' + field.key"
               [(ngModel)]="settingsValues.audio[field.key]"
               [placeholder]="field.placeholder"
-              [disabled]="loadingWhisper">
+              [disabled]="loadingWhisper || audioReady === null">
           </ng-container>
         </div>
       </div>

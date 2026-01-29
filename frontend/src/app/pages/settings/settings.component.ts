@@ -83,11 +83,13 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
     this.statusPollSub = interval(1000).subscribe(() => {
       this.loadServerVariables();
+      this.loadRunningStatus();
     });
   }
 
   checkStatus(): void {
     this.loadServerVariables();
+    this.loadRunningStatus();
   }
 
   loadSettingsSchema(): void {
@@ -159,6 +161,18 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.audioReady = null;
         this.stateService.setLlmReady(null);
         this.stateService.setAudioReady(null);
+      }
+    });
+  }
+
+  private loadRunningStatus(): void {
+    this.apiService.checkRunning().subscribe({
+      next: (status) => {
+        this.stateService.setLoadingGpt(status.loading_gpt_model);
+        this.stateService.setLoadingWhisper(status.loading_whisper_model);
+      },
+      error: (error) => {
+        console.error('Failed to load running status:', error);
       }
     });
   }

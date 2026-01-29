@@ -72,6 +72,9 @@ class LLMChatGPT(LLMInterface):
     def initialize(self):
         try:
             self._llm = self._build_llm()
+            # Validate API key with a lightweight request.
+            test_llm = self._build_llm(temperature=0, max_tokens=1)
+            test_llm.invoke([HumanMessage(content="ping")])
             self._status = "loaded"
         except Exception:
             self._status = "error"

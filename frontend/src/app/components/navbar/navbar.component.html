@@ -5,9 +5,9 @@
     </div>
     <div class="navbar-menu">
       <a routerLink="/settings" routerLinkActive="active">Settings</a>
-      <a *ngIf="isReady" routerLink="/context" routerLinkActive="active">Context</a>
-      <a *ngIf="isReady" routerLink="/transcribe" routerLinkActive="active">Transcribe</a>
-      <a *ngIf="isReady" routerLink="/translate" routerLinkActive="active">Translate</a>
+      <a *ngIf="llmReady" routerLink="/context" routerLinkActive="active">Context</a>
+      <a *ngIf="audioReady" routerLink="/transcribe" routerLinkActive="active">Transcribe</a>
+      <a *ngIf="llmReady" routerLink="/translate" routerLinkActive="active">Translate</a>
     </div>
   </div>
 </nav>

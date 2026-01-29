@@ -19,16 +19,26 @@ interface NavSection {
   styleUrl: './navbar.component.scss'
 })
 export class NavbarComponent implements OnInit, OnDestroy {
-  isReady = false;
+  llmReady = false;
+  audioReady = false;
   sections: NavSection[] = [];
   private routerSubscription?: Subscription;
+  private readinessSubscription?: Subscription;
 
   constructor(private stateService: StateService, private router: Router) {}
 
   ngOnInit(): void {
-    this.stateService.isReady$.subscribe(ready => {
-      this.isReady = ready;
-    });
+    this.readinessSubscription = new Subscription();
+    this.readinessSubscription.add(
+      this.stateService.llmReady$.subscribe(ready => {
+        this.llmReady = ready === true;
+      })
+    );
+    this.readinessSubscription.add(
+      this.stateService.audioReady$.subscribe(ready => {
+        this.audioReady = ready === true;
+      })
+    );
 
     this.detectSections();
     
@@ -42,6 +52,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.routerSubscription?.unsubscribe();
+    this.readinessSubscription?.unsubscribe();
   }
 
   @HostListener('window:scroll', [])
