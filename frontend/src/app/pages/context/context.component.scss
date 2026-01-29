@@ -62,9 +62,29 @@
 .context-tab-content {
   margin-top: 12px;
 
-  .action-button {
+  app-primary-button {
     margin-top: 12px;
   }
+}
+
+.context-field-wrapper {
+  position: relative;
+}
+
+.context-field-wrapper.is-loading {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.context-field-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  pointer-events: none;
 }
 
 
@@ -270,26 +290,8 @@
   font-size: 1.1rem;
 }
 
-.action-button {
-  width: 100%;
-  padding: 14px 24px;
-  background-color: #667eea;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-
-  &:hover:not(:disabled) {
-    background-color: #5568d3;
-  }
-
-  &:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
-  }
+app-primary-button {
+  display: block;
 }
 
 .textarea-header {

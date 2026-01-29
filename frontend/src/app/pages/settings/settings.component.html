@@ -7,29 +7,29 @@
     <app-subsection title="Status">
     
     <div class="status-row">
-      <div class="status-box" [class.ready]="openaiReady === true" [class.not-ready]="openaiReady === false" [class.not-connected]="openaiReady === null">
+      <div class="status-box" [class.ready]="llmReady === true" [class.not-ready]="llmReady === false" [class.not-connected]="llmReady === null">
         <h3 class="component-name">LLM</h3>
         <div class="status-content">
           <div class="status-indicator"></div>
           <span class="status-text">
-            {{ openaiReady === null ? 'Not Connected' : (openaiReady ? 'Ready' : 'Not Ready') }}
+            {{ llmReady === null ? 'Not Connected' : (llmReady ? 'Ready' : 'Not Ready') }}
           </span>
         </div>
-        <div class="status-details" *ngIf="openaiReady && currentOpenaiModel">
+        <div class="status-details" *ngIf="llmReady && currentOpenaiModel">
           <div>Model: {{ currentOpenaiModel }}</div>
           <div>Temperature: {{ currentTemperature }}</div>
         </div>
       </div>
       
-      <div class="status-box" [class.ready]="whisperReady === true" [class.not-ready]="whisperReady === false" [class.not-connected]="whisperReady === null">
+      <div class="status-box" [class.ready]="audioReady === true" [class.not-ready]="audioReady === false" [class.not-connected]="audioReady === null">
         <h3 class="component-name">Transcription Model</h3>
         <div class="status-content">
           <div class="status-indicator"></div>
           <span class="status-text">
-            {{ whisperReady === null ? 'Not Connected' : (whisperReady ? 'Ready' : 'Not Ready') }}
+            {{ audioReady === null ? 'Not Connected' : (audioReady ? 'Ready' : 'Not Ready') }}
           </span>
         </div>
-        <div class="status-details" *ngIf="whisperReady && currentWhisperModel">
+        <div class="status-details" *ngIf="audioReady && currentWhisperModel">
           <div>Model: {{ currentWhisperModel }}</div>
           <div>Device: {{ currentDeviceLabel }}</div>
         </div>
@@ -37,7 +37,9 @@
     </div>
 
 
-      <button class="load-button" (click)="checkStatus()">Check Status</button>
+      <div class="load-button-spacing">
+        <app-primary-button [fullWidth]="true" (click)="checkStatus()">Check Status</app-primary-button>
+      </div>
     </app-subsection>
 
     <app-subsection *ngIf="llmSchema" title="LLM">
@@ -84,10 +86,12 @@
           </ng-container>
         </div>
       </div>
-      <button class="load-button" (click)="loadGptModel()" [disabled]="loadingGpt || (llmApiKeyRequired && !settingsValues.llm['api_key'] && !openaiReady)">
-        <span *ngIf="!loadingGpt">Load GPT Model</span>
-        <span *ngIf="loadingGpt">Loading...</span>
-      </button>
+      <div class="load-button-spacing">
+        <app-primary-button [fullWidth]="true" (click)="loadGptModel()" [disabled]="loadingGpt || (llmApiKeyRequired && !settingsValues.llm['api_key'] && !llmReady)">
+          <span *ngIf="!loadingGpt">Load GPT Model</span>
+          <span *ngIf="loadingGpt">Loading...</span>
+        </app-primary-button>
+      </div>
     </app-subsection>
 
     <app-subsection *ngIf="audioSchema" title="Transcription Model">
@@ -134,10 +138,12 @@
           </ng-container>
         </div>
       </div>
-      <button class="load-button" (click)="loadWhisperModel()" [disabled]="loadingWhisper">
-        <span *ngIf="!loadingWhisper">Load Whisper Model</span>
-        <span *ngIf="loadingWhisper">Loading...</span>
-      </button>
+      <div class="load-button-spacing">
+        <app-primary-button [fullWidth]="true" (click)="loadWhisperModel()" [disabled]="loadingWhisper">
+          <span *ngIf="!loadingWhisper">Load Whisper Model</span>
+          <span *ngIf="loadingWhisper">Loading...</span>
+        </app-primary-button>
+      </div>
     </app-subsection>
 
   </div>

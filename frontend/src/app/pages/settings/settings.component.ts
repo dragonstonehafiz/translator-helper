@@ -9,17 +9,18 @@ import {
   StateService
 } from '../../services/state.service';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
+import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, PrimaryButtonComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'
 })
 export class SettingsComponent implements OnInit, OnDestroy {
-  openaiReady: boolean | null = null;
-  whisperReady: boolean | null = null;
+  llmReady: boolean | null = null;
+  audioReady: boolean | null = null;
 
   loadingWhisper = false;
   loadingGpt = false;
@@ -113,15 +114,15 @@ export class SettingsComponent implements OnInit, OnDestroy {
         const audioVars = response.audio;
         const llmVars = response.llm;
 
-        this.stateService.setOpenaiReady(response.openai_ready);
-        this.stateService.setWhisperReady(response.whisper_ready);
-        this.stateService.setReady(response.openai_ready && response.whisper_ready);
-        this.openaiReady = response.openai_ready;
-        this.whisperReady = response.whisper_ready;
-        if (response.openai_ready) {
+        this.stateService.setLlmReady(response.llm_ready);
+        this.stateService.setAudioReady(response.audio_ready);
+        this.stateService.setReady(response.llm_ready && response.audio_ready);
+        this.llmReady = response.llm_ready;
+        this.audioReady = response.audio_ready;
+        if (response.llm_ready) {
           this.stateService.setLoadingGpt(false);
         }
-        if (response.whisper_ready) {
+        if (response.audio_ready) {
           this.stateService.setLoadingWhisper(false);
         }
 
@@ -154,24 +155,24 @@ export class SettingsComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Failed to load server variables:', error);
-        this.openaiReady = null;
-        this.whisperReady = null;
-        this.stateService.setOpenaiReady(null);
-        this.stateService.setWhisperReady(null);
+        this.llmReady = null;
+        this.audioReady = null;
+        this.stateService.setLlmReady(null);
+        this.stateService.setAudioReady(null);
       }
     });
   }
 
   loadFromState(): void {
-    const openaiReady = this.stateService.getOpenaiReady();
-    const whisperReady = this.stateService.getWhisperReady();
+    const llmReady = this.stateService.getLlmReady();
+    const audioReady = this.stateService.getAudioReady();
     const serverVars = this.stateService.getServerVariables();
 
-    if (openaiReady !== null) {
-      this.openaiReady = openaiReady;
+    if (llmReady !== null) {
+      this.llmReady = llmReady;
     }
-    if (whisperReady !== null) {
-      this.whisperReady = whisperReady;
+    if (audioReady !== null) {
+      this.audioReady = audioReady;
     }
     if (serverVars.whisperModel !== null) {
       this.currentWhisperModel = serverVars.whisperModel;
@@ -198,7 +199,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       this.hasInitializedForm = true;
     }
 
-    if (openaiReady === null || whisperReady === null) {
+    if (llmReady === null || audioReady === null) {
       this.checkStatus();
     }
 
@@ -283,7 +284,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.llmApiKeyRequired && !apiKey && this.openaiReady === false) {
+    if (this.llmApiKeyRequired && !apiKey && this.llmReady === false) {
       alert('Please enter OpenAI API key');
       return;
     }

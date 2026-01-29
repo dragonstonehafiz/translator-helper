@@ -21,7 +21,7 @@
 .form-section {
   display: flex;
   flex-direction: column;
-  gap: 25px;
+  gap: 40px;
 }
 
 .context-tabs {
@@ -55,6 +55,26 @@
 
 .context-tab-content {
   margin-top: 12px;
+}
+
+.translate-field-wrapper {
+  position: relative;
+}
+
+.translate-field-wrapper.is-loading {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.translate-field-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  pointer-events: none;
 }
 
 .checkbox-group {
@@ -181,32 +201,6 @@
   }
 }
 
-.translate-btn {
-  padding: 12px 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  margin: 20px 0;
-
-  &:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-  }
-
-  &:active:not(:disabled) {
-    transform: translateY(0);
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-}
 
 .result-section {
   margin-top: 20px;

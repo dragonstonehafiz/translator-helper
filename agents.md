@@ -179,6 +179,53 @@ The application uses several reusable standalone components located in `frontend
 
 ---
 
+### app-loading-text-indicator
+**Location**: `frontend/src/app/components/loading-text-indicator/`
+
+**Purpose**: Animated pulsing text indicator for loading/recording states.
+
+**When to use**:
+- Any place you want a subtle pulsing text status (e.g., Recording..., Loading...)
+
+**Usage**:
+```html
+<app-loading-text-indicator
+  text="Recording..."
+  color="#667eea"
+  size="1.5rem">
+</app-loading-text-indicator>
+```
+
+**Properties**:
+- `text` (optional, default: "Loading..."): Display text
+- `color` (optional, default: "#667eea"): Text color
+- `size` (optional, default: "1.5rem"): CSS font-size value
+- `weight` (optional, default: 700): Font weight
+
+---
+
+### app-primary-button
+**Location**: `frontend/src/app/components/primary-button/`
+
+**Purpose**: Shared primary action button (based on Translate page styling).
+
+**When to use**:
+- Primary actions like Generate / Translate / Export
+
+**Usage**:
+```html
+<app-primary-button [disabled]="isBusy" [fullWidth]="true">
+  Run Action
+</app-primary-button>
+```
+
+**Properties**:
+- `disabled` (optional, default: false): Disable the button
+- `fullWidth` (optional, default: false): Stretch to container width
+- `type` (optional, default: "button"): Button type
+
+---
+
 ## Backend API Structure
 
 ### Endpoints
@@ -212,8 +259,8 @@ status cards correctly:
 {
   "audio": { "whisper_model": "...", "device": "..." },
   "llm": { "openai_model": "...", "temperature": 0.5 },
-  "openai_ready": true,
-  "whisper_ready": true,
+  "llm_ready": true,
+  "audio_ready": true,
   "is_ready": true
 }
 ```

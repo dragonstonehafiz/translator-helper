@@ -321,13 +321,13 @@ async def get_running_status():
 @router.get("/api/server/variables")
 async def get_server_variables():
     """Get current server configuration variables."""
-    openai_ready = bool(llm_client and llm_client.get_status() == "loaded")
-    whisper_ready = bool(audio_client and audio_client.get_status() == "loaded")
+    llm_ready = bool(llm_client and llm_client.get_status() == "loaded")
+    audio_ready = bool(audio_client and audio_client.get_status() == "loaded")
     return {
         "audio": (audio_client.get_server_variables() if audio_client else {"whisper_model": "", "device": ""}),
         "llm": (llm_client.get_server_variables() if llm_client else {"openai_model": "", "temperature": 0.5}),
-        "openai_ready": openai_ready,
-        "whisper_ready": whisper_ready,
+        "llm_ready": llm_ready,
+        "audio_ready": audio_ready,
     }
 
 

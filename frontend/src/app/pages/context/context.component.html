@@ -72,14 +72,21 @@
         </table>
       </div>
 
-      <button class="action-button" (click)="generateRecap()" [disabled]="runningLlm || recapContextFiles.length === 0">Generate Recap</button>
+      <app-primary-button [fullWidth]="true" (click)="generateRecap()" [disabled]="runningLlm || recapContextFiles.length === 0">
+        Generate Recap
+      </app-primary-button>
 
       <div class="form-group">
-        <app-text-field 
-          label="Generated Recap" 
-          placeholder="Recap will appear here..."
-          [(ngModel)]="recap">
-        </app-text-field>
+        <div class="context-field-wrapper" [class.is-loading]="isGeneratingRecap">
+          <app-text-field 
+            label="Generated Recap" 
+            placeholder="Recap will appear here..."
+            [(ngModel)]="recap">
+          </app-text-field>
+          <div class="context-field-overlay" *ngIf="isGeneratingRecap">
+            <app-loading-text-indicator text="Generating Recap..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
+          </div>
+        </div>
       </div>
     </app-subsection>
 
@@ -133,13 +140,18 @@
 
       <div class="context-tab-content" *ngIf="activeContextTab === 'character'">
         <div class="form-group">
-          <app-text-field 
-            label="Character List" 
-            tooltip="Generate a list of characters with descriptions from the subtitle file"
-            placeholder="Enter character names and descriptions..."
-            [(ngModel)]="characterList"
-            (ngModelChange)="updateCharacterList()">
-          </app-text-field>
+          <div class="context-field-wrapper" [class.is-loading]="isGeneratingCharacterList">
+            <app-text-field 
+              label="Character List" 
+              tooltip="Generate a list of characters with descriptions from the subtitle file"
+              placeholder="Enter character names and descriptions..."
+              [(ngModel)]="characterList"
+              (ngModelChange)="updateCharacterList()">
+            </app-text-field>
+            <div class="context-field-overlay" *ngIf="isGeneratingCharacterList">
+              <app-loading-text-indicator text="Generating Character List..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
+            </div>
+          </div>
         </div>
 
         <div class="context-options context-options--empty">
@@ -149,18 +161,25 @@
           </label>
         </div>
 
-        <button class="action-button" (click)="generateCharacterList()" [disabled]="runningLlm">Generate Character List</button>
+        <app-primary-button [fullWidth]="true" (click)="generateCharacterList()" [disabled]="runningLlm || !selectedFile">
+          Generate Character List
+        </app-primary-button>
       </div>
 
       <div class="context-tab-content" *ngIf="activeContextTab === 'synopsis'">
         <div class="form-group">
-          <app-text-field 
-            label="Synopsis" 
-            tooltip="Generate a synopsis of the episode or scene"
-            placeholder="Enter synopsis..."
-            [(ngModel)]="synopsis"
-            (ngModelChange)="updateSynopsis()">
-          </app-text-field>
+          <div class="context-field-wrapper" [class.is-loading]="isGeneratingSynopsis">
+            <app-text-field 
+              label="Synopsis" 
+              tooltip="Generate a synopsis of the episode or scene"
+              placeholder="Enter synopsis..."
+              [(ngModel)]="synopsis"
+              (ngModelChange)="updateSynopsis()">
+            </app-text-field>
+            <div class="context-field-overlay" *ngIf="isGeneratingSynopsis">
+              <app-loading-text-indicator text="Generating Synopsis..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
+            </div>
+          </div>
         </div>
 
         <div class="context-options">
@@ -169,18 +188,25 @@
             <span>Include Character List</span>
           </label>
         </div>
-        <button class="action-button" (click)="generateSynopsis()" [disabled]="runningLlm">Generate Synopsis</button>
+        <app-primary-button [fullWidth]="true" (click)="generateSynopsis()" [disabled]="runningLlm || !selectedFile">
+          Generate Synopsis
+        </app-primary-button>
       </div>
 
       <div class="context-tab-content" *ngIf="activeContextTab === 'summary'">
         <div class="form-group">
-          <app-text-field 
-            label="Summary" 
-            tooltip="Generate a high-level summary of the episode or content"
-            placeholder="Enter summary..."
-            [(ngModel)]="summary"
-            (ngModelChange)="updateSummary()">
-          </app-text-field>
+          <div class="context-field-wrapper" [class.is-loading]="isGeneratingSummary">
+            <app-text-field 
+              label="Summary" 
+              tooltip="Generate a high-level summary of the episode or content"
+              placeholder="Enter summary..."
+              [(ngModel)]="summary"
+              (ngModelChange)="updateSummary()">
+            </app-text-field>
+            <div class="context-field-overlay" *ngIf="isGeneratingSummary">
+              <app-loading-text-indicator text="Generating Summary..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
+            </div>
+          </div>
         </div>
 
         <div class="context-options">
@@ -189,7 +215,9 @@
             <span>Include Character List</span>
           </label>
         </div>
-        <button class="action-button" (click)="generateSummary()" [disabled]="runningLlm">Generate Summary</button>
+        <app-primary-button [fullWidth]="true" (click)="generateSummary()" [disabled]="runningLlm || !selectedFile">
+          Generate Summary
+        </app-primary-button>
       </div>
 
       <hr class="context-divider">
@@ -199,11 +227,12 @@
         [summary]="summary"
         [recap]="recap">
       </app-context-status>
-      <button class="action-button"
-              (click)="exportContext()"
-              [disabled]="!hasAnyContextContent()">
+      <app-primary-button
+        [fullWidth]="true"
+        (click)="exportContext()"
+        [disabled]="!hasAnyContextContent()">
         Export Context
-      </button>
+      </app-primary-button>
     </app-subsection>
   </div>
 </div>

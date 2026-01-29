@@ -108,17 +108,22 @@
         </div>
       </div>
 
-      <app-text-field 
-        label="Text to Translate" 
-        placeholder="Enter text to translate..."
-        [rows]="4"
-        [readMode]="false"
-        [(ngModel)]="lineTextToTranslate">
-      </app-text-field>
+      <div class="translate-field-wrapper" [class.is-loading]="isTranslatingLine">
+        <app-text-field 
+          label="Text to Translate" 
+          placeholder="Enter text to translate..."
+          [rows]="4"
+          [readMode]="false"
+          [(ngModel)]="lineTextToTranslate">
+        </app-text-field>
+        <div class="translate-field-overlay" *ngIf="isTranslatingLine">
+          <app-loading-text-indicator text="Translating Line..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
+        </div>
+      </div>
 
-      <button class="translate-btn" (click)="translateLine()" [disabled]="!lineTextToTranslate || isTranslatingLine">
+      <app-primary-button [fullWidth]="true" (click)="translateLine()" [disabled]="!lineTextToTranslate || isTranslatingLine">
         {{ isTranslatingLine ? 'Translating...' : 'Translate Line' }}
-      </button>
+      </app-primary-button>
 
       <app-text-field 
         label="Translation Result" 
@@ -210,9 +215,9 @@
         (filesSelected)="onFileSelected($event)">
       </app-file-upload>
 
-      <button class="translate-btn" (click)="translateFile()" [disabled]="!fileToTranslate || isTranslatingFile">
+      <app-primary-button [fullWidth]="true" (click)="translateFile()" [disabled]="!fileToTranslate || isTranslatingFile">
         {{ isTranslatingFile ? 'Translating...' : 'Translate File' }}
-      </button>
+      </app-primary-button>
 
       <div *ngIf="fileTranslationResult" class="result-section">
         <h3>Translation Complete</h3>

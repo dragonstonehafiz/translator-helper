@@ -9,11 +9,13 @@ import { FileUploadComponent } from '../../components/file-upload/file-upload.co
 import { TextFieldComponent } from '../../components/text-field/text-field.component';
 import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon.component';
 import { ContextStatusComponent } from '../../components/context-status/context-status.component';
+import { LoadingTextIndicatorComponent } from '../../components/loading-text-indicator/loading-text-indicator.component';
+import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
 
 @Component({
   selector: 'app-context',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent, TooltipIconComponent, ContextStatusComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent, TooltipIconComponent, ContextStatusComponent, LoadingTextIndicatorComponent, PrimaryButtonComponent],
   templateUrl: './context.component.html',
   styleUrl: './context.component.scss'
 })
@@ -45,7 +47,12 @@ export class ContextComponent implements OnInit, OnDestroy {
   
   // Context checkboxes for summary generation
   summaryUseCharacterList = true;
-  
+
+  isGeneratingCharacterList = false;
+  isGeneratingSynopsis = false;
+  isGeneratingSummary = false;
+  isGeneratingRecap = false;
+
   // Collapsible section states
   importExportCollapsed = true;
   fileUploadCollapsed = true;
@@ -143,21 +150,29 @@ export class ContextComponent implements OnInit, OnDestroy {
           if (response.result.type === 'character_list') {
             this.characterList = response.result.data;
             this.stateService.setCharacterList(response.result.data);
+            this.isGeneratingCharacterList = false;
           } else if (response.result.type === 'synopsis') {
             this.synopsis = response.result.data;
             this.stateService.setSynopsis(response.result.data);
+            this.isGeneratingSynopsis = false;
           } else if (response.result.type === 'summary') {
             this.summary = response.result.data;
             this.stateService.setSummary(response.result.data);
+            this.isGeneratingSummary = false;
           } else if (response.result.type === 'recap') {
             this.recap = response.result.data;
             this.stateService.setRecap(response.result.data);
+            this.isGeneratingRecap = false;
           }
         } else if (response.status === 'error') {
           alert(`Error: ${response.message}`);
+          this.clearGenerationFlags();
         }
       },
-      error: (err) => console.error('Error checking context result:', err)
+      error: (err) => {
+        console.error('Error checking context result:', err);
+        this.clearGenerationFlags();
+      }
     });
   }
 
@@ -230,6 +245,8 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.isGeneratingCharacterList = true;
+
     // Build context dict with only checked and non-empty fields
     const context: any = {};
     
@@ -245,11 +262,13 @@ export class ContextComponent implements OnInit, OnDestroy {
           this.startPolling();
         } else if (response.status === 'error') {
           alert(`Error: ${response.message}`);
+          this.isGeneratingCharacterList = false;
         }
       },
       error: (err) => {
         console.error('Error generating character list:', err);
         alert('Failed to generate character list. Please try again.');
+        this.isGeneratingCharacterList = false;
       }
     });
   }
@@ -263,6 +282,8 @@ export class ContextComponent implements OnInit, OnDestroy {
     if (this.stateService.getRunningLlm()) {
       return;
     }
+
+    this.isGeneratingSynopsis = true;
 
     // Build context dict with only checked and non-empty fields
     const context: any = {};
@@ -282,11 +303,13 @@ export class ContextComponent implements OnInit, OnDestroy {
           this.startPolling();
         } else if (response.status === 'error') {
           alert(`Error: ${response.message}`);
+          this.isGeneratingSynopsis = false;
         }
       },
       error: (err) => {
         console.error('Error generating synopsis:', err);
         alert('Failed to generate synopsis. Please try again.');
+        this.isGeneratingSynopsis = false;
       }
     });
   }
@@ -300,6 +323,8 @@ export class ContextComponent implements OnInit, OnDestroy {
     if (this.stateService.getRunningLlm()) {
       return;
     }
+
+    this.isGeneratingSummary = true;
 
     // Build context dict with only checked and non-empty fields
     const context: any = {};
@@ -319,11 +344,13 @@ export class ContextComponent implements OnInit, OnDestroy {
           this.startPolling();
         } else if (response.status === 'error') {
           alert(`Error: ${response.message}`);
+          this.isGeneratingSummary = false;
         }
       },
       error: (err) => {
         console.error('Error generating summary:', err);
         alert('Failed to generate summary. Please try again.');
+        this.isGeneratingSummary = false;
       }
     });
   }
@@ -492,6 +519,8 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.isGeneratingRecap = true;
+
     this.apiService.generateRecap(
       this.recapContexts,
       this.inputLanguage,
@@ -503,13 +532,22 @@ export class ContextComponent implements OnInit, OnDestroy {
           this.startPolling();
         } else if (response.status === 'error') {
           alert(response.message || 'Error generating recap');
+          this.isGeneratingRecap = false;
         }
       },
       error: (error) => {
         console.error('Error:', error);
         alert('Failed to start recap generation');
+        this.isGeneratingRecap = false;
       }
     });
+  }
+
+  private clearGenerationFlags(): void {
+    this.isGeneratingCharacterList = false;
+    this.isGeneratingSynopsis = false;
+    this.isGeneratingSummary = false;
+    this.isGeneratingRecap = false;
   }
 
   toggleRecapMode(): void {

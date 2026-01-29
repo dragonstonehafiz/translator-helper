@@ -18,7 +18,12 @@
           </select>
         </div>
 
-        <canvas #waveformCanvas class="waveform-canvas"></canvas>
+        <div class="waveform-wrapper" [class.is-recording]="isRecording">
+          <canvas #waveformCanvas class="waveform-canvas"></canvas>
+          <div class="waveform-overlay" *ngIf="isRecording">
+            <app-loading-text-indicator text="Recording..." color="#667eea" size="1.5rem"></app-loading-text-indicator>
+          </div>
+        </div>
         <audio #audioPlayer [src]="recordedAudioUrl" class="audio-player" aria-hidden="true"></audio>
         
         <div class="recording-status">
@@ -83,12 +88,17 @@
           </button>
         </div>
 
-        <app-text-field 
-          label="Transcript" 
-          placeholder="Transcript will appear here..."
-          [rows]="10"
-          [(ngModel)]="transcript">
-        </app-text-field>
+        <div class="transcript-wrapper" [class.is-loading]="isTranscribing">
+          <app-text-field 
+            label="Transcript" 
+            placeholder="Transcript will appear here..."
+            [rows]="10"
+            [(ngModel)]="transcript">
+          </app-text-field>
+          <div class="transcript-overlay" *ngIf="isTranscribing">
+            <app-loading-text-indicator text="Transcribing..." color="#667eea" size="1.4rem"></app-loading-text-indicator>
+          </div>
+        </div>
       </div>
       
     </app-subsection>

@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
 import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon.component';
+import { LoadingTextIndicatorComponent } from '../../components/loading-text-indicator/loading-text-indicator.component';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 import { TextFieldComponent } from '../../components/text-field/text-field.component';
 import { ApiService } from '../../services/api.service';
@@ -12,7 +13,7 @@ import { StateService } from '../../services/state.service';
 @Component({
   selector: 'app-transcribe',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent, TooltipIconComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent, TooltipIconComponent, LoadingTextIndicatorComponent],
   templateUrl: './transcribe.component.html',
   styleUrl: './transcribe.component.scss'
 })

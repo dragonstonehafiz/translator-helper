@@ -6,13 +6,15 @@ import { TextFieldComponent } from '../../components/text-field/text-field.compo
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon.component';
 import { ContextStatusComponent } from '../../components/context-status/context-status.component';
+import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
+import { LoadingTextIndicatorComponent } from '../../components/loading-text-indicator/loading-text-indicator.component';
 import { ApiService } from '../../services/api.service';
 import { StateService } from '../../services/state.service';
 
 @Component({
   selector: 'app-translate',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, FileUploadComponent, TooltipIconComponent, ContextStatusComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, FileUploadComponent, TooltipIconComponent, ContextStatusComponent, PrimaryButtonComponent, LoadingTextIndicatorComponent],
   templateUrl: './translate.component.html',
   styleUrl: './translate.component.scss'
 })

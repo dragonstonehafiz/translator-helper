@@ -34,10 +34,10 @@ export interface SettingsSchemaBundle {
 export class StateService {
   private isReadySubject = new BehaviorSubject<boolean>(false);
   public isReady$: Observable<boolean> = this.isReadySubject.asObservable();
-  private openaiReadySubject = new BehaviorSubject<boolean | null>(null);
-  public openaiReady$: Observable<boolean | null> = this.openaiReadySubject.asObservable();
-  private whisperReadySubject = new BehaviorSubject<boolean | null>(null);
-  public whisperReady$: Observable<boolean | null> = this.whisperReadySubject.asObservable();
+  private llmReadySubject = new BehaviorSubject<boolean | null>(null);
+  public llmReady$: Observable<boolean | null> = this.llmReadySubject.asObservable();
+  private audioReadySubject = new BehaviorSubject<boolean | null>(null);
+  public audioReady$: Observable<boolean | null> = this.audioReadySubject.asObservable();
 
   private serverWhisperModelSubject = new BehaviorSubject<string | null>(null);
   public serverWhisperModel$: Observable<string | null> = this.serverWhisperModelSubject.asObservable();
@@ -86,20 +86,20 @@ export class StateService {
     return this.isReadySubject.value;
   }
 
-  setOpenaiReady(ready: boolean | null): void {
-    this.openaiReadySubject.next(ready);
+  setLlmReady(ready: boolean | null): void {
+    this.llmReadySubject.next(ready);
   }
 
-  getOpenaiReady(): boolean | null {
-    return this.openaiReadySubject.value;
+  getLlmReady(): boolean | null {
+    return this.llmReadySubject.value;
   }
 
-  setWhisperReady(ready: boolean | null): void {
-    this.whisperReadySubject.next(ready);
+  setAudioReady(ready: boolean | null): void {
+    this.audioReadySubject.next(ready);
   }
 
-  getWhisperReady(): boolean | null {
-    return this.whisperReadySubject.value;
+  getAudioReady(): boolean | null {
+    return this.audioReadySubject.value;
   }
 
   setServerVariables(variables: {

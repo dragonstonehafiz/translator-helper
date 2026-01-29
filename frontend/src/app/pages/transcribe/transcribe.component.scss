@@ -21,7 +21,7 @@
 .form-section {
   display: flex;
   flex-direction: column;
-  gap: 25px;
+  gap: 40px;
 }
 
 .form-group {
@@ -65,6 +65,28 @@
     border-radius: 8px;
     border: 2px solid #e0e0e0;
   }
+
+  .waveform-wrapper {
+    position: relative;
+    width: 100%;
+  }
+
+  .waveform-wrapper.is-recording .waveform-canvas {
+    filter: grayscale(1) brightness(0.9);
+    opacity: 0.65;
+  }
+
+  .waveform-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.55);
+    pointer-events: none;
+  }
+
 
   .audio-player {
     display: none;
@@ -159,6 +181,27 @@
     }
   }
 }
+
+.transcript-wrapper {
+  position: relative;
+}
+
+.transcript-wrapper.is-loading {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.transcript-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  pointer-events: none;
+}
+
 
 .recording-controls {
   display: flex;
