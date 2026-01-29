@@ -31,7 +31,7 @@ export class ApiService {
   }
 
   loadWhisperModel(modelName: string, device: string): Observable<{status: string, message: string}> {
-    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/load-whisper-model`, {
+    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/load-audio-model`, {
       model_name: modelName,
       device: device
     });
@@ -47,7 +47,7 @@ export class ApiService {
       payload.api_key = apiKey;
     }
 
-    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/load-gpt-model`, payload);
+    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/load-llm-model`, payload);
   }
 
   getServerVariables(): Observable<{

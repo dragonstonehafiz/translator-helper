@@ -4,7 +4,7 @@ from langchain_openai import ChatOpenAI
 from interface.llm_interface import LLMInterface
 
 
-class LLM_ChatGPT(LLMInterface):
+class LLMChatGPT(LLMInterface):
     def __init__(
         self,
         model_name: str = "gpt-4o",

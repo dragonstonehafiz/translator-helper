@@ -235,10 +235,10 @@ The application uses several reusable standalone components located in `frontend
 - `GET /api/running`: Check running operations status
 
 **Settings**:
-- `POST /api/load-whisper-model`: Load Whisper transcription model
-- `POST /api/load-gpt-model`: Load OpenAI GPT model (API key optional, omit it to reuse the stored key)
+- `POST /api/load-audio-model`: Load audio transcription model
+- `POST /api/load-llm-model`: Load LLM model (API key optional, omit it to reuse the stored key)
 - `GET /api/settings/schema`: Get settings schema for model configuration
-- `POST /api/settings/update`: Update model settings without loading models
+- `POST /api/settings/update`: Update model settings (requires corresponding model to be loaded)
 - `GET /api/server/variables`: Get current server configuration and readiness grouped by provider
 
 ### Settings Schema (Backend -> Frontend)
@@ -260,10 +260,10 @@ status cards correctly:
   "audio": { "whisper_model": "...", "device": "..." },
   "llm": { "openai_model": "...", "temperature": 0.5 },
   "llm_ready": true,
-  "audio_ready": true,
-  "is_ready": true
+  "audio_ready": true
 }
 ```
+When no client is loaded yet, `audio` and `llm` are empty objects (`{}`).
 
 **Context Generation** (`backend/routes.py`):
 - `POST /api/context/generate-character-list`: Generate character list from subtitle file
@@ -364,7 +364,7 @@ Long-running operations use FastAPI's BackgroundTasks with polling:
 
 ## Important Notes
 
-### **⚠️ KEEP THIS DOCUMENT UPDATED**
+### IMPORTANT: KEEP THIS DOCUMENT UPDATED
 When making changes to:
 - **Reusable components** (sidebar, subsection, file-upload, text-field)
 - **Component APIs** (adding/removing properties, events)
@@ -389,27 +389,28 @@ When making changes to:
 
 ```
 translator-helper/
-├── backend/
-│   ├── interface/             # Interfaces for LLM and audio model backends
-│   ├── models/                # Concrete implementations for model backends
-│   ├── routes.py              # API route definitions
-│   ├── server.py              # FastAPI application
-│   ├── settings.py            # Environment configuration
-│   └── utils/                 # Utilities
-│       └── utils.py
-├── frontend/
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── components/    # Reusable components (described above)
-│   │   │   ├── pages/         # Page components
-│   │   │   │   ├── context/
-│   │   │   │   ├── home/
-│   │   │   │   ├── settings/
-│   │   │   │   ├── transcribe/
-│   │   │   │   └── translate/
-│   │   │   └── services/      # Angular services
-│   │   └── assets/
-└── data/                      # Sample subtitle files
+|-- backend/
+|   |-- interface/             # Interfaces for LLM and audio model backends
+|   |-- models/                # Concrete implementations for model backends
+|   |-- routes.py              # API route definitions
+|   |-- server.py              # FastAPI application
+|   |-- settings.py            # Environment configuration
+|   `-- utils/                 # Utilities
+|       |-- model_manager.py   # Shared model/task management
+|       `-- utils.py
+|-- frontend/
+|   `-- src/
+|       |-- app/
+|       |   |-- components/    # Reusable components (described above)
+|       |   |-- pages/         # Page components
+|       |   |   |-- context/
+|       |   |   |-- home/
+|       |   |   |-- settings/
+|       |   |   |-- transcribe/
+|       |   |   `-- translate/
+|       |   `-- services/      # Angular services
+|       `-- assets/
+`-- data/                      # Sample subtitle files
 ```
 
 ## Common Tasks
