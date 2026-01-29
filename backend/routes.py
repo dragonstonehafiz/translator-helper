@@ -12,7 +12,7 @@ import os
 from models.llm_chatgpt import LLM_ChatGPT
 from models.audio_whisper import AudioWhisper
 from utils.prompts import PromptGenerator
-from utils.translate_subs import translate_sub, translate_subs
+from utils.translate_subs import translate_subs
 from utils.utils import load_sub_data
 from utils.logger import setup_logger
 
@@ -25,11 +25,10 @@ llm_client = None
 loading_whisper_model = False
 loading_gpt_model = False
 context_result = None
-context_error = None
+llm_error = None
 transcription_result = None
 transcription_error = None
 translation_result = None
-translation_error = None
 
 
 def _is_llm_running() -> bool:
@@ -137,191 +136,6 @@ def load_gpt_background(model_name: str, api_key: Optional[str], temperature: fl
         loading_gpt_model = False
 
 
-def generate_character_list_background(file_path: str, input_lang: str, output_lang: str, context: dict):
-    """Generate character list in background."""
-    global context_result, context_error, llm_client
-    try:
-        if llm_client:
-            llm_client.set_running(True)
-        context_result = None
-        context_error = None
-        logger.info(f"Starting character list generation: file='{file_path}'")
-
-        # Extract transcript from subtitle file
-        transcript_lines = load_sub_data(file_path, include_speaker=True)
-        transcript = "\n".join(transcript_lines)
-
-        prompt_generator = PromptGenerator()
-        system_prompt = prompt_generator.generate_character_list_prompt(
-            context=context if context else None,
-            input_lang=input_lang,
-            output_lang=output_lang
-        )
-        result = llm_client.infer(
-            prompt=transcript,
-            system_prompt=system_prompt,
-            temperature=llm_client.get_temperature()
-        )
-        context_result = {"type": "character_list", "data": result}
-        logger.info("Successfully completed character list generation")
-    except Exception as e:
-        logger.error(f"Error generating character list: {e}")
-        print(f"Error generating character list: {e}")
-        context_error = str(e)
-    finally:
-        if llm_client:
-            llm_client.set_running(False)
-        logger.info("Character list generation process completed")
-        # Cleanup temp file
-        try:
-            os.remove(file_path)
-        except:
-            pass
-
-
-def generate_summary_background(file_path: str, input_lang: str, output_lang: str, context: dict):
-    """Generate high-level summary in background."""
-    global context_result, context_error, llm_client
-    try:
-        if llm_client:
-            llm_client.set_running(True)
-        context_result = None
-        context_error = None
-        logger.info(f"Starting summary generation: file='{file_path}'")
-
-        # Extract transcript from subtitle file
-        transcript_lines = load_sub_data(file_path, include_speaker=True)
-        transcript = "\n".join(transcript_lines)
-
-        prompt_generator = PromptGenerator()
-        system_prompt = prompt_generator.generate_summary_prompt(
-            context=context if context else None,
-            input_lang=input_lang,
-            output_lang=output_lang
-        )
-        result = llm_client.infer(
-            prompt=transcript,
-            system_prompt=system_prompt,
-            temperature=llm_client.get_temperature()
-        )
-        context_result = {"type": "summary", "data": result}
-        logger.info("Successfully completed summary generation")
-    except Exception as e:
-        logger.error(f"Error generating summary: {e}")
-        print(f"Error generating summary: {e}")
-        context_error = str(e)
-    finally:
-        if llm_client:
-            llm_client.set_running(False)
-        logger.info("Summary generation process completed")
-        # Cleanup temp file
-        try:
-            os.remove(file_path)
-        except:
-            pass
-
-
-def generate_synopsis_background(file_path: str, input_lang: str, output_lang: str, context: dict):
-    """Generate synopsis in background."""
-    global context_result, context_error, llm_client
-    try:
-        if llm_client:
-            llm_client.set_running(True)
-        context_result = None
-        context_error = None
-        logger.info(f"Starting synopsis generation: file='{file_path}'")
-
-        # Extract transcript from subtitle file
-        transcript_lines = load_sub_data(file_path, include_speaker=True)
-        transcript = "\n".join(transcript_lines)
-
-        prompt_generator = PromptGenerator()
-        system_prompt = prompt_generator.generate_synopsis_prompt(
-            context=context if context else None,
-            input_lang=input_lang,
-            output_lang=output_lang
-        )
-        result = llm_client.infer(
-            prompt=transcript,
-            system_prompt=system_prompt,
-            temperature=llm_client.get_temperature()
-        )
-        context_result = {"type": "synopsis", "data": result}
-        logger.info("Successfully completed synopsis generation")
-    except Exception as e:
-        logger.error(f"Error generating synopsis: {e}")
-        print(f"Error generating synopsis: {e}")
-        context_error = str(e)
-    finally:
-        if llm_client:
-            llm_client.set_running(False)
-        logger.info("Synopsis generation process completed")
-        # Cleanup temp file
-        try:
-            os.remove(file_path)
-        except:
-            pass
-
-
-def generate_recap_background(input_lang: str, output_lang: str, contexts: list[dict]):
-    """Generate recap from multiple contexts in background."""
-    global context_result, context_error, llm_client
-    try:
-        if llm_client:
-            llm_client.set_running(True)
-        context_result = None
-        context_error = None
-        logger.info(f"Starting recap generation: contexts={len(contexts)}")
-        all_keys = set()
-        for ctx in contexts:
-            all_keys.update(ctx.keys())
-
-        metadata_keys = {'seriesName', 'keywords', 'inputLanguage', 'outputLanguage', 'exportDate'}
-        all_keys = all_keys - metadata_keys
-
-        sections_data = {}
-        for key in all_keys:
-            values = []
-            for i, ctx in enumerate(contexts):
-                value = ctx.get(key, "")
-                if value and str(value).strip():
-                    values.append((i, str(value).strip()))
-            if values:
-                sections_data[key] = values
-
-        if not sections_data:
-            result = ""
-        else:
-            context_sections = []
-            for key, values in sections_data.items():
-                title = key.replace('_', ' ').title()
-                combined = "\n\n".join([f"### Part {i+1}\n{val}" for i, val in values])
-                context_sections.append(f"## {title}\n\n{combined}")
-            all_context = "\n\n".join(context_sections)
-
-            prompt_generator = PromptGenerator()
-            system_prompt = prompt_generator.generate_recap_prompt(
-                all_context=all_context,
-                input_lang=input_lang,
-                output_lang=output_lang
-            )
-            result = llm_client.infer(
-                prompt="Generate recap.",
-                system_prompt=system_prompt,
-                temperature=llm_client.get_temperature()
-            )
-        context_result = {"type": "recap", "data": result}
-        logger.info("Successfully completed recap generation")
-    except Exception as e:
-        logger.error(f"Error generating recap: {e}")
-        print(f"Error generating recap: {e}")
-        context_error = str(e)
-    finally:
-        if llm_client:
-            llm_client.set_running(False)
-        logger.info("Recap generation process completed")
-
-
 def transcribe_line_background(file_path: str, language: str):
     """Transcribe audio in background."""
     global transcription_result, transcription_error, audio_client
@@ -350,44 +164,14 @@ def transcribe_line_background(file_path: str, language: str):
             pass
 
 
-def translate_line_background(text: str, context: dict, input_lang: str, output_lang: str):
-    """Translate a single line in background."""
-    global translation_result, translation_error, llm_client
-    try:
-        if llm_client:
-            llm_client.set_running(True)
-        translation_result = None
-        translation_error = None
-        logger.info(f"Starting line translation: input_lang='{input_lang}', output_lang='{output_lang}'")
-
-        result = translate_sub(
-            llm=llm_client,
-            text=text,
-            context=context if context else {},
-            input_lang=input_lang,
-            target_lang=output_lang,
-            temperature=llm_client.get_temperature()
-        )
-        translation_result = {"type": "line_translation", "data": result}
-        logger.info("Successfully completed line translation")
-    except Exception as e:
-        logger.error(f"Error translating line: {e}")
-        print(f"Error translating line: {e}")
-        translation_error = str(e)
-    finally:
-        if llm_client:
-            llm_client.set_running(False)
-        logger.info("Line translation process completed")
-
-
 def translate_file_background(file_path: str, context: dict, input_lang: str, output_lang: str, context_window: int):
     """Translate subtitle file in background."""
-    global translation_result, translation_error, llm_client
+    global translation_result, llm_error, llm_client
     try:
         if llm_client:
             llm_client.set_running(True)
         translation_result = None
-        translation_error = None
+        llm_error = None
         logger.info(f"Starting file translation: file='{file_path}', input_lang='{input_lang}', output_lang='{output_lang}'")
 
         # Load subtitle file
@@ -437,7 +221,7 @@ def translate_file_background(file_path: str, context: dict, input_lang: str, ou
     except Exception as e:
         logger.error(f"Error translating file: {e}")
         print(f"Error translating file: {e}")
-        translation_error = str(e)
+        llm_error = str(e)
     finally:
         if llm_client:
             llm_client.set_running(False)
@@ -447,6 +231,54 @@ def translate_file_background(file_path: str, context: dict, input_lang: str, ou
             os.remove(file_path)
         except:
             pass
+
+
+def run_llm_background(
+    prompt: str,
+    system_prompt: str | None,
+    result_type: str,
+    *,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    target: str = "context",
+    cleanup_path: str | None = None
+):
+    """Run an LLM task in background and store result in the appropriate slot."""
+    global llm_client, context_result, translation_result, llm_error
+    try:
+        if llm_client:
+            llm_client.set_running(True)
+        llm_error = None
+
+        if target == "context":
+            context_result = None
+        else:
+            translation_result = None
+
+        result = llm_client.infer(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
+
+        payload = {"type": result_type, "data": result}
+        if target == "context":
+            context_result = payload
+        else:
+            translation_result = payload
+    except Exception as e:
+        logger.error(f"Error running LLM task ({result_type}): {e}")
+        print(f"Error running LLM task ({result_type}): {e}")
+        llm_error = str(e)
+    finally:
+        if llm_client:
+            llm_client.set_running(False)
+        if cleanup_path:
+            try:
+                os.remove(cleanup_path)
+            except:
+                pass
 
 
 def analyze_subtitle_file(file_path: str):
@@ -640,8 +472,21 @@ async def api_translate_line(
         context_keys = sorted(context_dict.keys()) if isinstance(context_dict, dict) else []
         logger.info(f"Translate line context keys: {context_keys if context_keys else 'none'}")
 
+        prompt_generator = PromptGenerator()
+        system_prompt = prompt_generator.generate_translate_sub_prompt(
+            context=context_dict if context_dict else {},
+            input_lang=input_lang,
+            target_lang=output_lang
+        )
+
         # Start background translation
-        background_tasks.add_task(translate_line_background, text, context_dict, input_lang, output_lang)
+        background_tasks.add_task(
+            run_llm_background,
+            text,
+            system_prompt,
+            "line_translation",
+            target="translation"
+        )
 
         return {"status": "processing", "message": "Translation started"}
     except Exception as e:
@@ -689,13 +534,13 @@ async def api_translate_file(
 @router.get("/api/translate/result")
 async def get_translation_result():
     """Get the result of the translation."""
-    global translation_result, translation_error
+    global translation_result, llm_error
 
     if _is_llm_running():
         return {"status": "processing", "result": None, "error": None}
-    elif translation_error:
-        error = translation_error
-        translation_error = None  # Clear error after reading
+    elif llm_error:
+        error = llm_error
+        llm_error = None  # Clear error after reading
         return {"status": "error", "result": None, "message": error}
     elif translation_result:
         result = translation_result
@@ -756,12 +601,22 @@ async def api_generate_character_list(
     import json
     context_dict = json.loads(context) if context else {}
 
+    transcript_lines = load_sub_data(tmp_path, include_speaker=True)
+    transcript = "\n".join(transcript_lines)
+    prompt_generator = PromptGenerator()
+    system_prompt = prompt_generator.generate_character_list_prompt(
+        context=context_dict if context_dict else None,
+        input_lang=input_lang,
+        output_lang=output_lang
+    )
+
     background_tasks.add_task(
-        generate_character_list_background,
-        tmp_path,
-        input_lang,
-        output_lang,
-        context_dict
+        run_llm_background,
+        transcript,
+        system_prompt,
+        "character_list",
+        target="context",
+        cleanup_path=tmp_path
     )
     return {"status": "processing", "message": "Character list generation started"}
 
@@ -793,12 +648,22 @@ async def api_generate_high_level_summary(
     import json
     context_dict = json.loads(context) if context else {}
 
+    transcript_lines = load_sub_data(tmp_path, include_speaker=True)
+    transcript = "\n".join(transcript_lines)
+    prompt_generator = PromptGenerator()
+    system_prompt = prompt_generator.generate_summary_prompt(
+        context=context_dict if context_dict else None,
+        input_lang=input_lang,
+        output_lang=output_lang
+    )
+
     background_tasks.add_task(
-        generate_summary_background,
-        tmp_path,
-        input_lang,
-        output_lang,
-        context_dict
+        run_llm_background,
+        transcript,
+        system_prompt,
+        "summary",
+        target="context",
+        cleanup_path=tmp_path
     )
     return {"status": "processing", "message": "Summary generation started"}
 
@@ -830,12 +695,22 @@ async def api_generate_synopsis(
     import json
     context_dict = json.loads(context) if context else {}
 
+    transcript_lines = load_sub_data(tmp_path, include_speaker=True)
+    transcript = "\n".join(transcript_lines)
+    prompt_generator = PromptGenerator()
+    system_prompt = prompt_generator.generate_synopsis_prompt(
+        context=context_dict if context_dict else None,
+        input_lang=input_lang,
+        output_lang=output_lang
+    )
+
     background_tasks.add_task(
-        generate_synopsis_background,
-        tmp_path,
-        input_lang,
-        output_lang,
-        context_dict
+        run_llm_background,
+        transcript,
+        system_prompt,
+        "synopsis",
+        target="context",
+        cleanup_path=tmp_path
     )
     return {"status": "processing", "message": "Synopsis generation started"}
 
@@ -851,11 +726,46 @@ async def api_generate_recap(request: GenerateRecapRequest, background_tasks: Ba
     if _is_llm_running():
         return {"status": "error", "message": "Context generation already running"}
 
+    all_keys = set()
+    for ctx in request.contexts:
+        all_keys.update(ctx.keys())
+
+    metadata_keys = {'seriesName', 'keywords', 'inputLanguage', 'outputLanguage', 'exportDate'}
+    all_keys = all_keys - metadata_keys
+
+    sections_data = {}
+    for key in all_keys:
+        values = []
+        for i, ctx in enumerate(request.contexts):
+            value = ctx.get(key, "")
+            if value and str(value).strip():
+                values.append((i, str(value).strip()))
+        if values:
+            sections_data[key] = values
+
+    if not sections_data:
+        all_context = ""
+    else:
+        context_sections = []
+        for key, values in sections_data.items():
+            title = key.replace('_', ' ').title()
+            combined = "\n\n".join([f"### Part {i+1}\n{val}" for i, val in values])
+            context_sections.append(f"## {title}\n\n{combined}")
+        all_context = "\n\n".join(context_sections)
+
+    prompt_generator = PromptGenerator()
+    system_prompt = prompt_generator.generate_recap_prompt(
+        all_context=all_context,
+        input_lang=request.input_lang,
+        output_lang=request.output_lang
+    )
+
     background_tasks.add_task(
-        generate_recap_background,
-        request.input_lang,
-        request.output_lang,
-        request.contexts
+        run_llm_background,
+        "Generate recap.",
+        system_prompt,
+        "recap",
+        target="context"
     )
     return {"status": "processing", "message": "Recap generation started"}
 
@@ -863,13 +773,13 @@ async def api_generate_recap(request: GenerateRecapRequest, background_tasks: Ba
 @router.get("/api/context/result")
 async def get_context_result():
     """Get the result of the last context generation operation."""
-    global context_result, context_error
+    global context_result, llm_error
 
     if _is_llm_running():
         return {"status": "processing", "message": "Context generation in progress"}
 
-    if context_error:
-        error = context_error
+    if llm_error:
+        error = llm_error
         return {"status": "error", "message": error}
 
     if context_result:
