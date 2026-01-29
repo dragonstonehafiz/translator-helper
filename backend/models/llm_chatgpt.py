@@ -1,6 +1,5 @@
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-import openai
 
 from interface.llm_interface import LLMInterface
 
@@ -17,6 +16,7 @@ class LLM_ChatGPT(LLMInterface):
         self._temperature = 0.5
         self._running = False
         self._llm = None
+        self._status = "not_loaded"
 
     def configure(self, settings: dict):
         if not settings:
@@ -68,7 +68,12 @@ class LLM_ChatGPT(LLMInterface):
         }
 
     def initialize(self):
-        self._llm = self._build_llm()
+        try:
+            self._llm = self._build_llm()
+            self._status = "loaded"
+        except Exception:
+            self._status = "error"
+            raise
 
     def change_model(self, model_name: str):
         self._model_name = model_name
@@ -119,11 +124,10 @@ class LLM_ChatGPT(LLMInterface):
 
     def shutdown(self):
         self._llm = None
+        self._status = "not_loaded"
 
-    def is_ready(self) -> bool:
-        if not self._api_key:
-            return False
-        return self._validate_api_key()
+    def get_status(self) -> str:
+        return self._status
 
     def is_running(self) -> bool:
         return self._running
@@ -146,11 +150,3 @@ class LLM_ChatGPT(LLMInterface):
             params["max_tokens"] = max_tokens
 
         return ChatOpenAI(**params)
-
-    def _validate_api_key(self) -> bool:
-        try:
-            client = openai.OpenAI(api_key=self._api_key)
-            _ = client.models.list()
-            return True
-        except Exception:
-            return False

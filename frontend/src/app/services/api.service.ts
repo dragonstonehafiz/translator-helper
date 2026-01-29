@@ -55,14 +55,12 @@ export class ApiService {
     llm: {openai_model: string; temperature: number};
     openai_ready: boolean;
     whisper_ready: boolean;
-    is_ready: boolean;
   }> {
     return this.http.get<{
       audio: {whisper_model: string; device: string};
       llm: {openai_model: string; temperature: number};
       openai_ready: boolean;
       whisper_ready: boolean;
-      is_ready: boolean;
     }>(`${this.baseUrl}/server/variables`);
   }
 

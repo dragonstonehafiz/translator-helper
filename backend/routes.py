@@ -119,7 +119,7 @@ def load_gpt_background(model_name: str, api_key: Optional[str], temperature: fl
     global llm_client, loading_gpt_model
     try:
         loading_gpt_model = True
-        if not api_key and (llm_client is None or not llm_client.is_ready()):
+        if not api_key and (llm_client is None or llm_client.get_status() != "loaded"):
             raise ValueError("OpenAI API key not provided and no stored key is available.")
         if llm_client is None:
             llm_client = LLM_ChatGPT(model_name=model_name, api_key=api_key)
@@ -489,16 +489,13 @@ async def get_running_status():
 @router.get("/api/server/variables")
 async def get_server_variables():
     """Get current server configuration variables."""
-    openai_ready = bool(llm_client and llm_client.is_ready())
-    whisper_ready = bool(audio_client)
-    is_ready = openai_ready and whisper_ready
-
+    openai_ready = bool(llm_client and llm_client.get_status() == "loaded")
+    whisper_ready = bool(audio_client and audio_client.get_status() == "loaded")
     return {
         "audio": (audio_client.get_server_variables() if audio_client else {"whisper_model": "", "device": ""}),
         "llm": (llm_client.get_server_variables() if llm_client else {"openai_model": "", "temperature": 0.5}),
         "openai_ready": openai_ready,
         "whisper_ready": whisper_ready,
-        "is_ready": is_ready
     }
 
 
@@ -634,7 +631,7 @@ async def api_translate_line(
     if _is_llm_running():
         return {"status": "error", "message": "Translation is already running"}
 
-    if not llm_client or not llm_client.is_ready():
+    if not llm_client or llm_client.get_status() != "loaded":
         return {"status": "error", "message": "GPT model not loaded"}
 
     try:
@@ -666,7 +663,7 @@ async def api_translate_file(
     if _is_llm_running():
         return {"status": "error", "message": "Translation is already running"}
 
-    if not llm_client or not llm_client.is_ready():
+    if not llm_client or llm_client.get_status() != "loaded":
         return {"status": "error", "message": "GPT model not loaded"}
 
     try:
@@ -743,7 +740,7 @@ async def api_generate_character_list(
     """Generate character list from subtitle file."""
     global llm_client
 
-    if not llm_client or not llm_client.is_ready():
+    if not llm_client or llm_client.get_status() != "loaded":
         return {"status": "error", "message": "GPT model not loaded"}
 
     if _is_llm_running():
@@ -780,7 +777,7 @@ async def api_generate_high_level_summary(
     """Generate high-level summary from subtitle file."""
     global llm_client
 
-    if not llm_client or not llm_client.is_ready():
+    if not llm_client or llm_client.get_status() != "loaded":
         return {"status": "error", "message": "GPT model not loaded"}
 
     if _is_llm_running():
@@ -817,7 +814,7 @@ async def api_generate_synopsis(
     """Generate synopsis from subtitle file."""
     global llm_client
 
-    if not llm_client or not llm_client.is_ready():
+    if not llm_client or llm_client.get_status() != "loaded":
         return {"status": "error", "message": "GPT model not loaded"}
 
     if _is_llm_running():
@@ -848,7 +845,7 @@ async def api_generate_recap(request: GenerateRecapRequest, background_tasks: Ba
     """Generate recap from multiple context dicts."""
     global llm_client
 
-    if not llm_client or not llm_client.is_ready():
+    if not llm_client or llm_client.get_status() != "loaded":
         return {"status": "error", "message": "GPT model not loaded"}
 
     if _is_llm_running():

@@ -30,10 +30,10 @@ export class AppComponent implements OnInit {
   private checkBackendReady(): void {
     this.apiService.getServerVariables().subscribe({
       next: (response) => {
-        this.stateService.setReady(response.is_ready);
         this.stateService.setOpenaiReady(response.openai_ready);
         this.stateService.setWhisperReady(response.whisper_ready);
-        if (!response.is_ready) {
+        this.stateService.setReady(response.openai_ready && response.whisper_ready);
+        if (!(response.openai_ready && response.whisper_ready)) {
           this.router.navigate(['/settings']);
         }
       },

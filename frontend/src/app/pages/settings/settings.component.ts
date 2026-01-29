@@ -113,9 +113,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
         const audioVars = response.audio;
         const llmVars = response.llm;
 
-        this.stateService.setReady(response.is_ready);
         this.stateService.setOpenaiReady(response.openai_ready);
         this.stateService.setWhisperReady(response.whisper_ready);
+        this.stateService.setReady(response.openai_ready && response.whisper_ready);
         this.openaiReady = response.openai_ready;
         this.whisperReady = response.whisper_ready;
         if (response.openai_ready) {

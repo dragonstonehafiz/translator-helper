@@ -33,6 +33,11 @@ class AudioModelInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_status(self) -> str:
+        """Return current model status: 'loaded', 'not_loaded', or 'error'."""
+        raise NotImplementedError
+
+    @abstractmethod
     def get_model(self) -> str:
         """Return the current model identifier."""
         raise NotImplementedError

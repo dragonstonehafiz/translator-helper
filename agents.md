@@ -9,6 +9,7 @@ Translator Helper is a full-stack application for transcribing, translating, and
 - **Backend**: FastAPI Python server with Whisper (transcription) and OpenAI (translation/context)
 - **Backend Interfaces**: Abstract interfaces for LLM and audio models (see `backend/interface/`)
 - **Backend Models**: Concrete model implementations (see `backend/models/`)
+  - LLM and audio interfaces now expose `get_status()` returning `"loaded" | "not_loaded" | "error"`
 
 ## Navigation
 

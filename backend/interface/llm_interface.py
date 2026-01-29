@@ -39,8 +39,8 @@ class LLMInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def is_ready(self) -> bool:
-        """Check if the model is ready for inference."""
+    def get_status(self) -> str:
+        """Return current model status: 'loaded', 'not_loaded', or 'error'."""
         raise NotImplementedError
 
     @abstractmethod

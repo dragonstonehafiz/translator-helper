@@ -13,6 +13,7 @@ class AudioWhisper(AudioModelInterface):
         self._device = device
         self._model = None
         self._running = False
+        self._status = "not_loaded"
 
     def configure(self, settings: dict):
         if not settings:
@@ -56,7 +57,12 @@ class AudioWhisper(AudioModelInterface):
         }
 
     def initialize(self):
-        self._model = self._build_model()
+        try:
+            self._model = self._build_model()
+            self._status = "loaded"
+        except Exception:
+            self._status = "error"
+            raise
 
     def change_model(self, model_name: str):
         self._model_name = model_name
@@ -94,6 +100,10 @@ class AudioWhisper(AudioModelInterface):
 
     def shutdown(self):
         self._model = None
+        self._status = "not_loaded"
+
+    def get_status(self) -> str:
+        return self._status
 
     def get_model(self) -> str:
         return self._model_name
