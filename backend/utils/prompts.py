@@ -86,6 +86,7 @@ class PromptGenerator:
         - **Very High-Level Summary** - one short clause capturing their role / personality / tone
         - If one character is **clearly the narrative focus** (appears most, drives the scene), add **[Narrative Focus]**
 
+        Include characters who are mentioned by name even if they do not appear in the scene.
         Rely only on evidence from the transcript or context - do **not** speculate.
 
         ## Context

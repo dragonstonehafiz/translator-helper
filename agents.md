@@ -305,7 +305,7 @@ Long-running operations use FastAPI's BackgroundTasks with polling:
 ### Layout
 - **Navbar**: Fixed 60px height at top, with 50px subnav below when subsections exist
 - **Page Container**: Max-width 1200px, centered with `margin: 0 auto`
-- **Page Padding**: `padding: 130px 20px 40px` (top accounts for navbar + subnav + offset)
+- **Page Padding**: `padding: 75px 20px 40px` (top accounts for navbar + subnav + offset)
 - **Responsive**: None currently - desktop-focused
 
 ### Form Elements
@@ -342,7 +342,7 @@ Long-running operations use FastAPI's BackgroundTasks with polling:
 - SCSS for page container:
 ```scss
 .page-container {
-  padding: 130px 20px 40px;
+  padding: 75px 20px 40px;
   max-width: 1200px;
   margin: 0 auto;
 }
