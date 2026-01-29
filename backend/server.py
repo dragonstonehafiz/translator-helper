@@ -5,6 +5,7 @@ FastAPI server for Translator Helper backend.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
 from routes import router, startup_load_models
 
 
@@ -36,5 +37,6 @@ app.add_middleware(
 app.include_router(router)
 
 if __name__ == "__main__":
+    load_dotenv()
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

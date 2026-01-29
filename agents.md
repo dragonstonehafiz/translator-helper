@@ -10,6 +10,7 @@ Translator Helper is a full-stack application for transcribing, translating, and
 - **Backend Interfaces**: Abstract interfaces for LLM and audio models (see `backend/interface/`)
 - **Backend Models**: Concrete model implementations (see `backend/models/`)
   - LLM and audio interfaces now expose `get_status()` returning `"loaded" | "not_loaded" | "error"`
+  - Local LLM implementation is available via llama.cpp (GGUF)
 
 ## Navigation
 
@@ -238,8 +239,8 @@ The application uses several reusable standalone components located in `frontend
 - `POST /api/load-audio-model`: Load audio transcription model
 - `POST /api/load-llm-model`: Load LLM model (API key optional, omit it to reuse the stored key)
 - `GET /api/settings/schema`: Get settings schema for model configuration
-- `POST /api/settings/update`: Update model settings (requires corresponding model to be loaded)
 - `GET /api/server/variables`: Get current server configuration and readiness grouped by provider
+The server loads `.env` via python-dotenv at startup, and models read defaults from environment (e.g., `OPENAI_*`, `WHISPER_*`).
 
 ### Settings Schema (Backend -> Frontend)
 Model backends can expose a settings schema so the frontend can render controls dynamically.
@@ -392,9 +393,9 @@ translator-helper/
 |-- backend/
 |   |-- interface/             # Interfaces for LLM and audio model backends
 |   |-- models/                # Concrete implementations for model backends
+|   |   `-- llm_llamacpp.py
 |   |-- routes.py              # API route definitions
 |   |-- server.py              # FastAPI application
-|   |-- settings.py            # Environment configuration
 |   `-- utils/                 # Utilities
 |       |-- model_manager.py   # Shared model/task management
 |       `-- utils.py

@@ -36,17 +36,15 @@ class ModelManager:
     def is_audio_ready(self) -> bool:
         return bool(self.audio_client and self.audio_client.get_status() == "loaded")
 
-    def load_audio_model(self, model_name: str, device: str):
+    def load_audio_model(self):
         if self.loading_audio_model:
             return False
         try:
             self.loading_audio_model = True
             if self.audio_client is None:
-                self.audio_client = AudioWhisper(model_name=model_name, device=device)
+                self.audio_client = AudioWhisper()
             else:
-                self.audio_client.configure({"model_name": model_name, "device": device})
-                self.audio_client.change_model(model_name)
-                self.audio_client.set_device(device)
+                pass
             self.audio_client.initialize()
             logger.info(f"Whisper model loaded: model='{self.audio_client.get_model()}', device='{self.audio_client.get_device()}'")
         except Exception as e:
@@ -57,20 +55,37 @@ class ModelManager:
 
         return True
 
-    def load_llm_model(self, model_name: str, api_key: Optional[str], temperature: float):
+    def apply_audio_settings(self, settings: dict):
+        if self.audio_client is None:
+            self.audio_client = AudioWhisper()
+        if settings:
+            self.audio_client.configure(settings)
+
+    def reload_audio_model(self):
+        if self.loading_audio_model:
+            return False
+        try:
+            self.loading_audio_model = True
+            if self.audio_client is None:
+                self.audio_client = AudioWhisper()
+            self.audio_client.initialize()
+            logger.info(f"Whisper model loaded: model='{self.audio_client.get_model()}', device='{self.audio_client.get_device()}'")
+        except Exception as e:
+            logger.error(f"Error loading Whisper model: {e}")
+            print(f"Error loading Whisper model: {e}")
+        finally:
+            self.loading_audio_model = False
+        return True
+
+    def load_llm_model(self):
         if self.loading_llm_model:
             return False
         try:
             self.loading_llm_model = True
-            if not api_key and (self.llm_client is None or self.llm_client.get_status() != "loaded"):
-                raise ValueError("OpenAI API key not provided and no stored key is available.")
             if self.llm_client is None:
-                self.llm_client = LLMChatGPT(model_name=model_name, api_key=api_key)
+                self.llm_client = LLMChatGPT()
             else:
-                if api_key:
-                    self.llm_client.configure({"api_key": api_key})
-                self.llm_client.change_model(model_name)
-            self.llm_client.set_temperature(temperature)
+                pass
             self.llm_client.initialize()
             logger.info(f"LLM loaded: model='{self.llm_client.get_model()}', temperature={self.llm_client.get_temperature()}")
         except Exception as e:
@@ -79,6 +94,28 @@ class ModelManager:
         finally:
             self.loading_llm_model = False
 
+        return True
+
+    def apply_llm_settings(self, settings: dict):
+        if self.llm_client is None:
+            self.llm_client = LLMChatGPT()
+        if settings:
+            self.llm_client.configure(settings)
+
+    def reload_llm_model(self):
+        if self.loading_llm_model:
+            return False
+        try:
+            self.loading_llm_model = True
+            if self.llm_client is None:
+                self.llm_client = LLMChatGPT()
+            self.llm_client.initialize()
+            logger.info(f"LLM loaded: model='{self.llm_client.get_model()}', temperature={self.llm_client.get_temperature()}")
+        except Exception as e:
+            logger.error(f"Error loading GPT model: {e}")
+            print(f"Error loading GPT model: {e}")
+        finally:
+            self.loading_llm_model = False
         return True
 
     def run_transcription_task(self, file_path: str, language: str):

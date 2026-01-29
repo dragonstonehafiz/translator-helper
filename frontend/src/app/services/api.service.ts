@@ -23,31 +23,18 @@ export class ApiService {
     return this.http.get<SettingsSchemaBundle>(`${this.baseUrl}/settings/schema`);
   }
 
-  updateSettings(provider: string, settings: Record<string, unknown>): Observable<{status: string, message: string}> {
-    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/settings/update`, {
-      provider,
+  loadWhisperModel(settings: Record<string, unknown>): Observable<{status: string, message: string}> {
+    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/load-audio-model`, {
+      provider: 'audio',
       settings
     });
   }
 
-  loadWhisperModel(modelName: string, device: string): Observable<{status: string, message: string}> {
-    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/load-audio-model`, {
-      model_name: modelName,
-      device: device
+  loadGptModel(settings: Record<string, unknown>): Observable<{status: string, message: string}> {
+    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/load-llm-model`, {
+      provider: 'llm',
+      settings
     });
-  }
-
-  loadGptModel(modelName: string, apiKey: string | null, temperature: number): Observable<{status: string, message: string}> {
-    const payload: { model_name: string; temperature: number; api_key?: string | null } = {
-      model_name: modelName,
-      temperature: temperature
-    };
-
-    if (apiKey) {
-      payload.api_key = apiKey;
-    }
-
-    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/load-llm-model`, payload);
   }
 
   getServerVariables(): Observable<{

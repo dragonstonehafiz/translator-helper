@@ -1,3 +1,5 @@
+import os
+
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
@@ -5,15 +7,15 @@ from interface.llm_interface import LLMInterface
 
 
 class LLMChatGPT(LLMInterface):
-    def __init__(
-        self,
-        model_name: str = "gpt-4o",
-        api_key: str | None = None
-    ):
-        self._model_name = model_name
+    def __init__(self):
+        env_model = os.getenv("OPENAI_MODEL") or "gpt-4o"
+        env_api_key = os.getenv("OPENAI_API_KEY") or ""
+        env_temperature = os.getenv("OPENAI_TEMPERATURE")
+
+        self._model_name = env_model
         self._device = "API"
-        self._api_key = api_key
-        self._temperature = 0.5
+        self._api_key = env_api_key
+        self._temperature = float(env_temperature) if env_temperature else 0.5
         self._running = False
         self._llm = None
         self._status = "not_loaded"

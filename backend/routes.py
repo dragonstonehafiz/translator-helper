@@ -5,7 +5,6 @@ Route definitions for Translator Helper backend.
 from fastapi import APIRouter, BackgroundTasks, File, UploadFile, Form
 from pydantic import BaseModel
 from typing import Optional
-from settings import settings
 import threading
 import tempfile
 import os
@@ -23,35 +22,11 @@ model_manager = ModelManager()
 # Startup function to load models based on settings
 def startup_load_models():
     """Load models on startup based on .env configuration."""
-    # Load OpenAI/GPT model if key is provided
-    if settings.openai_api_key:
-        print(f"Loading GPT model '{settings.openai_model}' on startup...")
-        threading.Thread(
-            target=model_manager.load_llm_model,
-            args=(settings.openai_model, settings.openai_api_key, settings.temperature),
-            daemon=True
-        ).start()
+    print("Loading LLM model on startup...")
+    threading.Thread(target=model_manager.load_llm_model, daemon=True).start()
 
-    # Load Whisper model if settings are provided
-    if settings.whisper_model and settings.device:
-        print(f"Loading Whisper model '{settings.whisper_model}' on device '{settings.device}' on startup...")
-        threading.Thread(
-            target=model_manager.load_audio_model,
-            args=(settings.whisper_model, settings.device),
-            daemon=True
-        ).start()
-
-
-# Request models
-class LoadWhisperRequest(BaseModel):
-    model_name: str
-    device: str
-
-
-class LoadGptRequest(BaseModel):
-    model_name: str
-    api_key: Optional[str] = None
-    temperature: float
+    print("Loading Whisper model on startup...")
+    threading.Thread(target=model_manager.load_audio_model, daemon=True).start()
 
 
 class UpdateSettingsRequest(BaseModel):
@@ -137,35 +112,6 @@ async def get_settings_schema():
     audio_schema = model_manager.audio_client.get_settings_schema() if model_manager.audio_client else {}
     llm_schema = model_manager.llm_client.get_settings_schema() if model_manager.llm_client else {}
     return {"audio": audio_schema, "llm": llm_schema}
-
-
-@router.post("/api/settings/update")
-async def update_settings(request: UpdateSettingsRequest):
-    """Update model settings without loading models."""
-    provider = request.provider.lower()
-    settings_payload = request.settings or {}
-
-    if provider == "audio":
-        if model_manager.audio_client is None:
-            return {"status": "error", "message": "Audio model not loaded"}
-        model_manager.audio_client.configure(settings_payload)
-        if "model_name" in settings_payload:
-            model_manager.audio_client.change_model(settings_payload["model_name"])
-        if "device" in settings_payload:
-            model_manager.audio_client.set_device(settings_payload["device"])
-        return {"status": "ok", "message": "Audio settings updated"}
-
-    if provider == "llm":
-        if model_manager.llm_client is None:
-            return {"status": "error", "message": "LLM model not loaded"}
-        model_manager.llm_client.configure(settings_payload)
-        if "model_name" in settings_payload:
-            model_manager.llm_client.change_model(settings_payload["model_name"])
-        if "temperature" in settings_payload:
-            model_manager.llm_client.set_temperature(settings_payload["temperature"])
-        return {"status": "ok", "message": "LLM settings updated"}
-
-    return {"status": "error", "message": "Unknown provider"}
 
 
 @router.post("/api/transcribe/transcribe-line")
@@ -343,22 +289,22 @@ async def get_translation_result():
 
 
 @router.post("/api/load-audio-model")
-async def load_audio_model(request: LoadWhisperRequest, background_tasks: BackgroundTasks):
-    """Load Whisper model in background."""
+async def load_audio_model(request: UpdateSettingsRequest, background_tasks: BackgroundTasks):
+    """Apply audio settings then reload the audio model."""
     if model_manager.loading_audio_model:
         return {"status": "error", "message": "Whisper model is already loading"}
-
-    background_tasks.add_task(model_manager.load_audio_model, request.model_name, request.device)
+    model_manager.apply_audio_settings(request.settings or {})
+    background_tasks.add_task(model_manager.reload_audio_model)
     return {"status": "loading", "message": "Whisper model loading started"}
 
 
 @router.post("/api/load-llm-model")
-async def load_llm_model(request: LoadGptRequest, background_tasks: BackgroundTasks):
-    """Load GPT model in background."""
+async def load_llm_model(request: UpdateSettingsRequest, background_tasks: BackgroundTasks):
+    """Apply LLM settings then reload the LLM model."""
     if model_manager.loading_llm_model:
         return {"status": "error", "message": "GPT model is already loading"}
-
-    background_tasks.add_task(model_manager.load_llm_model, request.model_name, request.api_key, request.temperature)
+    model_manager.apply_llm_settings(request.settings or {})
+    background_tasks.add_task(model_manager.reload_llm_model)
     return {"status": "loading", "message": "GPT model loading started"}
 
 

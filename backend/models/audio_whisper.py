@@ -8,9 +8,12 @@ from interface.audio_model_interface import AudioModelInterface
 
 
 class AudioWhisper(AudioModelInterface):
-    def __init__(self, model_name: str = "medium", device: str = "cpu"):
-        self._model_name = model_name
-        self._device = device
+    def __init__(self):
+        env_model = os.getenv("WHISPER_MODEL") or "medium"
+        env_device = os.getenv("WHISPER_DEVICE") or "cpu"
+
+        self._model_name = env_model
+        self._device = env_device
         self._model = None
         self._running = False
         self._status = "not_loaded"

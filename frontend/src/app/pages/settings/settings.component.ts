@@ -257,7 +257,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.apiService.loadWhisperModel(modelName, device).subscribe({
+    const settings = { ...this.settingsValues.audio };
+
+    this.apiService.loadWhisperModel(settings).subscribe({
       next: (response) => {
         console.log(response.message);
         this.stateService.setLoadingWhisper(true);
@@ -289,9 +291,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const apiKeyToSend = apiKey ? apiKey : null;
+    const settings = { ...this.settingsValues.llm };
+    if (typeof settings['api_key'] === 'string' && !settings['api_key'].trim()) {
+      delete settings['api_key'];
+    }
 
-    this.apiService.loadGptModel(modelName, apiKeyToSend, temperature).subscribe({
+    this.apiService.loadGptModel(settings).subscribe({
       next: (response) => {
         console.log(response.message);
         this.stateService.setLoadingGpt(true);
