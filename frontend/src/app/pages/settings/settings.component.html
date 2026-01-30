@@ -88,7 +88,7 @@
       </div>
       <div class="load-button-spacing">
         <app-primary-button [fullWidth]="true" (click)="loadGptModel()" [disabled]="loadingGpt || (llmApiKeyRequired && !settingsValues.llm['api_key'] && !llmReady)">
-          <span *ngIf="!loadingGpt">Load GPT Model</span>
+          <span *ngIf="!loadingGpt">Reload LLM</span>
           <span *ngIf="loadingGpt">Loading...</span>
         </app-primary-button>
       </div>
@@ -140,7 +140,7 @@
       </div>
       <div class="load-button-spacing">
         <app-primary-button [fullWidth]="true" (click)="loadWhisperModel()" [disabled]="loadingWhisper">
-          <span *ngIf="!loadingWhisper">Load Whisper Model</span>
+          <span *ngIf="!loadingWhisper">Reload Transcription Model</span>
           <span *ngIf="loadingWhisper">Loading...</span>
         </app-primary-button>
       </div>
