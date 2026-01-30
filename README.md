@@ -76,11 +76,13 @@ uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu
 
 In the backend directory, you should see a file called `.env.example`. Make a copy of that file in the same directory and rename to .env. Then generate an API key for [OpenAI](https://platform.openai.com/). Open the `.env` file you just created and copy it over.
 
-```python
+```bash
 OPENAI_API_KEY="API_KEY"
 ```
 
-You may notice other lines on the `.env` file like **WHISPER_MODEL**. You can update these too if you would like the backend to start with certain settings when you start the backend server.
+You may notice other lines on the `.env` file like **WHISPER_MODEL** and **WHISPER_DEVICE**. You can update these too if you would like the backend to start with certain settings when you start the backend server.
+
+The LLM temperature is set via **OPENAI_TEMPERATURE** in the `.env` file.
 
 Once this is done, the backend should be ready for use.
 
@@ -142,7 +144,6 @@ translator-helper/
 ├── backend/                    # FastAPI backend server
 │   ├── server.py              # Main FastAPI application entry point
 │   ├── routes.py              # API route definitions
-│   ├── settings.py            # Environment variable configuration
 │   ├── requirements.txt       # Python dependencies
 │   ├── .env.example           # Example environment variables
 │   ├── interface/             # Interfaces for model backends
