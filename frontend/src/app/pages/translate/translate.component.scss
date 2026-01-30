@@ -216,30 +216,6 @@
   }
 }
 
-.download-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background-color: #28a745;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.3s, transform 0.2s;
-
-  svg {
-    flex-shrink: 0;
-  }
-
-  &:hover {
-    background-color: #218838;
-    transform: translateY(-1px);
-  }
-
-  &:active {
-    transform: translateY(0);
-  }
+.result-section--center {
+  text-align: center;
 }

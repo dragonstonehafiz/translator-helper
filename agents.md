@@ -227,6 +227,26 @@ The application uses several reusable standalone components located in `frontend
 
 ---
 
+### app-progress-bar
+**Location**: `frontend/src/app/components/progress-bar/`
+
+**Purpose**: Progress bar with numeric label for current/total.
+
+**When to use**:
+- Showing task progress (e.g., file translation progress)
+
+**Usage**:
+```html
+<app-progress-bar [current]="current" [total]="total"></app-progress-bar>
+```
+
+**Properties**:
+- `current` (optional, default: 0): Current step
+- `total` (optional, default: 0): Total steps
+- `labelColor` (optional, default: "#5568d3"): Label text color
+
+---
+
 ## Backend API Structure
 
 ### Endpoints

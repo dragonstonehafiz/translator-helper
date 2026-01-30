@@ -20,6 +20,7 @@ class ModelManager:
         self.context_result = None
         self.translation_result = None
         self.transcription_result = None
+        self.translation_progress = {"current": 0, "total": 0}
 
         self.llm_error = None
         self.transcription_error = None
@@ -35,6 +36,9 @@ class ModelManager:
 
     def is_audio_ready(self) -> bool:
         return bool(self.audio_client and self.audio_client.get_status() == "loaded")
+
+    def _update_translation_progress(self, current: int, total: int):
+        self.translation_progress = {"current": current, "total": total}
 
     def load_audio_model(self):
         if self.loading_audio_model:
@@ -155,6 +159,7 @@ class ModelManager:
 
             import time
             start_time = time.time()
+            self.translation_progress = {"current": 0, "total": len(subs)}
             translated_subs = translate_subs(
                 llm=self.llm_client,
                 subs=subs,
@@ -162,7 +167,8 @@ class ModelManager:
                 context_window=context_window,
                 input_lang=input_lang,
                 target_lang=output_lang,
-                temperature=self.llm_client.get_temperature()
+                temperature=self.llm_client.get_temperature(),
+                progress_callback=self._update_translation_progress
             )
             elapsed_seconds = time.time() - start_time
             logger.info("File translation completed in %.2fs", elapsed_seconds)
@@ -183,6 +189,7 @@ class ModelManager:
                 "data": output_content,
                 "filename": translated_filename
             }
+            self.translation_progress = {"current": self.translation_progress["total"], "total": self.translation_progress["total"]}
 
             try:
                 os.remove(output_path)
@@ -195,11 +202,11 @@ class ModelManager:
         finally:
             if self.llm_client:
                 self.llm_client.set_running(False)
-            logger.info("File translation process completed")
             try:
                 os.remove(file_path)
             except:
                 pass
+            self.translation_progress = {"current": 0, "total": 0}
 
     def run_llm_task(
         self,

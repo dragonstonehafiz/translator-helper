@@ -274,6 +274,14 @@ async def api_translate_file(
 @router.get("/api/translate/result")
 async def get_translation_result():
     """Get the result of the translation."""
+    progress = model_manager.translation_progress
+    if progress.get("current", 0) != 0 or progress.get("total", 0) != 0:
+        return {
+            "status": "translating",
+            "result": None,
+            "error": None,
+            "progress": progress
+        }
     if model_manager.is_llm_running():
         return {"status": "processing", "result": None, "error": None}
     elif model_manager.llm_error:

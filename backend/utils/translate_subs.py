@@ -44,9 +44,13 @@ def translate_subs(
     input_lang: str = "ja",
     target_lang: str = "en",
     temperature: float | None = None,
-    max_tokens: int | None = None
+    max_tokens: int | None = None,
+    progress_callback=None
 ):
     for idx, line in enumerate(subs):
+        if progress_callback:
+            progress_callback(idx + 1, len(subs))
+
         prev_lines = subs[max(0, idx - context_window):idx]
         next_lines = subs[idx + 1:idx + context_window + 1]
 

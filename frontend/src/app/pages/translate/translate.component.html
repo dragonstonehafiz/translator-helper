@@ -219,15 +219,16 @@
         {{ isTranslatingFile ? 'Translating...' : 'Translate File' }}
       </app-primary-button>
 
-      <div *ngIf="fileTranslationResult" class="result-section">
-        <h3>Translation Complete</h3>
-        <button class="download-btn" (click)="downloadTranslatedFile()">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 14L5 9H8V3H12V9H15L10 14Z" fill="currentColor"/>
-            <path d="M17 15V17H3V15H1V17C1 18.1 1.9 19 3 19H17C18.1 19 19 18.1 19 17V15H17Z" fill="currentColor"/>
-          </svg>
-          Download {{ translatedFileName }}
-        </button>
+      <app-progress-bar
+        [current]="fileTranslationProgress.current"
+        [total]="fileTranslationProgress.total">
+      </app-progress-bar>
+
+      <div class="result-section result-section--center">
+        <h3>Downloads</h3>
+        <app-primary-button [fullWidth]="true" [disabled]="!fileTranslationResult" (click)="downloadTranslatedFile()">
+          {{ fileTranslationResult ? ('Download ' + (translatedFileName || 'translated.ass')) : 'No download available' }}
+        </app-primary-button>
       </div>
     </app-subsection>
   </div>

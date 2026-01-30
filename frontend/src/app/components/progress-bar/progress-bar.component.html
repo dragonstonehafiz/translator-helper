@@ -1,0 +1,6 @@
+<div class="progress-container" *ngIf="total > 0">
+  <div class="progress-label" [style.color]="labelColor">{{ current }} / {{ total }}</div>
+  <div class="progress-bar">
+    <div class="progress-fill" [style.width.%]="percent"></div>
+  </div>
+</div>
