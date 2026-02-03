@@ -4,7 +4,7 @@ from typing import Optional
 import pysubs2
 import whisper
 
-from interface.audio_model_interface import AudioModelInterface
+from interface import AudioModelInterface
 
 
 class AudioWhisper(AudioModelInterface):

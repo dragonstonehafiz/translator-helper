@@ -302,7 +302,7 @@ async def load_audio_model(request: UpdateSettingsRequest, background_tasks: Bac
     if model_manager.loading_audio_model:
         return {"status": "error", "message": "Whisper model is already loading"}
     model_manager.apply_audio_settings(request.settings or {})
-    background_tasks.add_task(model_manager.reload_audio_model)
+    background_tasks.add_task(model_manager.load_audio_model)
     return {"status": "loading", "message": "Whisper model loading started"}
 
 
@@ -312,7 +312,7 @@ async def load_llm_model(request: UpdateSettingsRequest, background_tasks: Backg
     if model_manager.loading_llm_model:
         return {"status": "error", "message": "GPT model is already loading"}
     model_manager.apply_llm_settings(request.settings or {})
-    background_tasks.add_task(model_manager.reload_llm_model)
+    background_tasks.add_task(model_manager.load_llm_model)
     return {"status": "loading", "message": "GPT model loading started"}
 
 

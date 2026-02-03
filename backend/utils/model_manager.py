@@ -2,8 +2,9 @@ import os
 import tempfile
 from typing import Optional
 
-from models.llm_chatgpt import LLMChatGPT, LLMInterface
-from models.audio_whisper import AudioWhisper, AudioModelInterface
+from models.llm_chatgpt import LLMChatGPT
+from models.audio_whisper import AudioWhisper
+from interface import LLMInterface, AudioModelInterface
 from utils.translate_subs import translate_subs
 from utils.logger import setup_logger
 
@@ -61,25 +62,9 @@ class ModelManager:
 
     def apply_audio_settings(self, settings: dict):
         if self.audio_client is None:
-            self.audio_client = AudioWhisper()
+            raise RuntimeError("Audio model is not initialized.")
         if settings:
             self.audio_client.configure(settings)
-
-    def reload_audio_model(self):
-        if self.loading_audio_model:
-            return False
-        try:
-            self.loading_audio_model = True
-            if self.audio_client is None:
-                self.audio_client = AudioWhisper()
-            self.audio_client.initialize()
-            logger.info(f"Whisper model loaded: model='{self.audio_client.get_model()}', device='{self.audio_client.get_device()}'")
-        except Exception as e:
-            logger.error(f"Error loading Whisper model: {e}")
-            print(f"Error loading Whisper model: {e}")
-        finally:
-            self.loading_audio_model = False
-        return True
 
     def load_llm_model(self):
         if self.loading_llm_model:
@@ -102,25 +87,9 @@ class ModelManager:
 
     def apply_llm_settings(self, settings: dict):
         if self.llm_client is None:
-            self.llm_client = LLMChatGPT()
+            raise RuntimeError("LLM model is not initialized.")
         if settings:
             self.llm_client.configure(settings)
-
-    def reload_llm_model(self):
-        if self.loading_llm_model:
-            return False
-        try:
-            self.loading_llm_model = True
-            if self.llm_client is None:
-                self.llm_client = LLMChatGPT()
-            self.llm_client.initialize()
-            logger.info(f"LLM loaded: model='{self.llm_client.get_model()}', temperature={self.llm_client.get_temperature()}")
-        except Exception as e:
-            logger.error(f"Error loading GPT model: {e}")
-            print(f"Error loading GPT model: {e}")
-        finally:
-            self.loading_llm_model = False
-        return True
 
     def run_transcription_task(self, file_path: str, language: str):
         try:

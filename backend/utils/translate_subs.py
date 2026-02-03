@@ -1,7 +1,7 @@
 from typing import Optional
 
 
-from interface.llm_interface import LLMInterface
+from interface import LLMInterface
 from utils.prompts import PromptGenerator
 
 

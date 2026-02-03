@@ -3,7 +3,7 @@ import os
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from interface.llm_interface import LLMInterface
+from interface import LLMInterface
 
 
 class LLMChatGPT(LLMInterface):

@@ -1,20 +1,21 @@
 from __future__ import annotations
 
 from typing import Optional
+from pathlib import Path
 from llama_cpp import Llama
-from interface.llm_interface import LLMInterface
+from interface import LLMInterface
 
 
 class LLMLlamaCpp(LLMInterface):
     def __init__(
         self,
-        model_path: str = "",
+        model_file: str = "",
         n_ctx: int = 4096,
         n_gpu_layers: int = -1,
         n_threads: int = 8,
         temperature: float = 0.5
     ):
-        self._model_path = model_path
+        self._model_file = model_file
         self._n_ctx = n_ctx
         self._n_gpu_layers = n_gpu_layers
         self._n_threads = n_threads
@@ -27,8 +28,8 @@ class LLMLlamaCpp(LLMInterface):
         if not settings:
             return
 
-        if "model_path" in settings:
-            self._model_path = str(settings["model_path"])
+        if "model_file" in settings:
+            self._model_file = str(settings["model_file"])
         if "n_ctx" in settings:
             self._n_ctx = int(settings["n_ctx"])
         if "n_gpu_layers" in settings:
@@ -44,10 +45,10 @@ class LLMLlamaCpp(LLMInterface):
             "title": "Llama.cpp (GGUF)",
             "fields": [
                 {
-                    "key": "model_path",
-                    "label": "Model Path",
-                    "type": "text",
-                    "placeholder": "C:\\models\\qwen2.5-7b-instruct-q4_k_m.gguf",
+                    "key": "model_file",
+                    "label": "Model File",
+                    "type": "select",
+                    "options": self._get_model_options(),
                     "required": True
                 },
                 {
@@ -100,12 +101,12 @@ class LLMLlamaCpp(LLMInterface):
             raise
 
     def change_model(self, model_name: str):
-        self._model_path = model_name
+        self._model_file = model_name
         if self._llm is not None:
             self._llm = self._build_llm()
 
     def get_model(self) -> str:
-        return self._model_path
+        return self._model_file
 
     def set_device(self, device: str):
         # llama.cpp handles device via n_gpu_layers
@@ -122,7 +123,7 @@ class LLMLlamaCpp(LLMInterface):
 
     def get_server_variables(self) -> dict:
         return {
-            "model_path": self._model_path,
+            "model_file": self._model_file,
             "n_ctx": self._n_ctx,
             "n_gpu_layers": self._n_gpu_layers,
             "n_threads": self._n_threads,
@@ -162,12 +163,36 @@ class LLMLlamaCpp(LLMInterface):
         self._running = running
 
     def _build_llm(self):
-        if not self._model_path:
-            raise ValueError("Model path is required to initialize Llama.cpp.")
+        if not self._model_file:
+            raise ValueError("Model file is required to initialize Llama.cpp.")
+
+        model_path = self._resolve_model_path(self._model_file)
 
         return Llama(
-            model_path=self._model_path,
+            model_path=str(model_path),
             n_ctx=self._n_ctx,
             n_gpu_layers=self._n_gpu_layers,
             n_threads=self._n_threads
         )
+
+    def _resolve_model_path(self, model_file: str) -> Path:
+        path = Path(model_file)
+        if path.is_absolute():
+            return path
+
+        backend_dir = Path(__file__).resolve().parents[1]
+        model_dir = backend_dir / "model-files"
+        return model_dir / model_file
+
+    def _get_model_options(self) -> list[dict]:
+        model_dir = Path(__file__).resolve().parents[1] / "model-files"
+        options = []
+        if model_dir.exists():
+            for entry in sorted(model_dir.iterdir()):
+                if entry.is_file():
+                    options.append({"label": entry.name, "value": entry.name})
+        if self._model_file:
+            current_name = Path(self._model_file).name
+            if current_name and all(opt["value"] != current_name for opt in options):
+                options.append({"label": current_name, "value": current_name})
+        return options

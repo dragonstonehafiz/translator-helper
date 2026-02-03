@@ -1,10 +1,20 @@
-openai-whisper
-openai
-pysubs2
-langchain
-langchain-community
-langchain-openai
+# Core API
 fastapi
 uvicorn[standard]
 python-multipart
+
+# Transcription
+openai-whisper
+
+# Translation / LLM
+openai
+langchain
+langchain-community
+langchain-openai
+# llama-cpp-python
+
+# Subtitles
+pysubs2
+
+# Settings
 pydantic-settings

@@ -82,7 +82,7 @@ OPENAI_API_KEY="API_KEY"
 
 You may notice other lines on the `.env` file like **WHISPER_MODEL** and **WHISPER_DEVICE**. You can update these too if you would like the backend to start with certain settings when you start the backend server.
 
-If you are using a local LLM backend (e.g., llama.cpp), the `.env` can also include model-specific variables such as **LLAMA_MODEL_PATH**, **LLAMA_N_CTX**, **LLAMA_N_GPU_LAYERS**, **LLAMA_N_THREADS**, and **LLAMA_TEMPERATURE**.
+If you are using a local LLM backend (e.g., llama.cpp), the `.env` can also include model-specific variables such as **LLAMA_MODEL_FILE**, **LLAMA_N_CTX**, **LLAMA_N_GPU_LAYERS**, **LLAMA_N_THREADS**, and **LLAMA_TEMPERATURE**.
 
 You can comment out variables for providers you are not using (and uncomment the ones you are). Leaving all variables uncommented should not cause errors.
 
