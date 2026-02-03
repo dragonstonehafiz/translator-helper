@@ -127,11 +127,11 @@ class AudioWhisper(AudioModelInterface):
         from utils.utils import get_device_map
         return get_device_map()
 
-    def get_server_variables(self) -> dict:
-        return {
-            "whisper_model": self._model_name,
-            "device": self._device
-        }
+    def get_server_variables(self) -> list[dict]:
+        return [
+            {"key": "whisper_model", "label": "Model", "value": self._model_name},
+            {"key": "device", "label": "Device", "value": self._device}
+        ]
 
     def _build_model(self):
         try:

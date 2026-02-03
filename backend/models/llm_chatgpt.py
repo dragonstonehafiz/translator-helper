@@ -100,11 +100,11 @@ class LLMChatGPT(LLMInterface):
     def get_temperature(self) -> float:
         return self._temperature
 
-    def get_server_variables(self) -> dict:
-        return {
-            "openai_model": self._model_name,
-            "temperature": self._temperature
-        }
+    def get_server_variables(self) -> list[dict]:
+        return [
+            {"key": "openai_model", "label": "Model", "value": self._model_name},
+            {"key": "temperature", "label": "Temperature", "value": self._temperature}
+        ]
 
     def infer(
         self,

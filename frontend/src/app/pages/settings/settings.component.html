@@ -15,9 +15,8 @@
             {{ llmReady === null ? 'Not Connected' : (llmReady ? 'Ready' : 'Not Ready') }}
           </span>
         </div>
-        <div class="status-details" *ngIf="llmReady && currentOpenaiModel">
-          <div>Model: {{ currentOpenaiModel }}</div>
-          <div>Temperature: {{ currentTemperature }}</div>
+        <div class="status-details" *ngIf="llmReady && llmDetails.length">
+          <div *ngFor="let item of llmDetails">{{ item.label }}: {{ item.value }}</div>
         </div>
       </div>
       
@@ -29,23 +28,22 @@
             {{ audioReady === null ? 'Not Connected' : (audioReady ? 'Ready' : 'Not Ready') }}
           </span>
         </div>
-        <div class="status-details" *ngIf="audioReady && currentWhisperModel">
-          <div>Model: {{ currentWhisperModel }}</div>
-          <div>Device: {{ currentDeviceLabel }}</div>
+        <div class="status-details" *ngIf="audioReady && audioDetails.length">
+          <div *ngFor="let item of audioDetails">{{ item.label }}: {{ item.value }}</div>
         </div>
       </div>
     </div>
 
 
-      <div class="load-button-spacing">
-        <app-primary-button [fullWidth]="true" (click)="checkStatus()">Check Status</app-primary-button>
-      </div>
     </app-subsection>
 
     <app-subsection *ngIf="llmSchema" title="LLM">
-      <div class="form-row">
+      <div class="schema-grid">
         <div class="form-group" *ngFor="let field of llmSchema.fields">
-          <label [for]="'llm-' + field.key">{{ field.label }}</label>
+          <div class="field-label">
+            <label [for]="'llm-' + field.key">{{ field.label }}</label>
+            <app-tooltip-icon *ngIf="field.help" [tooltip]="field.help"></app-tooltip-icon>
+          </div>
           <ng-container [ngSwitch]="field.type">
             <select
               *ngSwitchCase="'select'"
@@ -95,9 +93,12 @@
     </app-subsection>
 
     <app-subsection *ngIf="audioSchema" title="Transcription Model">
-      <div class="form-row">
+      <div class="schema-grid">
         <div class="form-group" *ngFor="let field of audioSchema.fields">
-          <label [for]="'audio-' + field.key">{{ field.label }}</label>
+          <div class="field-label">
+            <label [for]="'audio-' + field.key">{{ field.label }}</label>
+            <app-tooltip-icon *ngIf="field.help" [tooltip]="field.help"></app-tooltip-icon>
+          </div>
           <ng-container [ngSwitch]="field.type">
             <select
               *ngSwitchCase="'select'"

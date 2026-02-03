@@ -11,7 +11,7 @@ openai
 langchain
 langchain-community
 langchain-openai
-# llama-cpp-python
+llama-cpp-python
 
 # Subtitles
 pysubs2

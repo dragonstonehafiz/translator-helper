@@ -275,16 +275,16 @@ Audio models also expose `get_available_devices()` for device dropdown options.
 
 ### Server Variables (Backend -> Frontend)
 The server variables endpoint returns provider-grouped data so the frontend can map
-status cards correctly:
+status cards correctly. Values are returned as display-ready objects:
 ```json
 {
-  "audio": { "whisper_model": "...", "device": "..." },
-  "llm": { "openai_model": "...", "temperature": 0.5 },
+  "audio": [{ "key": "whisper_model", "label": "Model", "value": "..." }],
+  "llm": [{ "key": "openai_model", "label": "Model", "value": "..." }],
   "llm_ready": true,
   "audio_ready": true
 }
 ```
-When no client is loaded yet, `audio` and `llm` are empty objects (`{}`).
+When no client is loaded yet, `audio` and `llm` are empty arrays (`[]`).
 
 **Context Generation** (`backend/routes.py`):
 - `POST /api/context/generate-character-list`: Generate character list from subtitle file
@@ -342,6 +342,7 @@ Long-running operations use FastAPI's BackgroundTasks with polling:
 - Use TypeScript strict mode
 - Prefer standalone components over NgModules
 - Use SCSS for component styling with encapsulation
+- Avoid backward-compat fallbacks during refactors; update call sites instead
 
 ### Component Creation
 - Always check if an existing reusable component can be used

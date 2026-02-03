@@ -1,25 +1,19 @@
 from __future__ import annotations
 
 from typing import Optional
+import os
 from pathlib import Path
 from llama_cpp import Llama
 from interface import LLMInterface
 
 
 class LLMLlamaCpp(LLMInterface):
-    def __init__(
-        self,
-        model_file: str = "",
-        n_ctx: int = 4096,
-        n_gpu_layers: int = -1,
-        n_threads: int = 8,
-        temperature: float = 0.5
-    ):
-        self._model_file = model_file
-        self._n_ctx = n_ctx
-        self._n_gpu_layers = n_gpu_layers
-        self._n_threads = n_threads
-        self._temperature = temperature
+    def __init__(self):
+        self._model_file = os.getenv("LLAMA_MODEL_FILE", "")
+        self._n_ctx = int(os.getenv("LLAMA_N_CTX", "4096"))
+        self._n_gpu_layers = int(os.getenv("LLAMA_N_GPU_LAYERS", "-1"))
+        self._n_threads = int(os.getenv("LLAMA_N_THREADS", "8"))
+        self._temperature = float(os.getenv("LLAMA_TEMPERATURE", "0.5"))
         self._running = False
         self._llm: Optional[Llama] = None
         self._status = "not_loaded"
@@ -121,14 +115,14 @@ class LLMLlamaCpp(LLMInterface):
     def get_temperature(self) -> float:
         return self._temperature
 
-    def get_server_variables(self) -> dict:
-        return {
-            "model_file": self._model_file,
-            "n_ctx": self._n_ctx,
-            "n_gpu_layers": self._n_gpu_layers,
-            "n_threads": self._n_threads,
-            "temperature": self._temperature
-        }
+    def get_server_variables(self) -> list[dict]:
+        return [
+            {"key": "model_file", "label": "Model File", "value": self._model_file},
+            {"key": "n_ctx", "label": "Context Size", "value": self._n_ctx},
+            {"key": "n_gpu_layers", "label": "GPU Layers", "value": self._n_gpu_layers},
+            {"key": "n_threads", "label": "CPU Threads", "value": self._n_threads},
+            {"key": "temperature", "label": "Temperature", "value": self._temperature}
+        ]
 
     def infer(
         self,
@@ -172,7 +166,8 @@ class LLMLlamaCpp(LLMInterface):
             model_path=str(model_path),
             n_ctx=self._n_ctx,
             n_gpu_layers=self._n_gpu_layers,
-            n_threads=self._n_threads
+            n_threads=self._n_threads,
+            verbose=True
         )
 
     def _resolve_model_path(self, model_file: str) -> Path:
@@ -189,7 +184,7 @@ class LLMLlamaCpp(LLMInterface):
         options = []
         if model_dir.exists():
             for entry in sorted(model_dir.iterdir()):
-                if entry.is_file():
+                if entry.is_file() and entry.suffix.lower() == ".gguf":
                     options.append({"label": entry.name, "value": entry.name})
         if self._model_file:
             current_name = Path(self._model_file).name

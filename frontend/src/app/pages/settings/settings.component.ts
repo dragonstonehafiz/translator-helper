@@ -9,12 +9,13 @@ import {
   StateService
 } from '../../services/state.service';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
+import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon.component';
 import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, PrimaryButtonComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, PrimaryButtonComponent, TooltipIconComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'
 })
@@ -25,12 +26,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
   loadingWhisper = false;
   loadingGpt = false;
 
-  // Current server configuration
-  currentWhisperModel = '';
-  currentDevice = '';
-  currentDeviceLabel = '';
-  currentOpenaiModel = '';
-  currentTemperature = 0;
+  llmDetails: Array<{ label: string; value: string }> = [];
+  audioDetails: Array<{ label: string; value: string }> = [];
 
   audioSchema: SettingsSchema | null = null;
   llmSchema: SettingsSchema | null = null;
@@ -45,7 +42,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
   };
 
   private statusPollSub: Subscription | null = null;
-  private hasInitializedForm = false;
 
   constructor(
     private apiService: ApiService,
@@ -113,8 +109,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
   loadServerVariables(): void {
     this.apiService.getServerVariables().subscribe({
       next: (response) => {
-        const audioVars = response.audio;
-        const llmVars = response.llm;
+        const audioVars = Array.isArray(response.audio) ? response.audio : [];
+        const llmVars = Array.isArray(response.llm) ? response.llm : [];
 
         this.stateService.setLlmReady(response.llm_ready);
         this.stateService.setAudioReady(response.audio_ready);
@@ -128,32 +124,19 @@ export class SettingsComponent implements OnInit, OnDestroy {
           this.stateService.setLoadingWhisper(false);
         }
 
-        this.currentWhisperModel = audioVars.whisper_model;
-        this.currentDevice = audioVars.device;
-        this.currentOpenaiModel = llmVars.openai_model;
-        this.currentTemperature = llmVars.temperature;
-        if (!this.hasInitializedForm) {
-          if (audioVars.whisper_model) {
-            this.setSettingsValue('audio', 'model_name', audioVars.whisper_model);
-          }
-          if (audioVars.device) {
-            this.setSettingsValue('audio', 'device', audioVars.device);
-          }
-          if (llmVars.openai_model) {
-            this.setSettingsValue('llm', 'model_name', llmVars.openai_model);
-          }
-          if (llmVars.temperature !== undefined && llmVars.temperature !== null) {
-            this.setSettingsValue('llm', 'temperature', llmVars.temperature);
-          }
-          this.hasInitializedForm = true;
-        }
+        this.audioDetails = audioVars.map(item => ({
+          label: item.label ?? item.key ?? '',
+          value: String(item.value)
+        }));
+        this.llmDetails = llmVars.map(item => ({
+          label: item.label ?? item.key ?? '',
+          value: String(item.value)
+        }));
+
         this.stateService.setServerVariables({
-          whisperModel: audioVars.whisper_model,
-          device: audioVars.device,
-          openaiModel: llmVars.openai_model,
-          temperature: llmVars.temperature
+          audio: audioVars,
+          llm: llmVars
         });
-        this.updateDeviceLabel();
       },
       error: (error) => {
         console.error('Failed to load server variables:', error);
@@ -188,36 +171,21 @@ export class SettingsComponent implements OnInit, OnDestroy {
     if (audioReady !== null) {
       this.audioReady = audioReady;
     }
-    if (serverVars.whisperModel !== null) {
-      this.currentWhisperModel = serverVars.whisperModel;
-      this.setSettingsValue('audio', 'model_name', serverVars.whisperModel);
-    }
-    if (serverVars.device !== null) {
-      this.currentDevice = serverVars.device;
-      this.setSettingsValue('audio', 'device', serverVars.device);
-    }
-    if (serverVars.openaiModel !== null) {
-      this.currentOpenaiModel = serverVars.openaiModel;
-      this.setSettingsValue('llm', 'model_name', serverVars.openaiModel);
-    }
-    if (serverVars.temperature !== null) {
-      this.currentTemperature = serverVars.temperature;
-      this.setSettingsValue('llm', 'temperature', serverVars.temperature);
-    }
-    if (
-      serverVars.whisperModel !== null ||
-      serverVars.device !== null ||
-      serverVars.openaiModel !== null ||
-      serverVars.temperature !== null
-    ) {
-      this.hasInitializedForm = true;
-    }
+    const cachedAudio = Array.isArray(serverVars.audio) ? serverVars.audio : [];
+    const cachedLlm = Array.isArray(serverVars.llm) ? serverVars.llm : [];
+    this.audioDetails = cachedAudio.map(item => ({
+      label: item.label ?? item.key ?? '',
+      value: String(item.value)
+    }));
+    this.llmDetails = cachedLlm.map(item => ({
+      label: item.label ?? item.key ?? '',
+      value: String(item.value)
+    }));
 
     if (llmReady === null || audioReady === null) {
       this.checkStatus();
     }
 
-    this.updateDeviceLabel();
   }
 
   private applySchema(schema: SettingsSchemaBundle): void {
@@ -229,7 +197,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
     this.initializeSettingsValues('audio', this.audioSchema);
     this.initializeSettingsValues('llm', this.llmSchema);
-    this.updateDeviceLabel();
   }
 
 
@@ -249,16 +216,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.settingsValues[scope][key] = value;
   }
 
-  private updateDeviceLabel(): void {
-    if (!this.currentDevice) {
-      this.currentDeviceLabel = '';
-      return;
-    }
-
-    const deviceField = this.audioSchema?.fields.find(field => field.key === 'device');
-    const match = deviceField?.options?.find(option => option.value === this.currentDevice);
-    this.currentDeviceLabel = match ? match.label : this.currentDevice;
-  }
 
   loadWhisperModel(): void {
     if (this.loadingWhisper) return;
@@ -291,13 +248,13 @@ export class SettingsComponent implements OnInit, OnDestroy {
     }
 
     const apiKey = this.settingsValues.llm['api_key'] as string | undefined;
-    const modelName = this.settingsValues.llm['model_name'] as string | undefined;
-    const temperatureValue = this.settingsValues.llm['temperature'] as number | undefined;
-    const temperature = temperatureValue !== undefined ? Number(temperatureValue) : this.currentTemperature;
-
-    if (!modelName) {
-      alert('Please select an LLM model');
-      return;
+    const requiredFields = (this.llmSchema?.fields || []).filter(field => field.required && field.key !== 'api_key');
+    for (const field of requiredFields) {
+      const value = this.settingsValues.llm[field.key];
+      if (value === undefined || value === null || (typeof value === 'string' && !value.trim())) {
+        alert(`Please enter ${field.label}`);
+        return;
+      }
     }
 
     if (this.llmApiKeyRequired && !apiKey && this.llmReady === false) {

@@ -39,14 +39,10 @@ export class StateService {
   private audioReadySubject = new BehaviorSubject<boolean | null>(null);
   public audioReady$: Observable<boolean | null> = this.audioReadySubject.asObservable();
 
-  private serverWhisperModelSubject = new BehaviorSubject<string | null>(null);
-  public serverWhisperModel$: Observable<string | null> = this.serverWhisperModelSubject.asObservable();
-  private serverDeviceSubject = new BehaviorSubject<string | null>(null);
-  public serverDevice$: Observable<string | null> = this.serverDeviceSubject.asObservable();
-  private serverOpenaiModelSubject = new BehaviorSubject<string | null>(null);
-  public serverOpenaiModel$: Observable<string | null> = this.serverOpenaiModelSubject.asObservable();
-  private serverTemperatureSubject = new BehaviorSubject<number | null>(null);
-  public serverTemperature$: Observable<number | null> = this.serverTemperatureSubject.asObservable();
+  private serverAudioVarsSubject = new BehaviorSubject<Array<{ key?: string; label?: string; value?: unknown }> | null>(null);
+  public serverAudioVars$: Observable<Array<{ key?: string; label?: string; value?: unknown }> | null> = this.serverAudioVarsSubject.asObservable();
+  private serverLlmVarsSubject = new BehaviorSubject<Array<{ key?: string; label?: string; value?: unknown }> | null>(null);
+  public serverLlmVars$: Observable<Array<{ key?: string; label?: string; value?: unknown }> | null> = this.serverLlmVarsSubject.asObservable();
 
   private loadingWhisperSubject = new BehaviorSubject<boolean>(false);
   public loadingWhisper$: Observable<boolean> = this.loadingWhisperSubject.asObservable();
@@ -103,28 +99,20 @@ export class StateService {
   }
 
   setServerVariables(variables: {
-    whisperModel: string;
-    device: string;
-    openaiModel: string;
-    temperature: number;
+    audio: Array<{ key?: string; label?: string; value?: unknown }> | null;
+    llm: Array<{ key?: string; label?: string; value?: unknown }> | null;
   }): void {
-    this.serverWhisperModelSubject.next(variables.whisperModel);
-    this.serverDeviceSubject.next(variables.device);
-    this.serverOpenaiModelSubject.next(variables.openaiModel);
-    this.serverTemperatureSubject.next(variables.temperature);
+    this.serverAudioVarsSubject.next(variables.audio);
+    this.serverLlmVarsSubject.next(variables.llm);
   }
 
   getServerVariables(): {
-    whisperModel: string | null;
-    device: string | null;
-    openaiModel: string | null;
-    temperature: number | null;
+    audio: Array<{ key?: string; label?: string; value?: unknown }> | null;
+    llm: Array<{ key?: string; label?: string; value?: unknown }> | null;
   } {
     return {
-      whisperModel: this.serverWhisperModelSubject.value,
-      device: this.serverDeviceSubject.value,
-      openaiModel: this.serverOpenaiModelSubject.value,
-      temperature: this.serverTemperatureSubject.value
+      audio: this.serverAudioVarsSubject.value,
+      llm: this.serverLlmVarsSubject.value
     };
   }
 

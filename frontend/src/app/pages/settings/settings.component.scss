@@ -181,13 +181,10 @@
   border-bottom: 2px solid #667eea;
 }
 
-.form-row {
-  display: flex;
+.schema-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 20px;
-
-  .form-group {
-    flex: 1;
-  }
 }
 
 .form-group {
@@ -235,6 +232,12 @@
   margin-top: 10px;
 }
 
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 @media (max-width: 768px) {
   .status-row {
     flex-direction: column;
@@ -244,5 +247,15 @@
   .status-box {
     max-width: 100%;
     width: 100%;
+  }
+
+  .schema-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .schema-grid {
+    grid-template-columns: 1fr;
   }
 }

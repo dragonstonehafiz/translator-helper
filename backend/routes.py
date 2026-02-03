@@ -98,9 +98,11 @@ async def get_server_variables():
     """Get current server configuration variables."""
     llm_ready = model_manager.is_llm_ready()
     audio_ready = model_manager.is_audio_ready()
+    llm_client = model_manager.llm_client
+    audio_client = model_manager.audio_client
     return {
-        "audio": (model_manager.audio_client.get_server_variables() if model_manager.audio_client else {}),
-        "llm": (model_manager.llm_client.get_server_variables() if model_manager.llm_client else {}),
+        "audio": (audio_client.get_server_variables() if audio_client else []),
+        "llm": (llm_client.get_server_variables() if llm_client else []),
         "llm_ready": llm_ready,
         "audio_ready": audio_ready,
     }
@@ -153,7 +155,13 @@ async def get_transcription_result():
         return {"status": "error", "result": None, "error": error}
     elif model_manager.transcription_result:
         result = model_manager.transcription_result
+        elapsed = model_manager.transcription_elapsed
+        if elapsed is not None:
+            logger.info("Transcription result (%.2fs): %s", elapsed, result.get("data"))
+        else:
+            logger.info("Transcription result: %s", result.get("data"))
         model_manager.transcription_result = None
+        model_manager.transcription_elapsed = None
         return {"status": "complete", "result": result, "error": None}
     else:
         return {"status": "idle", "result": None, "error": None}
@@ -290,7 +298,13 @@ async def get_translation_result():
         return {"status": "error", "result": None, "message": error}
     elif model_manager.translation_result:
         result = model_manager.translation_result
+        elapsed = model_manager.translation_elapsed
+        if elapsed is not None:
+            logger.info("Translation result (%.2fs): %s", elapsed, result.get("data"))
+        else:
+            logger.info("Translation result: %s", result.get("data"))
         model_manager.translation_result = None
+        model_manager.translation_elapsed = None
         return {"status": "complete", "result": result}
     else:
         return {"status": "idle", "result": None, "error": None}

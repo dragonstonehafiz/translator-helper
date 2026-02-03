@@ -86,9 +86,40 @@ If you are using a local LLM backend (e.g., llama.cpp), the `.env` can also incl
 
 You can comment out variables for providers you are not using (and uncomment the ones you are). Leaving all variables uncommented should not cause errors.
 
+### 5. Switching LLM Backends (ChatGPT vs llama.cpp)
+
+Right now, the backend uses **ChatGPT by default** in `backend/utils/model_manager.py`. To switch to a local llama.cpp model:
+
+1. **Install llama.cpp dependency**
+   ```bash
+   uv pip install llama-cpp-python
+   ```
+
+2. **Place your GGUF model file**
+   - Put the model in `backend/model-files/`
+   - Set `LLAMA_MODEL_FILE` in `.env` to the filename (e.g., `qwen2.5-7b-instruct-q4_k_m.gguf`)
+
+3. **Update the model manager**
+   - Change the LLM instantiation to `LLMLlamaCpp` in `backend/utils/model_manager.py`
+   - (The LLM load path is currently hard-coded to `LLMChatGPT` by default.)
+
+```python
+# backend/utils/model_manager.py
+from models.llm_chatgpt import LLMChatGPT
+from models.llm_llamacpp import LLMLlamaCpp
+
+def load_llm_model(self):
+    if self.llm_client is None:
+        # self.llm_client = LLMChatGPT()  # default
+        self.llm_client = LLMLlamaCpp()   # switch to local llama.cpp
+    self.llm_client.initialize()
+```
+
+If you want a proper **provider selector** (so you don’t have to edit code), say the word and we can add it.
+
 Once this is done, the backend should be ready for use.
 
-### 5. Setting up the Frontend
+### 6. Setting up the Frontend
 
 ```bash
 cd ..

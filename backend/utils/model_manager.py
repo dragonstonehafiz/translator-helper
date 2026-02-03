@@ -1,8 +1,10 @@
 import os
 import tempfile
+import time
 from typing import Optional
 
 from models.llm_chatgpt import LLMChatGPT
+from models.llm_llamacpp import LLMLlamaCpp
 from models.audio_whisper import AudioWhisper
 from interface import LLMInterface, AudioModelInterface
 from utils.translate_subs import translate_subs
@@ -22,6 +24,8 @@ class ModelManager:
         self.translation_result = None
         self.transcription_result = None
         self.translation_progress = {"current": 0, "total": 0}
+        self.transcription_elapsed = None
+        self.translation_elapsed = None
 
         self.llm_error = None
         self.transcription_error = None
@@ -78,8 +82,8 @@ class ModelManager:
             self.llm_client.initialize()
             logger.info(f"LLM loaded: model='{self.llm_client.get_model()}', temperature={self.llm_client.get_temperature()}")
         except Exception as e:
-            logger.error(f"Error loading GPT model: {e}")
-            print(f"Error loading GPT model: {e}")
+            logger.error(f"Error loading LLM model: {e}")
+            print(f"Error loading LLM model: {e}")
         finally:
             self.loading_llm_model = False
 
@@ -92,6 +96,7 @@ class ModelManager:
             self.llm_client.configure(settings)
 
     def run_transcription_task(self, file_path: str, language: str):
+        start_time = time.time()
         try:
             if self.audio_client:
                 self.audio_client.set_running(True)
@@ -102,10 +107,12 @@ class ModelManager:
             result = self.audio_client.transcribe_line(file_path, language)
             self.transcription_result = {"type": "transcription", "data": result}
             logger.info("Successfully completed audio transcription")
+            self.transcription_elapsed = time.time() - start_time
         except Exception as e:
             logger.error(f"Error transcribing audio: {e}")
             print(f"Error transcribing audio: {e}")
             self.transcription_error = str(e)
+            self.transcription_elapsed = time.time() - start_time
         finally:
             if self.audio_client:
                 self.audio_client.set_running(False)
@@ -141,6 +148,7 @@ class ModelManager:
             )
             elapsed_seconds = time.time() - start_time
             logger.info("File translation completed in %.2fs", elapsed_seconds)
+            self.translation_elapsed = elapsed_seconds
 
             with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=os.path.splitext(file_path)[1], encoding='utf-8') as tmp_file:
                 translated_subs.save(tmp_file.name)
@@ -168,6 +176,7 @@ class ModelManager:
             logger.error(f"Error translating file: {e}")
             print(f"Error translating file: {e}")
             self.llm_error = str(e)
+            self.translation_elapsed = None
         finally:
             if self.llm_client:
                 self.llm_client.set_running(False)
@@ -188,6 +197,7 @@ class ModelManager:
         target: str = "context",
         cleanup_path: str | None = None
     ):
+        start_time = time.time()
         try:
             if self.llm_client:
                 self.llm_client.set_running(True)
@@ -210,10 +220,13 @@ class ModelManager:
                 self.context_result = payload
             else:
                 self.translation_result = payload
+                self.translation_elapsed = time.time() - start_time
         except Exception as e:
             logger.error(f"Error running LLM task ({result_type}): {e}")
             print(f"Error running LLM task ({result_type}): {e}")
             self.llm_error = str(e)
+            if target != "context":
+                self.translation_elapsed = None
         finally:
             if self.llm_client:
                 self.llm_client.set_running(False)
