@@ -27,6 +27,12 @@ class PromptGenerator:
         Do **not** include literal or annotated versions.  
         Do **not** include any headings or labels - just return the translation text directly.
 
+        ### IMPORTANT
+
+        You must translate **only** the text inside <LINE> and </LINE>.  
+        Do not translate or repeat any context or other lines.  
+        Only return the translation of the <LINE> text.
+
         ### Honorific Handling
         
         When a Japanese personal name appears with an honorific suffix  
@@ -53,7 +59,7 @@ class PromptGenerator:
         
         Only output the naturalized translation text directly.
         Do not wrap it in markdown or label it.
-        If the text contains a speaker label (e.g. "Speaker1: ."), remove the label.
+        Do not add any speaker names or labels (e.g. "Producer:").
         """.strip()
 
         return system_prompt
@@ -83,6 +89,7 @@ class PromptGenerator:
 
         For each character include:
         - **Name** - the most complete form you can find
+        - **Speech Style** - how they talk (e.g., formal, casual, subdued, blunt, playful, uses honorifics or slang)
         - **Very High-Level Summary** - one short clause capturing their role / personality / tone
         - If one character is **clearly the narrative focus** (appears most, drives the scene), add **[Narrative Focus]**
 
@@ -108,7 +115,7 @@ class PromptGenerator:
 
         Return **one line per character** in this exact pattern (no nested bullets):
 
-        - **[Character Name]**: [very high-level summary]. [Narrative Focus] (if applicable)
+        - **[Character Name]**: [speech style]. [very high-level summary]. [Narrative Focus] (if applicable)
         """.strip()
 
         return system_prompt

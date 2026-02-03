@@ -1,9 +1,9 @@
 from typing import Optional
-
-
 from interface import LLMInterface
 from utils.prompts import PromptGenerator
+from utils.logger import setup_logger
 
+translate_file_logger = setup_logger(name="translate-file")
 
 def _is_rate_limit_error(error: Exception) -> bool:
     try:
@@ -29,12 +29,11 @@ def translate_sub(
         target_lang=target_lang
     )
     return llm.infer(
-        prompt=text.strip(),
+        prompt=f"<LINE>\n{text.strip()}\n</LINE>",
         system_prompt=system_prompt,
         temperature=temperature,
         max_tokens=max_tokens
     ).strip()
-
 
 def translate_subs(
     llm: LLMInterface,
@@ -71,7 +70,8 @@ def translate_subs(
         except Exception:
             pass
 
-        current_line = f"{line.text}"
+        original_line = f"{line.text}"
+        current_line = original_line
         for attempt in range(3):
             try:
                 translation = translate_sub(
@@ -84,6 +84,8 @@ def translate_subs(
                     max_tokens=max_tokens
                 )
                 line.text = translation
+                translate_file_logger.info("Original: %s", original_line)
+                translate_file_logger.info("Translated: %s", translation)
                 break
             except Exception as e:
                 if _is_rate_limit_error(e):
