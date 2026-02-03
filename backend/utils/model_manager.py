@@ -32,6 +32,9 @@ class ModelManager:
         self.transcription_elapsed = None
         self.translation_elapsed = None
         self.translation_start_time = None
+        self.last_line_translation_input = None
+        self.last_line_translation_output = None
+        self.last_line_translation_elapsed = None
 
         self.llm_error = None
         self.transcription_error = None
@@ -259,6 +262,16 @@ class ModelManager:
             else:
                 self.translation_result = payload
                 self.translation_elapsed = time.time() - start_time
+                if result_type == "line_translation":
+                    self.last_line_translation_input = prompt
+                    self.last_line_translation_output = result
+                    self.last_line_translation_elapsed = self.translation_elapsed
+                    logger.info(
+                        'Line translation: input="%s", output="%s", inference_time="%.2fs"',
+                        prompt,
+                        result,
+                        self.translation_elapsed
+                    )
         except Exception as e:
             logger.error(f"Error running LLM task ({result_type}): {e}")
             print(f"Error running LLM task ({result_type}): {e}")

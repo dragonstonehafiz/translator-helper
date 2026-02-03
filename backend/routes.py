@@ -298,11 +298,10 @@ async def get_translation_result():
         return {"status": "error", "result": None, "message": error}
     elif model_manager.translation_result:
         result = model_manager.translation_result
-        elapsed = model_manager.translation_elapsed
-        if elapsed is not None:
-            logger.info("Translation result (%.2fs): %s", elapsed, result.get("data"))
-        else:
-            logger.info("Translation result: %s", result.get("data"))
+        if result.get("type") == "line_translation":
+            model_manager.last_line_translation_input = None
+            model_manager.last_line_translation_output = None
+            model_manager.last_line_translation_elapsed = None
         model_manager.translation_result = None
         model_manager.translation_elapsed = None
         return {"status": "complete", "result": result}
