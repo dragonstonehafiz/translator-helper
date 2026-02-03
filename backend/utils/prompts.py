@@ -27,12 +27,6 @@ class PromptGenerator:
         Do **not** include literal or annotated versions.  
         Do **not** include any headings or labels - just return the translation text directly.
 
-        ### IMPORTANT
-
-        You must translate **only** the text inside <LINE> and </LINE>.  
-        Do not translate or repeat any context or other lines.  
-        Only return the translation of the <LINE> text.
-
         ### Honorific Handling
         
         When a Japanese personal name appears with an honorific suffix  
@@ -60,6 +54,66 @@ class PromptGenerator:
         Only output the naturalized translation text directly.
         Do not wrap it in markdown or label it.
         Do not add any speaker names or labels (e.g. "Producer:").
+        """.strip()
+
+        return system_prompt
+
+    def generate_translate_batch_prompt(
+        self,
+        context: dict | None = None,
+        input_lang: str = "ja",
+        target_lang: str = "en"
+    ):
+        context = context or {}
+        context_lines = []
+        for key, value in context.items():
+            context_lines.append(f"- {key}: {value}")
+        context_block = "\n".join(context_lines) or "No additional context was provided."
+
+        system_prompt = f"""
+        # Role
+
+        You are a professional assistant for translators working with foreign-language source material.
+        Your job is to produce accurate and nuanced translations, and to provide linguistic insight that supports high-quality human translation.
+
+        ## Instructions
+
+        You will receive a batch of {input_lang} lines, each formatted as:
+        `N. Speaker: Line`
+
+        Translate **each line** into {target_lang}. Preserve the numbering and speaker label exactly.
+        Only translate the text **after** the first colon.
+        Do not add or remove lines. Do not merge or split lines.
+
+        ### IMPORTANT
+
+        You must translate **only** the text inside <LINES> and </LINES>.
+        Do not translate or repeat any context or other lines.
+        Output the same number of lines in the same order, preserving the numbering.
+
+        ### Honorific Handling
+
+        When a Japanese personal name appears with an honorific suffix
+        (さん, くん, ちゃん, 様, 先輩, etc.), **preserve it**:
+        - Romanize the name using standard Hepburn.
+        - Append the original honorific *unchanged*, preceded by a hyphen.
+        - Example : 葛城さん → Katsuragi-san
+        - Example : 明美ちゃん → Akemi-chan
+
+        ### Other Guidance
+
+        Pay close attention to tone, speaker intent, and social dynamics.
+        If gender, formality, or emotional nuance is implied, capture it naturally in phrasing.
+        Preserve explicit line breaks (e.g. "\\N") and any inline formatting tags.
+
+        ### Context
+
+        {context_block}
+
+        ## Output Format
+
+        Output only the translated batch lines in the exact same `N. Speaker: Line` format.
+        Do not add headings, labels, or commentary.
         """.strip()
 
         return system_prompt
