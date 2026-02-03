@@ -220,8 +220,11 @@
       </app-primary-button>
 
       <app-progress-bar
+        *ngIf="fileTranslationProgress.total > 0"
         [current]="fileTranslationProgress.current"
-        [total]="fileTranslationProgress.total">
+        [total]="fileTranslationProgress.total"
+        [avgSecondsPerLine]="fileTranslationProgress.avg_seconds_per_line"
+        [etaSeconds]="fileTranslationProgress.eta_seconds">
       </app-progress-bar>
 
       <div class="result-section result-section--center">

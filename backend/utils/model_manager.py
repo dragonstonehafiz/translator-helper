@@ -23,9 +23,15 @@ class ModelManager:
         self.context_result = None
         self.translation_result = None
         self.transcription_result = None
-        self.translation_progress = {"current": 0, "total": 0}
+        self.translation_progress = {
+            "current": 0,
+            "total": 0,
+            "avg_seconds_per_line": 0.0,
+            "eta_seconds": 0.0
+        }
         self.transcription_elapsed = None
         self.translation_elapsed = None
+        self.translation_start_time = None
 
         self.llm_error = None
         self.transcription_error = None
@@ -43,7 +49,20 @@ class ModelManager:
         return bool(self.audio_client and self.audio_client.get_status() == "loaded")
 
     def _update_translation_progress(self, current: int, total: int):
-        self.translation_progress = {"current": current, "total": total}
+        avg_seconds = 0.0
+        eta_seconds = 0.0
+        if self.translation_start_time and current > 0:
+            elapsed = time.time() - self.translation_start_time
+            avg_seconds = elapsed / current
+            if total > current:
+                eta_seconds = avg_seconds * (total - current)
+
+        self.translation_progress = {
+            "current": current,
+            "total": total,
+            "avg_seconds_per_line": avg_seconds,
+            "eta_seconds": eta_seconds
+        }
 
     def load_audio_model(self):
         if self.loading_audio_model:
@@ -135,7 +154,13 @@ class ModelManager:
 
             import time
             start_time = time.time()
-            self.translation_progress = {"current": 0, "total": len(subs)}
+            self.translation_start_time = time.time()
+            self.translation_progress = {
+                "current": 0,
+                "total": len(subs),
+                "avg_seconds_per_line": 0.0,
+                "eta_seconds": 0.0
+            }
             translated_subs = translate_subs(
                 llm=self.llm_client,
                 subs=subs,
@@ -166,7 +191,12 @@ class ModelManager:
                 "data": output_content,
                 "filename": translated_filename
             }
-            self.translation_progress = {"current": self.translation_progress["total"], "total": self.translation_progress["total"]}
+            self.translation_progress = {
+                "current": self.translation_progress["total"],
+                "total": self.translation_progress["total"],
+                "avg_seconds_per_line": self.translation_progress["avg_seconds_per_line"],
+                "eta_seconds": 0.0
+            }
 
             try:
                 os.remove(output_path)
@@ -184,7 +214,13 @@ class ModelManager:
                 os.remove(file_path)
             except:
                 pass
-            self.translation_progress = {"current": 0, "total": 0}
+            self.translation_progress = {
+                "current": 0,
+                "total": 0,
+                "avg_seconds_per_line": 0.0,
+                "eta_seconds": 0.0
+            }
+            self.translation_start_time = None
 
     def run_llm_task(
         self,
@@ -218,6 +254,8 @@ class ModelManager:
             payload = {"type": result_type, "data": result}
             if target == "context":
                 self.context_result = payload
+                elapsed_seconds = time.time() - start_time
+                logger.info("Context task '%s' completed in %.2fs", result_type, elapsed_seconds)
             else:
                 self.translation_result = payload
                 self.translation_elapsed = time.time() - start_time

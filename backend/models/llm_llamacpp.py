@@ -132,16 +132,17 @@ class LLMLlamaCpp(LLMInterface):
         max_tokens: int | None = None
     ):
         llm = self._llm or self._build_llm()
-        final_prompt = prompt
+        messages = []
         if system_prompt:
-            final_prompt = f"{system_prompt}\n\n{prompt}"
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
 
-        response = llm(
-            final_prompt,
+        response = llm.create_chat_completion(
+            messages=messages,
             temperature=self._temperature if temperature is None else temperature,
             max_tokens=max_tokens
         )
-        return response["choices"][0]["text"].strip()
+        return response["choices"][0]["message"]["content"].strip()
 
     def shutdown(self):
         self._llm = None
@@ -167,7 +168,7 @@ class LLMLlamaCpp(LLMInterface):
             n_ctx=self._n_ctx,
             n_gpu_layers=self._n_gpu_layers,
             n_threads=self._n_threads,
-            verbose=True
+            verbose=False
         )
 
     def _resolve_model_path(self, model_file: str) -> Path:

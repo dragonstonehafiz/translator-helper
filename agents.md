@@ -312,6 +312,11 @@ Long-running operations use FastAPI's BackgroundTasks with polling:
 2. Background function sets `running_X = True`, performs operation, stores result in `X_result`, sets `running_X = False`
 3. GET `/result` endpoint polls for completion: `"processing"` | `"complete"` | `"error"` | `"idle"`
 
+Translation progress (file translation) includes:
+- `current`, `total`
+- `avg_seconds_per_line`
+- `eta_seconds`
+
 ## Styling Guidelines
 
 ### Color Scheme

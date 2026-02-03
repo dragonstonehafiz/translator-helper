@@ -55,7 +55,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
   fileTranslationResult = '';
   translatedFileName = '';
   isTranslatingFile = false;
-  fileTranslationProgress = { current: 0, total: 0 };
+  fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
   isFetchingFileInfo = false;
   fileInfoError = '';
   fileInfo: { totalLines: string; characterCount: string; averageCharacterCount: string } | null = null;
@@ -229,7 +229,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
 
     this.isTranslatingFile = true;
     this.fileTranslationResult = '';
-    this.fileTranslationProgress = { current: 0, total: 0 };
+    this.fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
 
     const context = this.buildContext(
       this.fileUseCharacterList,
@@ -261,7 +261,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
   private startFilePolling(): void {
     this.filePollingInterval = setInterval(() => {
       this.apiService.getTranslationResult().subscribe({
-        next: (response: {status: string, result?: {type: string, data: string, filename?: string}, message?: string, progress?: {current: number, total: number}}) => {
+        next: (response: {status: string, result?: {type: string, data: string, filename?: string}, message?: string, progress?: {current: number, total: number, avg_seconds_per_line: number, eta_seconds: number}}) => {
           if (response.status === 'translating' && response.progress) {
             this.fileTranslationProgress = response.progress;
             return;
@@ -270,24 +270,24 @@ export class TranslateComponent implements OnInit, OnDestroy {
             this.fileTranslationResult = response.result.data;
             this.translatedFileName = response.result.filename || 'translated.ass';
             this.isTranslatingFile = false;
-            this.fileTranslationProgress = { current: 0, total: 0 };
+            this.fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
             this.stopFilePolling();
           } else if (response.status === 'error') {
             console.error('File translation error:', response.message);
             alert('File translation failed: ' + (response.message || 'Unknown error'));
             this.isTranslatingFile = false;
-            this.fileTranslationProgress = { current: 0, total: 0 };
+            this.fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
             this.stopFilePolling();
           } else if (response.status === 'idle') {
             this.isTranslatingFile = false;
-            this.fileTranslationProgress = { current: 0, total: 0 };
+            this.fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
             this.stopFilePolling();
           }
         },
         error: (error: any) => {
           console.error('Polling error:', error);
           this.isTranslatingFile = false;
-          this.fileTranslationProgress = { current: 0, total: 0 };
+          this.fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
           this.stopFilePolling();
         }
       });
@@ -319,5 +319,6 @@ export class TranslateComponent implements OnInit, OnDestroy {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   }
+
 
 }

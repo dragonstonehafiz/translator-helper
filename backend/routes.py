@@ -25,7 +25,7 @@ def startup_load_models():
     print("Loading LLM model on startup...")
     threading.Thread(target=model_manager.load_llm_model, daemon=True).start()
 
-    print("Loading Whisper model on startup...")
+    print("Loading audio model on startup...")
     threading.Thread(target=model_manager.load_audio_model, daemon=True).start()
 
 
