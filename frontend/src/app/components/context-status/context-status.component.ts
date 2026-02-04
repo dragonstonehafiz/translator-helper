@@ -13,6 +13,7 @@ export class ContextStatusComponent {
   @Input() synopsis = '';
   @Input() summary = '';
   @Input() recap = '';
+  @Input() additionalInstructions = '';
 
   hasContent(value: string): boolean {
     return !!value && value.trim().length > 0;

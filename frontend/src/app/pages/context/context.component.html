@@ -8,7 +8,7 @@
     <app-subsection
       title="Import Context JSON"
       tooltip="Import a saved context JSON to populate all fields on this page">
-      <p class="import-context-subtext">Drop a context file here to load languages, character list, synopsis, summary, and recap.</p>
+      <p class="import-context-subtext">Drop a context file here to load languages, additional instructions, character list, synopsis, summary, and recap.</p>
       <app-file-upload
         accept=".json"
         placeholder="Import Context File"
@@ -126,6 +126,10 @@
       <div class="context-tabs">
         <button type="button"
                 class="context-tab"
+                [class.active]="activeContextTab === 'additional'"
+                (click)="setContextTab('additional')">Additional Instructions</button>
+        <button type="button"
+                class="context-tab"
                 [class.active]="activeContextTab === 'character'"
                 (click)="setContextTab('character')">Character List</button>
         <button type="button"
@@ -136,6 +140,32 @@
                 class="context-tab"
                 [class.active]="activeContextTab === 'summary'"
                 (click)="setContextTab('summary')">Summary</button>
+      </div>
+
+      <div class="context-tab-content" *ngIf="activeContextTab === 'additional'">
+        <div class="form-group">
+          <div class="context-field-wrapper">
+            <app-text-field
+              label="Additional Instructions"
+              tooltip="Additional instructions are user-provided notes for translators or generation context."
+              placeholder="Enter any additional instructions..."
+              [readMode]="false"
+              [(ngModel)]="additionalInstructions"
+              (ngModelChange)="updateAdditionalInstructions()">
+            </app-text-field>
+          </div>
+        </div>
+
+        <div class="context-options context-options--empty">
+          <label class="checkbox-label">
+            <input type="checkbox" disabled>
+            <span>No options available</span>
+          </label>
+        </div>
+
+        <app-primary-button [fullWidth]="true" [disabled]="true">
+          (Not Available)
+        </app-primary-button>
       </div>
 
       <div class="context-tab-content" *ngIf="activeContextTab === 'character'">
@@ -154,10 +184,10 @@
           </div>
         </div>
 
-        <div class="context-options context-options--empty">
+        <div class="context-options">
           <label class="checkbox-label">
-            <input type="checkbox" disabled>
-            <span>No options available</span>
+            <input type="checkbox" [(ngModel)]="characterListUseAdditionalInstructions">
+            <span>Include Additional Instructions</span>
           </label>
         </div>
 
@@ -183,6 +213,10 @@
         </div>
 
         <div class="context-options">
+          <label class="checkbox-label">
+            <input type="checkbox" [(ngModel)]="synopsisUseAdditionalInstructions">
+            <span>Include Additional Instructions</span>
+          </label>
           <label class="checkbox-label">
             <input type="checkbox" [(ngModel)]="synopsisUseCharacterList">
             <span>Include Character List</span>
@@ -211,6 +245,10 @@
 
         <div class="context-options">
           <label class="checkbox-label">
+            <input type="checkbox" [(ngModel)]="summaryUseAdditionalInstructions">
+            <span>Include Additional Instructions</span>
+          </label>
+          <label class="checkbox-label">
             <input type="checkbox" [(ngModel)]="summaryUseCharacterList">
             <span>Include Character List</span>
           </label>
@@ -225,7 +263,8 @@
         [characterList]="characterList"
         [synopsis]="synopsis"
         [summary]="summary"
-        [recap]="recap">
+        [recap]="recap"
+        [additionalInstructions]="additionalInstructions">
       </app-context-status>
       <app-primary-button
         [fullWidth]="true"

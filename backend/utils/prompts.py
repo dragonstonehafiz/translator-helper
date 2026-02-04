@@ -134,42 +134,68 @@ class PromptGenerator:
         context_text = "\n\n".join(context_sections) if context_sections else "No additional context provided."
 
         system_prompt = f"""
-        # Role: {input_lang} Character Identifier
+        # Role
 
-        ## Instructions
+        You are a subtitle analysis assistant helping build a character reference list from dialogue.
 
-        You are assisting a translator by identifying characters in a scene that is in {input_lang}.
-        Use the dialogue transcript and any provided context to extract characters in {output_lang}.
+        # Task
 
-        For each character include:
-        - **Name** - the most complete form you can find
-        - **Speech Style** - how they talk (e.g., formal, casual, subdued, blunt, playful, uses honorifics or slang)
-        - **Very High-Level Summary** - one short clause capturing their role / personality / tone
-        - If one character is **clearly the narrative focus** (appears most, drives the scene), add **[Narrative Focus]**
+        From the provided subtitle text, produce a character list in {output_lang}.
 
-        Include characters who are mentioned by name even if they do not appear in the scene.
-        Rely only on evidence from the transcript or context - do **not** speculate.
+        You must:
+        - Identify all characters who speak or are referenced.
+        - Merge references that clearly refer to the same person (e.g., surname+honorific, given-name+honorific, nickname, title).
+        - BUT do NOT collapse how they are addressed: preserve every observed JP surface form so later translation can keep surname vs given name vs nickname vs title correctly.
 
-        ## Context
+        # Critical rule about name forms
+
+        For each character, you must keep BOTH:
+        1) A canonical identity entry (the person)
+        2) A list of "JP Forms Seen" (the exact surface forms as they appear in subtitles, including honorifics/titles) WITH romanization for each form
+
+        Example of what to preserve in JP Forms Seen:
+        - 葛城さん (Katsuragi-san)
+        - リーリヤちゃん (Ririya-chan)
+        - 葛城リーリヤ (Katsuragi Ririya)
+        - プロデューサー (Producer)
+        Do not normalize these. Keep them exactly as seen.
+
+        # Romanization / spelling rules
+
+        - Provide Hepburn romanization for base names (surname/given) when possible.
+        - If multiple romanizations are plausible, pick one and keep it consistent.
+        - If you cannot confidently romanize a name, leave Base Romanization as "UNKNOWN" and still list the JP forms.
+
+        # Context
 
         {context_text}
 
-        ## Output Format
+        # Output format (IMPORTANT)
 
-        All output must be in {output_lang}.
+        Output only the character list. No extra commentary.
 
-        - When the context supplies a fuller name (e.g., "Sumika Shiun"), use that.
-        - If the same person appears under multiple names or forms (e.g., “清夏ちゃん” and “紫雲さん”),
-        **merge them into one entry** using the full name and list the alias in parentheses.
+        Use this exact structure:
 
-        Example:  
-        - **Sumika Shiun** (also referred to as "清夏ちゃん"): Cheerful classmate who motivates others. [Narrative Focus]
+        CHARACTER 1
+        Canonical (EN): ...
+        Base Romanization: Surname=... | Given=... | Full=...
+        JP Forms Seen (with romanization):
+        - ... (romanization)
+        - ... (romanization)
+        Speech Style: ...
+        High-level Summary: ...
 
-        - For unnamed or minor speakers (e.g., “Student A”), use translated role names in {output_lang}.
+        (blank line)
 
-        Return **one line per character** in this exact pattern (no nested bullets):
+        CHARACTER 2
+        ...
 
-        - **[Character Name]**: [speech style]. [very high-level summary]. [Narrative Focus] (if applicable)
+        Rules:
+        - Keep one CHARACTER block per person/identity.
+        - "JP Forms Seen" must include every distinct surface form you notice for that person.
+        - If you merge two identities, include both sets of JP forms under the merged character.
+        - Keep Speech Style and High-level Summary short (1-2 lines each).
+        - Do not invent relationships or facts not supported by the text/context.
         """.strip()
 
         return system_prompt

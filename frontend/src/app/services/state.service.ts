@@ -63,6 +63,9 @@ export class StateService {
   private recapSubject = new BehaviorSubject<string>('');
   public recap$: Observable<string> = this.recapSubject.asObservable();
 
+  private additionalInstructionsSubject = new BehaviorSubject<string>('');
+  public additionalInstructions$: Observable<string> = this.additionalInstructionsSubject.asObservable();
+
   private runningLlmSubject = new BehaviorSubject<boolean>(false);
   public runningLlm$: Observable<boolean> = this.runningLlmSubject.asObservable();
 
@@ -157,6 +160,14 @@ export class StateService {
     return this.recapSubject.value;
   }
 
+  setAdditionalInstructions(instructions: string): void {
+    this.additionalInstructionsSubject.next(instructions);
+  }
+
+  getAdditionalInstructions(): string {
+    return this.additionalInstructionsSubject.value;
+  }
+
   setRunningLlm(running: boolean): void {
     this.runningLlmSubject.next(running);
   }
@@ -178,13 +189,15 @@ export class StateService {
     synopsis: string;
     summary: string;
     recap: string;
+    additionalInstructions: string;
   }> {
     return new Observable(observer => {
       observer.next({
         characterList: this.getCharacterList(),
         synopsis: this.getSynopsis(),
         summary: this.getSummary(),
-        recap: this.getRecap()
+        recap: this.getRecap(),
+        additionalInstructions: this.getAdditionalInstructions()
       });
       observer.complete();
     });

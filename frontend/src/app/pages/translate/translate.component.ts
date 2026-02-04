@@ -31,9 +31,11 @@ export class TranslateComponent implements OnInit, OnDestroy {
   synopsis = '';
   summary = '';
   recap = '';
-  activeContextTab: 'character' | 'synopsis' | 'summary' | 'recap' = 'character';
+  additionalInstructions = '';
+  activeContextTab: 'additional' | 'character' | 'synopsis' | 'summary' | 'recap' = 'additional';
 
   // Translate Line
+  lineUseAdditionalInstructions = false;
   lineUseCharacterList = false;
   lineUseSynopsis = false;
   lineUseSummary = false;
@@ -45,6 +47,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
   private linePollingInterval?: any;
 
   // Translate File
+  fileUseAdditionalInstructions = false;
   fileUseCharacterList = false;
   fileUseSynopsis = false;
   fileUseSummary = false;
@@ -106,20 +109,31 @@ export class TranslateComponent implements OnInit, OnDestroy {
       synopsis: string;
       summary: string;
       recap: string;
+      additionalInstructions: string;
     }) => {
       if (state.characterList) this.characterList = state.characterList;
       if (state.synopsis) this.synopsis = state.synopsis;
       if (state.summary) this.summary = state.summary;
       if (state.recap) this.recap = state.recap;
+      if (state.additionalInstructions) this.additionalInstructions = state.additionalInstructions;
     });
   }
 
-  setContextTab(tab: 'character' | 'synopsis' | 'summary' | 'recap'): void {
+  setContextTab(tab: 'additional' | 'character' | 'synopsis' | 'summary' | 'recap'): void {
     this.activeContextTab = tab;
   }
 
-  buildContext(useCharacterList: boolean, useSynopsis: boolean, useSummary: boolean, useRecap = false): any {
+  buildContext(
+    useAdditionalInstructions: boolean,
+    useCharacterList: boolean,
+    useSynopsis: boolean,
+    useSummary: boolean,
+    useRecap = false
+  ): any {
     const context: any = {};
+    if (useAdditionalInstructions && this.additionalInstructions) {
+      context.additional_instructions = this.additionalInstructions;
+    }
     if (useCharacterList && this.characterList) context.character_list = this.characterList;
     if (useSynopsis && this.synopsis) context.synopsis = this.synopsis;
     if (useSummary && this.summary) context.summary = this.summary;
@@ -134,6 +148,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
     this.lineTranslationResult = '';
 
     const context = this.buildContext(
+      this.lineUseAdditionalInstructions,
       this.lineUseCharacterList,
       this.lineUseSynopsis,
       this.lineUseSummary
@@ -235,6 +250,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
     this.fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
 
     const context = this.buildContext(
+      this.fileUseAdditionalInstructions,
       this.fileUseCharacterList,
       this.fileUseSynopsis,
       this.fileUseSummary,

@@ -165,6 +165,7 @@ The application uses several reusable standalone components located in `frontend
 **Usage**:
 ```html
 <app-context-status
+  [additionalInstructions]="additionalInstructions"
   [characterList]="characterList"
   [synopsis]="synopsis"
   [summary]="summary"
@@ -173,6 +174,7 @@ The application uses several reusable standalone components located in `frontend
 ```
 
 **Properties**:
+- `additionalInstructions` (optional): string
 - `characterList` (optional): string
 - `synopsis` (optional): string
 - `summary` (optional): string

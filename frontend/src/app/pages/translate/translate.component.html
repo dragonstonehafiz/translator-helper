@@ -14,10 +14,15 @@
         [characterList]="characterList"
         [synopsis]="synopsis"
         [summary]="summary"
-        [recap]="recap">
+        [recap]="recap"
+        [additionalInstructions]="additionalInstructions">
       </app-context-status>
 
       <div class="context-tabs">
+        <button type="button"
+                class="context-tab"
+                [class.active]="activeContextTab === 'additional'"
+                (click)="setContextTab('additional')">Additional Instructions</button>
         <button type="button"
                 class="context-tab"
                 [class.active]="activeContextTab === 'character'"
@@ -34,6 +39,15 @@
                 class="context-tab"
                 [class.active]="activeContextTab === 'recap'"
                 (click)="setContextTab('recap')">Recap</button>
+      </div>
+
+      <div class="context-tab-content" *ngIf="activeContextTab === 'additional'">
+        <app-text-field 
+          label="Additional Instructions" 
+          placeholder="No additional instructions available..."
+          [rows]="6"
+          [(ngModel)]="additionalInstructions">
+        </app-text-field>
       </div>
 
       <div class="context-tab-content" *ngIf="activeContextTab === 'character'">
@@ -79,6 +93,10 @@
       tooltip="Translate a single line of text">
       
       <div class="checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="lineUseAdditionalInstructions">
+          <span>Additional Instructions</span>
+        </label>
         <label class="checkbox-label">
           <input type="checkbox" [(ngModel)]="lineUseCharacterList">
           <span>Character List</span>
@@ -139,6 +157,10 @@
       tooltip="Translate an entire subtitle file">
       
       <div class="checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="fileUseAdditionalInstructions">
+          <span>Additional Instructions</span>
+        </label>
         <label class="checkbox-label">
           <input type="checkbox" [(ngModel)]="fileUseCharacterList">
           <span>Character List</span>

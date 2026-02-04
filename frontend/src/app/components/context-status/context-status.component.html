@@ -1,4 +1,8 @@
 <div class="context-completion">
+  <div class="completion-item" [class.complete]="hasContent(additionalInstructions)">
+    <span class="completion-dot"></span>
+    <span>Additional Instructions</span>
+  </div>
   <div class="completion-item" [class.complete]="hasContent(characterList)">
     <span class="completion-dot"></span>
     <span>Character List</span>

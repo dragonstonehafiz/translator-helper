@@ -23,6 +23,7 @@ export class ContextComponent implements OnInit, OnDestroy {
   characterList = '';
   synopsis = '';
   summary = '';
+  additionalInstructions = '';
   selectedFile: File | null = null;
   importFile: File | null = null;
   inputLanguage = 'ja';
@@ -39,13 +40,17 @@ export class ContextComponent implements OnInit, OnDestroy {
   characterListReadMode = true;
   synopsisReadMode = true;
   summaryReadMode = true;
+  additionalInstructionsReadMode = false;
   
   // Context checkboxes for character list generation
+  characterListUseAdditionalInstructions = true;
   
   // Context checkboxes for synopsis generation
+  synopsisUseAdditionalInstructions = true;
   synopsisUseCharacterList = true;
   
   // Context checkboxes for summary generation
+  summaryUseAdditionalInstructions = true;
   summaryUseCharacterList = true;
 
   isGeneratingCharacterList = false;
@@ -59,7 +64,7 @@ export class ContextComponent implements OnInit, OnDestroy {
   contextCollapsed = true;
   recapCollapsed = true;
 
-  activeContextTab: 'character' | 'synopsis' | 'summary' = 'character';
+  activeContextTab: 'additional' | 'character' | 'synopsis' | 'summary' = 'additional';
   
   // Recap section
   recap = '';
@@ -107,6 +112,7 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.synopsis = this.stateService.getSynopsis();
     this.summary = this.stateService.getSummary();
     this.recap = this.stateService.getRecap();
+    this.additionalInstructions = this.stateService.getAdditionalInstructions();
 
     this.stateService.runningLlm$.subscribe(running => {
       this.runningLlm = running;
@@ -199,6 +205,10 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.stateService.setSummary(this.summary);
   }
 
+  updateAdditionalInstructions(): void {
+    this.stateService.setAdditionalInstructions(this.additionalInstructions);
+  }
+
   adjustCharacterListFontSize(delta: number): void {
     this.characterListFontSize = Math.max(10, Math.min(24, this.characterListFontSize + delta));
   }
@@ -223,7 +233,7 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.summaryReadMode = !this.summaryReadMode;
   }
 
-  setContextTab(tab: 'character' | 'synopsis' | 'summary'): void {
+  setContextTab(tab: 'additional' | 'character' | 'synopsis' | 'summary'): void {
     this.activeContextTab = tab;
   }
 
@@ -232,7 +242,10 @@ export class ContextComponent implements OnInit, OnDestroy {
   }
 
   hasAnyContextContent(): boolean {
-    return this.hasContent(this.characterList) || this.hasContent(this.synopsis) || this.hasContent(this.summary);
+    return this.hasContent(this.additionalInstructions)
+      || this.hasContent(this.characterList)
+      || this.hasContent(this.synopsis)
+      || this.hasContent(this.summary);
   }
 
   generateCharacterList(): void {
@@ -249,6 +262,9 @@ export class ContextComponent implements OnInit, OnDestroy {
 
     // Build context dict with only checked and non-empty fields
     const context: any = {};
+    if (this.characterListUseAdditionalInstructions && this.additionalInstructions.trim()) {
+      context.additional_instructions = this.additionalInstructions;
+    }
     
     this.apiService.generateCharacterList(
       this.selectedFile,
@@ -287,6 +303,9 @@ export class ContextComponent implements OnInit, OnDestroy {
 
     // Build context dict with only checked and non-empty fields
     const context: any = {};
+    if (this.synopsisUseAdditionalInstructions && this.additionalInstructions.trim()) {
+      context.additional_instructions = this.additionalInstructions;
+    }
     if (this.synopsisUseCharacterList && this.characterList.trim()) {
       context.character_list = this.characterList;
     }
@@ -328,6 +347,9 @@ export class ContextComponent implements OnInit, OnDestroy {
 
     // Build context dict with only checked and non-empty fields
     const context: any = {};
+    if (this.summaryUseAdditionalInstructions && this.additionalInstructions.trim()) {
+      context.additional_instructions = this.additionalInstructions;
+    }
     if (this.summaryUseCharacterList && this.characterList.trim()) {
       context.character_list = this.characterList;
     }
@@ -363,6 +385,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       synopsis: this.synopsis,
       summary: this.summary,
       recap: this.recap,
+      additionalInstructions: this.additionalInstructions,
       exportDate: new Date().toISOString()
     };
 
@@ -422,6 +445,10 @@ export class ContextComponent implements OnInit, OnDestroy {
         if (data.recap !== undefined) {
           this.recap = data.recap;
           this.stateService.setRecap(data.recap);
+        }
+        if (data.additionalInstructions !== undefined) {
+          this.additionalInstructions = data.additionalInstructions;
+          this.stateService.setAdditionalInstructions(data.additionalInstructions);
         }
         
         alert('Context imported successfully!');

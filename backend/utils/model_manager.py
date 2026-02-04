@@ -75,7 +75,6 @@ class ModelManager:
             logger.info(f"Whisper model loaded: model='{self.audio_client.get_model()}', device='{self.audio_client.get_device()}'")
         except Exception as e:
             logger.error(f"Error loading Whisper model: {e}")
-            print(f"Error loading Whisper model: {e}")
         finally:
             self.loading_audio_model = False
 
@@ -100,7 +99,6 @@ class ModelManager:
             logger.info(f"LLM loaded: model='{self.llm_client.get_model()}', temperature={self.llm_client.get_temperature()}")
         except Exception as e:
             logger.error(f"Error loading LLM model: {e}")
-            print(f"Error loading LLM model: {e}")
         finally:
             self.loading_llm_model = False
 
@@ -119,21 +117,17 @@ class ModelManager:
                 self.audio_client.set_running(True)
             self.transcription_result = None
             self.transcription_error = None
-            logger.info(f"Starting audio transcription: file='{file_path}', language='{language}'")
 
             result = self.audio_client.transcribe_line(file_path, language)
             self.transcription_result = {"type": "transcription", "data": result}
-            logger.info("Successfully completed audio transcription")
             self.transcription_elapsed = time.time() - start_time
         except Exception as e:
             logger.error(f"Error transcribing audio: {e}")
-            print(f"Error transcribing audio: {e}")
             self.transcription_error = str(e)
             self.transcription_elapsed = time.time() - start_time
         finally:
             if self.audio_client:
                 self.audio_client.set_running(False)
-            logger.info("Audio transcription process completed")
             try:
                 os.remove(file_path)
             except:
@@ -196,7 +190,6 @@ class ModelManager:
 
         except Exception as e:
             logger.error(f"Error translating file: {e}")
-            print(f"Error translating file: {e}")
             self.llm_error = str(e)
         finally:
             if self.llm_client:
@@ -259,7 +252,6 @@ class ModelManager:
                     )
         except Exception as e:
             logger.error(f"Error running LLM task ({result_type}): {e}")
-            print(f"Error running LLM task ({result_type}): {e}")
             self.llm_error = str(e)
         finally:
             if self.llm_client:
