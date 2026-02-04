@@ -50,7 +50,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
   fileUseRecap = false;
   fileInputLanguage = 'ja';
   fileOutputLanguage = 'en';
-  contextWindow = 3;
+  batchSize = 3;
   fileToTranslate: File | null = null;
   fileTranslationResult = '';
   translatedFileName = '';
@@ -243,7 +243,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
       context,
       this.fileInputLanguage,
       this.fileOutputLanguage,
-      this.contextWindow
+      this.batchSize
     ).subscribe({
       next: (response: {status: string, message?: string}) => {
         if (response.status === 'processing') {

@@ -15,29 +15,6 @@ def _is_rate_limit_error(error: Exception) -> bool:
 
 def translate_sub(
     llm: LLMInterface,
-    text: str,
-    context: Optional[dict] = None,
-    input_lang: str = "ja",
-    target_lang: str = "en",
-    temperature: float | None = None,
-    max_tokens: int | None = None
-):
-    prompt_generator = PromptGenerator()
-    system_prompt = prompt_generator.generate_translate_sub_prompt(
-        context=context,
-        input_lang=input_lang,
-        target_lang=target_lang
-    )
-    return llm.infer(
-        prompt=text.strip(),
-        system_prompt=system_prompt,
-        temperature=temperature,
-        max_tokens=max_tokens
-    ).strip()
-
-
-def translate_sub_batch(
-    llm: LLMInterface,
     lines: list[str],
     context: Optional[dict] = None,
     input_lang: str = "ja",
@@ -64,7 +41,7 @@ def translate_subs(
     llm: LLMInterface,
     subs,
     context: dict,
-    context_window: int = 3,
+    batch_size: int = 3,
     input_lang: str = "ja",
     target_lang: str = "en",
     temperature: float | None = None,
@@ -72,7 +49,7 @@ def translate_subs(
     progress_callback=None
 ):
     total_lines = len(subs)
-    batch_size = max(1, context_window)
+    batch_size = max(1, batch_size)
     processed = 0
 
     for start in range(0, total_lines, batch_size):
@@ -85,7 +62,7 @@ def translate_subs(
 
         for attempt in range(3):
             try:
-                translated_lines = translate_sub_batch(
+                translated_lines = translate_sub(
                     llm,
                     batch_lines,
                     context=context_dict,

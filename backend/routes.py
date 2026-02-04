@@ -243,7 +243,7 @@ async def api_translate_file(
     context: str = Form("{}"),
     input_lang: str = Form("ja"),
     output_lang: str = Form("en"),
-    context_window: int = Form(3)
+    batch_size: int = Form(3)
 ):
     """Translate a subtitle file (.ass or .srt)."""
     if model_manager.is_llm_running():
@@ -271,7 +271,7 @@ async def api_translate_file(
             context_dict,
             input_lang,
             output_lang,
-            context_window
+            batch_size
         )
 
         return {"status": "processing", "message": "Translation started"}

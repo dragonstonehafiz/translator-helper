@@ -302,7 +302,7 @@ When no client is loaded yet, `audio` and `llm` are empty arrays (`[]`).
 
 **Translation** (`backend/routes.py`):
 - `POST /api/translate/translate-line`: Translate text line with context (FormData: text, context JSON, input_lang, output_lang)
-- `POST /api/translate/translate-file`: Translate subtitle file with context window (FormData: file, context JSON, input_lang, output_lang, context_window)
+- `POST /api/translate/translate-file`: Translate subtitle file with batch size (FormData: file, context JSON, input_lang, output_lang, batch_size)
 - `GET /api/translate/result`: Poll for translation result
 
 ### Background Tasks

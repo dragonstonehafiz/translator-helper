@@ -4,7 +4,7 @@ import time
 from typing import Optional
 
 from models.llm_chatgpt import LLMChatGPT
-from models.llm_llamacpp import LLMLlamaCpp
+# from models.llm_llamacpp import LLMLlamaCpp
 from models.audio_whisper import AudioWhisper
 from interface import LLMInterface, AudioModelInterface
 from utils.translate_subs import translate_subs
@@ -144,7 +144,7 @@ class ModelManager:
             except:
                 pass
 
-    def run_translate_file_task(self, file_path: str, context: dict, input_lang: str, output_lang: str, context_window: int):
+    def run_translate_file_task(self, file_path: str, context: dict, input_lang: str, output_lang: str, batch_size: int):
         try:
             if self.llm_client:
                 self.llm_client.set_running(True)
@@ -168,7 +168,7 @@ class ModelManager:
                 llm=self.llm_client,
                 subs=subs,
                 context=context if context else {},
-                context_window=context_window,
+                batch_size=batch_size,
                 input_lang=input_lang,
                 target_lang=output_lang,
                 temperature=self.llm_client.get_temperature(),

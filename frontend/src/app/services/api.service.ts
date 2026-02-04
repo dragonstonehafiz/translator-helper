@@ -125,13 +125,13 @@ export class ApiService {
     return this.http.post<{status: string, message?: string}>(`${this.baseUrl}/translate/translate-line`, formData);
   }
 
-  translateFile(file: File, context: any, inputLang: string, outputLang: string, contextWindow: number): Observable<{status: string, message?: string}> {
+  translateFile(file: File, context: any, inputLang: string, outputLang: string, batchSize: number): Observable<{status: string, message?: string}> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('context', JSON.stringify(context));
     formData.append('input_lang', inputLang);
     formData.append('output_lang', outputLang);
-    formData.append('context_window', contextWindow.toString());
+    formData.append('batch_size', batchSize.toString());
     return this.http.post<{status: string, message?: string}>(`${this.baseUrl}/translate/translate-file`, formData);
   }
 
