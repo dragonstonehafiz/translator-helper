@@ -247,6 +247,41 @@ The application uses several reusable standalone components located in `frontend
 
 ---
 
+### app-downloads-list
+**Location**: `frontend/src/app/components/downloads-list/`
+
+**Purpose**: Reusable downloads panel with search, sort, refresh, collapse, and per-file actions.
+
+**When to use**:
+- Showing downloadable files for translations, exports, or other outputs
+
+**Usage**:
+```html
+<app-downloads-list
+  [files]="availableDownloads"
+  [isLoading]="isFetchingDownloads"
+  [error]="downloadError"
+  [deletingFilename]="deletingDownload"
+  (refresh)="refreshDownloads()"
+  (download)="downloadTranslatedFile($event)"
+  (delete)="deleteTranslatedFile($event)">
+</app-downloads-list>
+```
+
+**Properties**:
+- `title` (optional, default: "Downloads"): Header title
+- `files` (optional): Array of `{ name, size, modified }`
+- `isLoading` (optional, default: false): Loading state
+- `error` (optional): Error message string
+- `deletingFilename` (optional): Filename currently deleting
+- `collapsed` (optional, default: false): Collapse state
+
+**Events**:
+- `refresh`: Fired when refresh is clicked
+- `download`: Fired with filename when download is clicked
+- `delete`: Fired with filename when delete is clicked
+- `collapsedChange`: Fired when collapse state changes
+
 ## Backend API Structure
 
 ### Endpoints
@@ -304,6 +339,9 @@ When no client is loaded yet, `audio` and `llm` are empty arrays (`[]`).
 - `POST /api/translate/translate-line`: Translate text line with context (FormData: text, context JSON, input_lang, output_lang)
 - `POST /api/translate/translate-file`: Translate subtitle file with batch size (FormData: file, context JSON, input_lang, output_lang, batch_size)
 - `GET /api/translate/result`: Poll for translation result
+- `GET /api/translate/files`: List available translated subtitle files from `backend/outputs/sub-files/`
+- `GET /api/translate/files/{filename}`: Download a translated subtitle file
+- `DELETE /api/translate/files/{filename}`: Delete a translated subtitle file
 
 ### Background Tasks
 
@@ -316,6 +354,8 @@ Translation progress (file translation) includes:
 - `current`, `total`
 - `avg_seconds_per_line`
 - `eta_seconds`
+
+For file translations, `/api/translate/result` returns status only (no file data). The translated files are saved in `backend/outputs/sub-files/` and retrieved via `/api/translate/files`.
 
 ## Styling Guidelines
 

@@ -230,12 +230,15 @@
         [etaSeconds]="fileTranslationProgress.eta_seconds">
       </app-progress-bar>
 
-      <div class="result-section result-section--center">
-        <h3>Downloads</h3>
-        <app-primary-button [fullWidth]="true" [disabled]="!fileTranslationResult" (click)="downloadTranslatedFile()">
-          {{ fileTranslationResult ? ('Download ' + (translatedFileName || 'translated.ass')) : 'No download available' }}
-        </app-primary-button>
-      </div>
+      <app-downloads-list
+        [files]="availableDownloads"
+        [isLoading]="isFetchingDownloads"
+        [error]="downloadError"
+        [deletingFilename]="deletingDownload"
+        (refresh)="refreshDownloads()"
+        (download)="downloadTranslatedFile($event)"
+        (delete)="deleteTranslatedFile($event)">
+      </app-downloads-list>
     </app-subsection>
   </div>
 </div>

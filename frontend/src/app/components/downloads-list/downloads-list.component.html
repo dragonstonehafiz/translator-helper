@@ -1,0 +1,69 @@
+<div class="result-section result-section--center">
+  <div class="download-header">
+    <button class="download-collapse" type="button" (click)="toggleCollapsed()" [attr.aria-expanded]="!collapsed">
+      <svg class="chevron" viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true" [class.is-collapsed]="collapsed">
+        <path d="M8 10l4 4 4-4"></path>
+      </svg>
+      <h3>{{ title }}</h3>
+    </button>
+    <button class="download-refresh" type="button" (click)="refresh.emit()" [disabled]="isLoading || collapsed" aria-label="Refresh downloads">
+      <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
+        <path d="M12 6a6 6 0 0 1 5.65 4H20a8 8 0 1 0 2 5h-2a6 6 0 1 1-6-6z"></path>
+        <path d="M20 4v6h-6l2.2-2.2A8 8 0 0 1 20 4z"></path>
+      </svg>
+    </button>
+  </div>
+
+  <div class="download-body" *ngIf="!collapsed">
+    <div class="download-controls">
+      <div class="download-search">
+        <input
+          type="text"
+          placeholder="Search files..."
+          [(ngModel)]="search">
+      </div>
+      <div class="download-sort">
+        <span class="download-sort-label">Sort</span>
+        <button type="button" class="download-sort-btn" [class.active]="sort === 'desc'" (click)="setSort('desc')">
+          Newest
+        </button>
+        <button type="button" class="download-sort-btn" [class.active]="sort === 'asc'" (click)="setSort('asc')">
+          Oldest
+        </button>
+      </div>
+    </div>
+
+    <div class="download-status" *ngIf="isLoading">Loading downloads...</div>
+    <div class="download-status" *ngIf="!isLoading && error">{{ error }}</div>
+    <div class="download-status" *ngIf="!isLoading && !error && filteredFiles.length === 0">
+      {{ search ? 'No matching files.' : 'No downloads available.' }}
+    </div>
+
+    <div class="download-list" *ngIf="!isLoading && filteredFiles.length > 0">
+      <div class="download-item" *ngFor="let file of filteredFiles">
+        <div class="download-info">
+          <div class="download-name">{{ file.name }}</div>
+          <div class="download-meta">
+            {{ formatBytes(file.size) }} • {{ file.modified | date:'short' }}
+          </div>
+        </div>
+        <div class="download-actions">
+          <app-primary-button [fullWidth]="false" (click)="download.emit(file.name)">
+            Download
+          </app-primary-button>
+          <app-primary-button
+            class="download-delete"
+            [fullWidth]="false"
+            [disabled]="deletingFilename === file.name"
+            (click)="delete.emit(file.name)">
+            <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
+              <path d="M9 3h6l1 2h5v2H3V5h5l1-2z"></path>
+              <path d="M7 9h2v9H7V9zm4 0h2v9h-2V9zm4 0h2v9h-2V9z"></path>
+            </svg>
+            <span>{{ deletingFilename === file.name ? 'Deleting...' : 'Delete' }}</span>
+          </app-primary-button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -138,4 +138,16 @@ export class ApiService {
   getTranslationResult(): Observable<{status: string, result?: {type: string, data: string, filename?: string}, message?: string}> {
     return this.http.get<{status: string, result?: {type: string, data: string, filename?: string}, message?: string}>(`${this.baseUrl}/translate/result`);
   }
+
+  listTranslatedFiles(): Observable<{status: string, files: {name: string, size: number, modified: string}[]}> {
+    return this.http.get<{status: string, files: {name: string, size: number, modified: string}[]}>(`${this.baseUrl}/translate/files`);
+  }
+
+  downloadTranslatedFile(filename: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/translate/files/${encodeURIComponent(filename)}`, { responseType: 'blob' });
+  }
+
+  deleteTranslatedFile(filename: string): Observable<{status: string}> {
+    return this.http.delete<{status: string}>(`${this.baseUrl}/translate/files/${encodeURIComponent(filename)}`);
+  }
 }

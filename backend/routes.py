@@ -2,9 +2,11 @@
 Route definitions for Translator Helper backend.
 """
 
-from fastapi import APIRouter, BackgroundTasks, File, UploadFile, Form
+from fastapi import APIRouter, BackgroundTasks, File, UploadFile, Form, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from typing import Optional
+from datetime import datetime
+from pathlib import Path
 import threading
 import tempfile
 import os
@@ -268,6 +270,7 @@ async def api_translate_file(
         background_tasks.add_task(
             model_manager.run_translate_file_task,
             tmp_file_path,
+            file.filename,
             context_dict,
             input_lang,
             output_lang,
@@ -298,15 +301,63 @@ async def get_translation_result():
         return {"status": "error", "result": None, "message": error}
     elif model_manager.translation_result:
         result = model_manager.translation_result
-        if result.get("type") == "line_translation":
-            model_manager.last_line_translation_input = None
-            model_manager.last_line_translation_output = None
-            model_manager.last_line_translation_elapsed = None
+        result_type = result.get("type")
+        if result_type == "line_translation":
+            model_manager.translation_result = None
+            return {"status": "complete", "result": result}
+        if result_type == "file_translation":
+            model_manager.translation_result = None
+            return {"status": "complete", "result": None}
         model_manager.translation_result = None
-        model_manager.translation_elapsed = None
         return {"status": "complete", "result": result}
     else:
         return {"status": "idle", "result": None, "error": None}
+
+
+def _get_sub_files_dir() -> Path:
+    output_dir = Path(__file__).resolve().parent / "outputs" / "sub-files"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
+
+
+@router.get("/api/translate/files")
+async def list_translation_files():
+    output_dir = _get_sub_files_dir()
+    files = []
+    for entry in output_dir.iterdir():
+        if entry.is_file():
+            stat = entry.stat()
+            files.append({
+                "name": entry.name,
+                "size": stat.st_size,
+                "modified": datetime.fromtimestamp(stat.st_mtime).isoformat()
+            })
+    files.sort(key=lambda item: item["modified"], reverse=True)
+    return {"status": "success", "files": files}
+
+
+@router.get("/api/translate/files/{filename}")
+async def download_translation_file(filename: str):
+    output_dir = _get_sub_files_dir().resolve()
+    safe_name = os.path.basename(filename)
+    file_path = (output_dir / safe_name).resolve()
+    if output_dir not in file_path.parents or not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(path=str(file_path), filename=safe_name, media_type="application/octet-stream")
+
+
+@router.delete("/api/translate/files/{filename}")
+async def delete_translation_file(filename: str):
+    output_dir = _get_sub_files_dir().resolve()
+    safe_name = os.path.basename(filename)
+    file_path = (output_dir / safe_name).resolve()
+    if output_dir not in file_path.parents or not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    try:
+        file_path.unlink()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete file: {e}")
+    return {"status": "success"}
 
 
 @router.post("/api/load-audio-model")

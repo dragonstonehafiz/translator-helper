@@ -22,7 +22,7 @@ A full-stack web application for transcribing, translating, and managing subtitl
 ### Translate Page
 - **Context**: View and edit saved context (character list, synopsis, summary, recap)
 - **Translate Line**: Translate single lines with selectable context sources (character list, synopsis, summary)
-- **Translate File**: Upload subtitle files (.ass/.srt) with batch size support, download translated output
+- **Translate File**: Upload subtitle files (.ass/.srt) with batch size support; translated files are saved in `backend/outputs/sub-files/` for download
 
 
 ## Dependencies

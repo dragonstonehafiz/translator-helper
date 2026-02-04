@@ -9,13 +9,14 @@ import { ContextStatusComponent } from '../../components/context-status/context-
 import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
 import { LoadingTextIndicatorComponent } from '../../components/loading-text-indicator/loading-text-indicator.component';
 import { ProgressBarComponent } from '../../components/progress-bar/progress-bar.component';
+import { DownloadsListComponent } from '../../components/downloads-list/downloads-list.component';
 import { ApiService } from '../../services/api.service';
 import { StateService } from '../../services/state.service';
 
 @Component({
   selector: 'app-translate',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, FileUploadComponent, TooltipIconComponent, ContextStatusComponent, PrimaryButtonComponent, LoadingTextIndicatorComponent, ProgressBarComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, FileUploadComponent, TooltipIconComponent, ContextStatusComponent, PrimaryButtonComponent, LoadingTextIndicatorComponent, ProgressBarComponent, DownloadsListComponent],
   templateUrl: './translate.component.html',
   styleUrl: './translate.component.scss'
 })
@@ -52,13 +53,15 @@ export class TranslateComponent implements OnInit, OnDestroy {
   fileOutputLanguage = 'en';
   batchSize = 3;
   fileToTranslate: File | null = null;
-  fileTranslationResult = '';
-  translatedFileName = '';
   isTranslatingFile = false;
   fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
   isFetchingFileInfo = false;
   fileInfoError = '';
   fileInfo: { totalLines: string; characterCount: string; averageCharacterCount: string } | null = null;
+  availableDownloads: { name: string; size: number; modified: string }[] = [];
+  isFetchingDownloads = false;
+  downloadError = '';
+  deletingDownload = '';
   private filePollingInterval?: any;
 
   languageOptions = [
@@ -89,6 +92,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadContextFromState();
+    this.refreshDownloads();
   }
 
   ngOnDestroy(): void {
@@ -228,7 +232,6 @@ export class TranslateComponent implements OnInit, OnDestroy {
     if (!this.fileToTranslate || this.isTranslatingFile) return;
 
     this.isTranslatingFile = true;
-    this.fileTranslationResult = '';
     this.fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
 
     const context = this.buildContext(
@@ -266,12 +269,11 @@ export class TranslateComponent implements OnInit, OnDestroy {
             this.fileTranslationProgress = response.progress;
             return;
           }
-          if (response.status === 'complete' && response.result) {
-            this.fileTranslationResult = response.result.data;
-            this.translatedFileName = response.result.filename || 'translated.ass';
+          if (response.status === 'complete') {
             this.isTranslatingFile = false;
             this.fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
             this.stopFilePolling();
+            this.refreshDownloads();
           } else if (response.status === 'error') {
             console.error('File translation error:', response.message);
             alert('File translation failed: ' + (response.message || 'Unknown error'));
@@ -301,24 +303,64 @@ export class TranslateComponent implements OnInit, OnDestroy {
     }
   }
 
-  downloadTranslatedFile(): void {
-    if (!this.fileTranslationResult || !this.translatedFileName) return;
-
-    // Create a blob from the file content
-    const blob = new Blob([this.fileTranslationResult], { type: 'text/plain;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    
-    // Create a temporary link element and trigger download
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = this.translatedFileName;
-    document.body.appendChild(link);
-    link.click();
-    
-    // Cleanup
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+  refreshDownloads(): void {
+    this.isFetchingDownloads = true;
+    this.downloadError = '';
+    this.apiService.listTranslatedFiles().subscribe({
+      next: (response: {status: string, files: {name: string, size: number, modified: string}[]}) => {
+        if (response.status === 'success') {
+          this.availableDownloads = response.files || [];
+        } else {
+          this.availableDownloads = [];
+          this.downloadError = 'Unable to load downloads.';
+        }
+        this.isFetchingDownloads = false;
+      },
+      error: (error: any) => {
+        console.error('Failed to load downloads:', error);
+        this.availableDownloads = [];
+        this.downloadError = 'Failed to load downloads. Please try again.';
+        this.isFetchingDownloads = false;
+      }
+    });
   }
 
+  downloadTranslatedFile(filename: string): void {
+    if (!filename) return;
+    this.apiService.downloadTranslatedFile(filename).subscribe({
+      next: (blob: Blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      },
+      error: (error: any) => {
+        console.error('Failed to download file:', error);
+        alert('Failed to download file. Please try again.');
+      }
+    });
+  }
+
+  deleteTranslatedFile(filename: string): void {
+    if (!filename || this.deletingDownload) return;
+    const confirmed = window.confirm(`Delete ${filename}? This cannot be undone.`);
+    if (!confirmed) return;
+    this.deletingDownload = filename;
+    this.apiService.deleteTranslatedFile(filename).subscribe({
+      next: () => {
+        this.availableDownloads = this.availableDownloads.filter(file => file.name !== filename);
+        this.deletingDownload = '';
+      },
+      error: (error: any) => {
+        console.error('Failed to delete file:', error);
+        alert('Failed to delete file. Please try again.');
+        this.deletingDownload = '';
+      }
+    });
+  }
 
 }

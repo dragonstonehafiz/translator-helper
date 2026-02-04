@@ -1,5 +1,4 @@
 import os
-import tempfile
 import time
 from typing import Optional
 
@@ -30,11 +29,7 @@ class ModelManager:
             "eta_seconds": 0.0
         }
         self.transcription_elapsed = None
-        self.translation_elapsed = None
         self.translation_start_time = None
-        self.last_line_translation_input = None
-        self.last_line_translation_output = None
-        self.last_line_translation_elapsed = None
 
         self.llm_error = None
         self.transcription_error = None
@@ -144,7 +139,7 @@ class ModelManager:
             except:
                 pass
 
-    def run_translate_file_task(self, file_path: str, context: dict, input_lang: str, output_lang: str, batch_size: int):
+    def run_translate_file_task(self, file_path: str, original_filename: str, context: dict, input_lang: str, output_lang: str, batch_size: int):
         try:
             if self.llm_client:
                 self.llm_client.set_running(True)
@@ -176,22 +171,20 @@ class ModelManager:
             )
             elapsed_seconds = time.time() - start_time
             logger.info("File translation completed in %.2fs", elapsed_seconds)
-            self.translation_elapsed = elapsed_seconds
 
-            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=os.path.splitext(file_path)[1], encoding='utf-8') as tmp_file:
-                translated_subs.save(tmp_file.name)
-                output_path = tmp_file.name
+            safe_original_name = os.path.basename(original_filename)
+            base_name = safe_original_name.split(".")[0]
+            _, ext = os.path.splitext(safe_original_name)
+            safe_lang = "".join(char for char in output_lang if char.isalnum() or char in ("-", "_")) or "lang"
+            translated_filename = f"{base_name}.{safe_lang}{ext}"
 
-            with open(output_path, 'r', encoding='utf-8') as f:
-                output_content = f.read()
-
-            original_filename = os.path.basename(file_path)
-            name, ext = os.path.splitext(original_filename)
-            translated_filename = f"{name}_translated{ext}"
+            output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "outputs", "sub-files")
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = os.path.join(output_dir, translated_filename)
+            translated_subs.save(output_path)
 
             self.translation_result = {
                 "type": "file_translation",
-                "data": output_content,
                 "filename": translated_filename
             }
             self.translation_progress = {
@@ -201,15 +194,10 @@ class ModelManager:
                 "eta_seconds": 0.0
             }
 
-            try:
-                os.remove(output_path)
-            except:
-                pass
         except Exception as e:
             logger.error(f"Error translating file: {e}")
             print(f"Error translating file: {e}")
             self.llm_error = str(e)
-            self.translation_elapsed = None
         finally:
             if self.llm_client:
                 self.llm_client.set_running(False)
@@ -261,23 +249,18 @@ class ModelManager:
                 logger.info("Context task '%s' completed in %.2fs", result_type, elapsed_seconds)
             else:
                 self.translation_result = payload
-                self.translation_elapsed = time.time() - start_time
+                elapsed_seconds = time.time() - start_time
                 if result_type == "line_translation":
-                    self.last_line_translation_input = prompt
-                    self.last_line_translation_output = result
-                    self.last_line_translation_elapsed = self.translation_elapsed
                     logger.info(
                         'Line translation: input="%s", output="%s", inference_time="%.2fs"',
                         prompt,
                         result,
-                        self.translation_elapsed
+                        elapsed_seconds
                     )
         except Exception as e:
             logger.error(f"Error running LLM task ({result_type}): {e}")
             print(f"Error running LLM task ({result_type}): {e}")
             self.llm_error = str(e)
-            if target != "context":
-                self.translation_elapsed = None
         finally:
             if self.llm_client:
                 self.llm_client.set_running(False)
