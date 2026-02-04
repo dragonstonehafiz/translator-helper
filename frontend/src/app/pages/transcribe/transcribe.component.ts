@@ -614,6 +614,25 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  async downloadClippedAudioMp3(): Promise<void> {
+    if (!this.recordedAudioBlob) return;
+    if (this.audioPlayer?.nativeElement) {
+      this.audioPlayer.nativeElement.pause();
+    }
+
+    try {
+      const clippedBlob = await this.getClippedAudioBlob();
+      const mp3Result = await this.encodeMp3IfSupported(clippedBlob);
+      this.triggerDownload(mp3Result.blob, `recording.${mp3Result.extension}`);
+      if (mp3Result.extension !== 'mp3') {
+        alert('MP3 encoding is not supported in this browser. Downloading WAV instead.');
+      }
+    } catch (error) {
+      console.error('Failed to download clipped audio:', error);
+      alert('Failed to download clipped audio. Please try again.');
+    }
+  }
+
   private startPolling(): void {
     this.pollingInterval = setInterval(() => {
       this.apiService.getTranscriptionResult().subscribe({
@@ -760,6 +779,53 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
     }
 
     return new Blob([buffer], { type: 'audio/wav' });
+  }
+
+  private async encodeMp3IfSupported(audioBlob: Blob): Promise<{ blob: Blob; extension: 'mp3' | 'wav' }> {
+    const mp3Type = 'audio/mpeg';
+    if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported(mp3Type)) {
+      return { blob: audioBlob, extension: 'wav' };
+    }
+
+    const audioContext = new AudioContext();
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    const source = audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+    const destination = audioContext.createMediaStreamDestination();
+    source.connect(destination);
+
+    const recorder = new MediaRecorder(destination.stream, { mimeType: mp3Type });
+    const chunks: BlobPart[] = [];
+
+    const recordedBlob = await new Promise<Blob>((resolve, reject) => {
+      recorder.ondataavailable = (event: BlobEvent) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+      recorder.onerror = () => reject(new Error('MP3 recorder error'));
+      recorder.onstop = () => resolve(new Blob(chunks, { type: mp3Type }));
+      recorder.start();
+      source.start();
+      source.onended = () => recorder.stop();
+    });
+
+    source.disconnect();
+    await audioContext.close();
+
+    return { blob: recordedBlob, extension: 'mp3' };
+  }
+
+  private triggerDownload(blob: Blob, filename: string): void {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   }
 
   private writeString(view: DataView, offset: number, value: string): void {
