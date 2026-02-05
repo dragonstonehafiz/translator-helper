@@ -217,6 +217,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
     }
   }
 
+
   private fetchFileInfo(file: File): void {
     this.isFetchingFileInfo = true;
     this.apiService.getTranscribeFileInfo(file).subscribe({
@@ -322,7 +323,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
   refreshDownloads(): void {
     this.isFetchingDownloads = true;
     this.downloadError = '';
-    this.apiService.listTranslatedFiles().subscribe({
+    this.apiService.listFiles('sub-files').subscribe({
       next: (response: {status: string, files: {name: string, size: number, modified: string}[]}) => {
         if (response.status === 'success') {
           this.availableDownloads = response.files || [];
@@ -343,7 +344,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
 
   downloadTranslatedFile(filename: string): void {
     if (!filename) return;
-    this.apiService.downloadTranslatedFile(filename).subscribe({
+    this.apiService.downloadFile('sub-files', filename).subscribe({
       next: (blob: Blob) => {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -366,7 +367,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
     const confirmed = window.confirm(`Delete ${filename}? This cannot be undone.`);
     if (!confirmed) return;
     this.deletingDownload = filename;
-    this.apiService.deleteTranslatedFile(filename).subscribe({
+    this.apiService.deleteFile('sub-files', filename).subscribe({
       next: () => {
         this.availableDownloads = this.availableDownloads.filter(file => file.name !== filename);
         this.deletingDownload = '';

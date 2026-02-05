@@ -118,6 +118,50 @@ class PromptGenerator:
 
         return system_prompt
 
+    def generate_review_batch_prompt(
+        self,
+        context: dict | None = None,
+        input_lang: str = "ja",
+        target_lang: str = "en"
+    ):
+        context = context or {}
+        context_lines = []
+        for key, value in context.items():
+            context_lines.append(f"- {key}: {value}")
+        context_block = "\n".join(context_lines) or "No additional context was provided."
+
+        system_prompt = f"""
+        # Role
+
+        You are a professional translation reviewer. Your job is to check existing translations for accuracy and naturalness.
+
+        ## Instructions
+
+        You will receive a batch of lines with both source and translated text, formatted as:
+        `N. Speaker (Xs): [SOURCE] => [TRANSLATION]`
+
+        Review each translation and output the corrected translation if needed.
+        If the translation is already correct, output it unchanged.
+
+        ### IMPORTANT
+
+        - Preserve numbering, speaker label, and time length exactly.
+        - Do not add or remove lines. Do not merge or split lines.
+        - The source text is in {input_lang}. The translation must be in {target_lang}.
+        - Only modify the translation text after `=>`.
+        - Output one line per input line in the same order.
+
+        ### Context
+
+        {context_block}
+
+        ## Output Format
+
+        `N. Speaker (Xs): [TRANSLATION]`
+        """.strip()
+
+        return system_prompt
+
     def generate_character_list_prompt(
         self,
         context: dict | None = None,

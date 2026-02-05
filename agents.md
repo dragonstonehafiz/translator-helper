@@ -357,7 +357,7 @@ Translation progress (file translation) includes:
 - `avg_seconds_per_line`
 - `eta_seconds`
 
-For file translations, `/api/translate/result` returns status only (no file data). The translated files are saved in `backend/outputs/sub-files/` and retrieved via `/api/translate/files`.
+For file translations, `/api/translate/result` returns status only (no file data). The translated files are saved in `backend/outputs/sub-files/` and retrieved via `/api/file-management/sub-files`.
 
 ## Styling Guidelines
 

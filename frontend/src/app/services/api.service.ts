@@ -38,14 +38,14 @@ export class ApiService {
   }
 
   getServerVariables(): Observable<{
-    audio: {whisper_model: string; device: string};
-    llm: {openai_model: string; temperature: number};
+    audio: {key?: string; label?: string; value?: unknown}[];
+    llm: {key?: string; label?: string; value?: unknown}[];
     llm_ready: boolean;
     audio_ready: boolean;
   }> {
     return this.http.get<{
-      audio: {whisper_model: string; device: string};
-      llm: {openai_model: string; temperature: number};
+      audio: {key?: string; label?: string; value?: unknown}[];
+      llm: {key?: string; label?: string; value?: unknown}[];
       llm_ready: boolean;
       audio_ready: boolean;
     }>(`${this.baseUrl}/server/variables`);
@@ -139,15 +139,15 @@ export class ApiService {
     return this.http.get<{status: string, result?: {type: string, data: string, filename?: string}, message?: string}>(`${this.baseUrl}/translate/result`);
   }
 
-  listTranslatedFiles(): Observable<{status: string, files: {name: string, size: number, modified: string}[]}> {
-    return this.http.get<{status: string, files: {name: string, size: number, modified: string}[]}>(`${this.baseUrl}/file-management/sub-files`);
+  listFiles(folder: string): Observable<{status: string, files: {name: string, size: number, modified: string}[]}> {
+    return this.http.get<{status: string, files: {name: string, size: number, modified: string}[]}>(`${this.baseUrl}/file-management/${encodeURIComponent(folder)}`);
   }
 
-  downloadTranslatedFile(filename: string): Observable<Blob> {
-    return this.http.get(`${this.baseUrl}/file-management/sub-files/${encodeURIComponent(filename)}`, { responseType: 'blob' });
+  downloadFile(folder: string, filename: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/file-management/${encodeURIComponent(folder)}/${encodeURIComponent(filename)}`, { responseType: 'blob' });
   }
 
-  deleteTranslatedFile(filename: string): Observable<{status: string}> {
-    return this.http.delete<{status: string}>(`${this.baseUrl}/file-management/sub-files/${encodeURIComponent(filename)}`);
+  deleteFile(folder: string, filename: string): Observable<{status: string}> {
+    return this.http.delete<{status: string}>(`${this.baseUrl}/file-management/${encodeURIComponent(folder)}/${encodeURIComponent(filename)}`);
   }
 }
