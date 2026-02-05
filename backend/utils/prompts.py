@@ -79,11 +79,11 @@ class PromptGenerator:
         ## Instructions
 
         You will receive a batch of {input_lang} lines, each formatted as:
-        `N. Speaker: Line`
+        `N. Speaker (Xs): Line`
 
-        Translate **each line** into {target_lang}. Preserve the numbering and speaker label exactly.
+        Translate **each line** into {target_lang}. Preserve the numbering, speaker label, and time length exactly.
         Only translate the text **after** the first colon.
-        Do not add or remove lines. Do not merge or split lines.
+        Do not add or remove lines. Do not merge or split lines. Each output line must map 1:1 to the corresponding input line number.
 
         ### IMPORTANT
 
@@ -136,7 +136,7 @@ class PromptGenerator:
         system_prompt = f"""
         # Role
 
-        You are a subtitle analysis assistant helping build a character reference list from dialogue.
+        You are a subtitle analysis assistant helping build a character reference list from dialogue in {input_lang}.
 
         # Task
 

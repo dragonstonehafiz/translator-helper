@@ -341,9 +341,9 @@ When no client is loaded yet, `audio` and `llm` are empty arrays (`[]`).
 - `POST /api/translate/translate-line`: Translate text line with context (FormData: text, context JSON, input_lang, output_lang)
 - `POST /api/translate/translate-file`: Translate subtitle file with batch size (FormData: file, context JSON, input_lang, output_lang, batch_size)
 - `GET /api/translate/result`: Poll for translation result
-- `GET /api/translate/files`: List available translated subtitle files from `backend/outputs/sub-files/`
-- `GET /api/translate/files/{filename}`: Download a translated subtitle file
-- `DELETE /api/translate/files/{filename}`: Delete a translated subtitle file
+- `GET /api/file-management/{folder}`: List files in `backend/outputs/{folder}/`
+- `GET /api/file-management/{folder}/{filename}`: Download a file
+- `DELETE /api/file-management/{folder}/{filename}`: Delete a file
 
 ### Background Tasks
 

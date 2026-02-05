@@ -314,15 +314,17 @@ async def get_translation_result():
         return {"status": "idle", "result": None, "error": None}
 
 
-def _get_sub_files_dir() -> Path:
-    output_dir = Path(__file__).resolve().parent / "outputs" / "sub-files"
+def _get_files_dir(folder: str) -> Path:
+    if not folder or not all(ch.isalnum() or ch in "-_" for ch in folder):
+        raise HTTPException(status_code=400, detail="Invalid folder name")
+    output_dir = Path(__file__).resolve().parent / "outputs" / folder
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 
 
-@router.get("/api/translate/files")
-async def list_translation_files():
-    output_dir = _get_sub_files_dir()
+@router.get("/api/file-management/{folder}")
+async def list_files(folder: str):
+    output_dir = _get_files_dir(folder)
     files = []
     for entry in output_dir.iterdir():
         if entry.is_file():
@@ -336,9 +338,9 @@ async def list_translation_files():
     return {"status": "success", "files": files}
 
 
-@router.get("/api/translate/files/{filename}")
-async def download_translation_file(filename: str):
-    output_dir = _get_sub_files_dir().resolve()
+@router.get("/api/file-management/{folder}/{filename}")
+async def download_file(folder: str, filename: str):
+    output_dir = _get_files_dir(folder).resolve()
     safe_name = os.path.basename(filename)
     file_path = (output_dir / safe_name).resolve()
     if output_dir not in file_path.parents or not file_path.exists() or not file_path.is_file():
@@ -346,9 +348,9 @@ async def download_translation_file(filename: str):
     return FileResponse(path=str(file_path), filename=safe_name, media_type="application/octet-stream")
 
 
-@router.delete("/api/translate/files/{filename}")
-async def delete_translation_file(filename: str):
-    output_dir = _get_sub_files_dir().resolve()
+@router.delete("/api/file-management/{folder}/{filename}")
+async def delete_file(folder: str, filename: str):
+    output_dir = _get_files_dir(folder).resolve()
     safe_name = os.path.basename(filename)
     file_path = (output_dir / safe_name).resolve()
     if output_dir not in file_path.parents or not file_path.exists() or not file_path.is_file():
