@@ -7,6 +7,7 @@ from models.llm_chatgpt import LLMChatGPT
 from models.audio_whisper import AudioWhisper
 from interface import LLMInterface, AudioModelInterface
 from utils.translate_subs import translate_subs
+from utils.review_subs import review_subs
 from utils.logger import setup_logger
 
 logger = setup_logger()
@@ -133,7 +134,15 @@ class ModelManager:
             except:
                 pass
 
-    def run_translate_file_task(self, file_path: str, original_filename: str, context: dict, input_lang: str, output_lang: str, batch_size: int):
+    def run_translate_file_task(
+        self,
+        file_path: str,
+        original_filename: str,
+        context: dict,
+        input_lang: str,
+        output_lang: str,
+        batch_size: int
+    ):
         try:
             if self.llm_client:
                 self.llm_client.set_running(True)
@@ -198,6 +207,95 @@ class ModelManager:
                 os.remove(file_path)
             except:
                 pass
+            self.translation_progress = {
+                "current": 0,
+                "total": 0,
+                "avg_seconds_per_line": 0.0,
+                "eta_seconds": 0.0
+            }
+            self.translation_start_time = None
+
+    def run_review_file_task(
+        self,
+        original_file_path: str,
+        translated_file_path: str,
+        original_filename: str,
+        input_lang: str,
+        output_lang: str,
+        batch_size: int,
+        context: dict | None = None
+    ):
+        try:
+            if self.llm_client:
+                self.llm_client.set_running(True)
+            self.translation_result = None
+            self.llm_error = None
+            logger.info(
+                "Starting review pass: original='%s', translated='%s', input_lang='%s', output_lang='%s'",
+                original_file_path,
+                translated_file_path,
+                input_lang,
+                output_lang
+            )
+
+            import pysubs2
+            original_subs = pysubs2.load(original_file_path)
+            translated_subs = pysubs2.load(translated_file_path)
+
+            total_lines = len(translated_subs)
+            batch_size = max(1, batch_size)
+            self.translation_start_time = time.time()
+            self.translation_progress = {
+                "current": 0,
+                "total": total_lines,
+                "avg_seconds_per_line": 0.0,
+                "eta_seconds": 0.0
+            }
+
+            translated_subs = review_subs(
+                llm=self.llm_client,
+                original_subs=original_subs,
+                translated_subs=translated_subs,
+                context=context or {},
+                input_lang=input_lang,
+                target_lang=output_lang,
+                batch_size=batch_size,
+                temperature=self.llm_client.get_temperature(),
+                progress_callback=self._update_translation_progress
+            )
+
+            safe_original_name = os.path.basename(original_filename)
+            base_name = safe_original_name.split(".", 1)[0]
+            input_suffix = f".{input_lang}"
+            if base_name.endswith(input_suffix):
+                base_name = base_name[: -len(input_suffix)]
+            _, ext = os.path.splitext(safe_original_name)
+            safe_lang = "".join(char for char in output_lang if char.isalnum() or char in ("-", "_")) or "lang"
+            reviewed_filename = f"{base_name}.{safe_lang}.reviewed{ext}"
+
+            output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "outputs", "review-files")
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = os.path.join(output_dir, reviewed_filename)
+            translated_subs.save(output_path)
+
+            self.translation_result = {
+                "type": "file_review",
+                "filename": reviewed_filename
+            }
+            self.translation_progress = {
+                "current": self.translation_progress["total"],
+                "total": self.translation_progress["total"],
+                "avg_seconds_per_line": self.translation_progress["avg_seconds_per_line"],
+                "eta_seconds": 0.0
+            }
+
+            logger.info("Review pass completed: output='%s'", reviewed_filename)
+        except Exception as e:
+            logger.error(f"Error running review task: {e}")
+            self.llm_error = str(e)
+        finally:
+            if self.llm_client:
+                self.llm_client.set_running(False)
             self.translation_progress = {
                 "current": 0,
                 "total": 0,

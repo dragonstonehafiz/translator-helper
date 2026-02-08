@@ -192,9 +192,6 @@
             <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
           </select>
         </div>
-      </div>
-
-      <div class="form-row context-info-row">
         <div class="form-group context-window-group">
           <label for="batchSize">
             Batch Size
@@ -202,34 +199,35 @@
           </label>
           <input type="number" id="batchSize" [(ngModel)]="batchSize" min="1" max="10">
         </div>
-        <div class="file-info-panel">
-          <div class="file-info-heading">File Details</div>
-          <div *ngIf="isFetchingFileInfo" class="file-info-status">Analyzing file...</div>
-          <ng-container *ngIf="!isFetchingFileInfo">
-            <div *ngIf="fileInfo; else fileInfoStatus" class="file-info-grid">
-              <div>
-                <span class="info-label">Lines</span>
-                <span class="info-value">{{ fileInfo.totalLines }}</span>
-              </div>
-              <div>
-                <span class="info-label">Characters</span>
-                <span class="info-value">{{ fileInfo.characterCount }}</span>
-              </div>
-              <div>
-                <span class="info-label">Average Characters per Line</span>
-                <span class="info-value">{{ fileInfo.averageCharacterCount }}</span>
-              </div>
+      </div>
+
+      <div class="file-info-panel">
+        <div class="file-info-heading">File Details</div>
+        <div *ngIf="isFetchingFileInfo" class="file-info-status">Analyzing file...</div>
+        <ng-container *ngIf="!isFetchingFileInfo">
+          <div *ngIf="fileInfo; else fileInfoStatus" class="file-info-grid">
+            <div>
+              <span class="info-label">Lines</span>
+              <span class="info-value">{{ fileInfo.totalLines }}</span>
             </div>
-            <ng-template #fileInfoStatus>
-              <div class="file-info-status" *ngIf="fileInfoError; else fileInfoPrompt">
-                {{ fileInfoError }}
-              </div>
-              <ng-template #fileInfoPrompt>
-                <div class="file-info-status">Upload a file to view stats.</div>
-              </ng-template>
+            <div>
+              <span class="info-label">Characters</span>
+              <span class="info-value">{{ fileInfo.characterCount }}</span>
+            </div>
+            <div>
+              <span class="info-label">Average Characters per Line</span>
+              <span class="info-value">{{ fileInfo.averageCharacterCount }}</span>
+            </div>
+          </div>
+          <ng-template #fileInfoStatus>
+            <div class="file-info-status" *ngIf="fileInfoError; else fileInfoPrompt">
+              {{ fileInfoError }}
+            </div>
+            <ng-template #fileInfoPrompt>
+              <div class="file-info-status">Upload a file to view stats.</div>
             </ng-template>
-          </ng-container>
-        </div>
+          </ng-template>
+        </ng-container>
       </div>
 
       <app-file-upload
@@ -262,5 +260,6 @@
         (delete)="deleteTranslatedFile($event)">
       </app-downloads-list>
     </app-subsection>
+
   </div>
 </div>

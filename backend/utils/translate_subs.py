@@ -58,7 +58,13 @@ def translate_subs(
         batch_lines = []
         for i, line in enumerate(batch, start=1):
             speaker = line.name.strip() if line.name else "Line"
-            batch_lines.append(f"{i}. {speaker}: {line.text}")
+            length_seconds = None
+            if hasattr(line, "start") and hasattr(line, "end"):
+                length_seconds = max(0.0, (float(line.end) - float(line.start)) / 1000.0)
+            elif hasattr(line, "length"):
+                length_seconds = max(0.0, float(line.length) / 1000.0)
+            length_label = f"{length_seconds:.2f}s" if length_seconds is not None else "0.00s"
+            batch_lines.append(f"{i}. {speaker} ({length_label}): {line.text}")
 
         for attempt in range(3):
             try:
@@ -86,8 +92,7 @@ def translate_subs(
                     _, translated_text = translated.split(":", 1)
                     original_line = f"{line.text}"
                     line.text = translated_text.replace("\\N", " ").strip()
-                    translate_file_logger.info("Original: %s", original_line)
-                    translate_file_logger.info("Translated: %s", line.text)
+                    translate_file_logger.info("Original: %s | Translated: %s", original_line, line.text)
                     processed += 1
                     if progress_callback:
                         progress_callback(processed, total_lines)
