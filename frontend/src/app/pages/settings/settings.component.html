@@ -18,8 +18,11 @@
         <div class="status-details" *ngIf="llmReady && llmDetails.length">
           <div *ngFor="let item of llmDetails">{{ item.label }}: {{ item.value }}</div>
         </div>
+        <div class="status-details error-details" *ngIf="!llmReady && llmLoadingError">
+          <div>{{ llmLoadingError }}</div>
+        </div>
       </div>
-      
+
       <div class="status-box" [class.ready]="audioReady === true" [class.not-ready]="audioReady === false" [class.not-connected]="audioReady === null">
         <h3 class="component-name">Transcription Model</h3>
         <div class="status-content">
@@ -30,6 +33,9 @@
         </div>
         <div class="status-details" *ngIf="audioReady && audioDetails.length">
           <div *ngFor="let item of audioDetails">{{ item.label }}: {{ item.value }}</div>
+        </div>
+        <div class="status-details error-details" *ngIf="!audioReady && audioLoadingError">
+          <div>{{ audioLoadingError }}</div>
         </div>
       </div>
     </div>

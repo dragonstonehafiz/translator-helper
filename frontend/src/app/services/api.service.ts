@@ -42,12 +42,16 @@ export class ApiService {
     llm: {key?: string; label?: string; value?: unknown}[];
     llm_ready: boolean;
     audio_ready: boolean;
+    llm_loading_error: string | null;
+    audio_loading_error: string | null;
   }> {
     return this.http.get<{
       audio: {key?: string; label?: string; value?: unknown}[];
       llm: {key?: string; label?: string; value?: unknown}[];
       llm_ready: boolean;
       audio_ready: boolean;
+      llm_loading_error: string | null;
+      audio_loading_error: string | null;
     }>(`${this.baseUrl}/server/variables`);
   }
 

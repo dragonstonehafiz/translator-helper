@@ -1,17 +1,17 @@
 import json
 import os
 
+from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 
 from interface import LLMInterface
 
 
-class LLMChatGPT(LLMInterface):
-    CONFIG_FILE = "llm_chatgpt.json"
+class LLMClaude(LLMInterface):
+    CONFIG_FILE = "llm_claude.json"
 
     def __init__(self):
-        self._model_name = "gpt-4o"
+        self._model_name = "claude-sonnet-4-6"
         self._device = "API"
         self._api_key = ""
         self._temperature = 0.5
@@ -49,19 +49,17 @@ class LLMChatGPT(LLMInterface):
 
     def get_settings_schema(self) -> dict:
         return {
-            "provider": "llm_chatgpt",
-            "title": "OpenAI ChatGPT",
+            "provider": "llm_claude",
+            "title": "Anthropic Claude",
             "fields": [
                 {
                     "key": "model_name",
                     "label": "Model",
                     "type": "select",
                     "options": [
-                        {"label": "gpt-4.1-mini", "value": "gpt-4.1-mini"},
-                        {"label": "gpt-4.1", "value": "gpt-4.1"},
-                        {"label": "gpt-5.1", "value": "gpt-5.1"},
-                        {"label": "gpt-4o", "value": "gpt-4o"},
-                        {"label": "o4-mini", "value": "o4-mini"}
+                        {"label": "Claude Haiku 4.5", "value": "claude-haiku-4-5-20251001"},
+                        {"label": "Claude Sonnet 4.6", "value": "claude-sonnet-4-6"},
+                        {"label": "Claude Opus 4.6", "value": "claude-opus-4-6"},
                     ],
                     "default": self._model_name,
                     "required": True
@@ -70,7 +68,7 @@ class LLMChatGPT(LLMInterface):
                     "key": "api_key",
                     "label": "API Key",
                     "type": "password",
-                    "placeholder": "sk-...",
+                    "placeholder": "sk-ant-...",
                     "required": True
                 },
                 {
@@ -78,7 +76,7 @@ class LLMChatGPT(LLMInterface):
                     "label": "Temperature",
                     "type": "number",
                     "min": 0,
-                    "max": 2,
+                    "max": 1,
                     "step": 0.1,
                     "default": self._temperature
                 }
@@ -100,7 +98,7 @@ class LLMChatGPT(LLMInterface):
         self._model_name = model_name
         if self._llm is not None:
             self._llm = self._build_llm()
-            
+
     def get_model(self) -> str:
         return self._model_name
 
@@ -118,7 +116,7 @@ class LLMChatGPT(LLMInterface):
 
     def get_server_variables(self) -> list[dict]:
         return [
-            {"key": "openai_model", "label": "Model", "value": self._model_name},
+            {"key": "anthropic_model", "label": "Model", "value": self._model_name},
             {"key": "temperature", "label": "Temperature", "value": self._temperature}
         ]
 
@@ -158,16 +156,13 @@ class LLMChatGPT(LLMInterface):
 
     def _build_llm(self, temperature: float | None = None, max_tokens: int | None = None):
         if not self._api_key:
-            raise ValueError("OpenAI API key is required to initialize ChatGPT.")
+            raise ValueError("Anthropic API key is required to initialize Claude.")
 
         params = {
             "api_key": self._api_key,
             "model": self._model_name,
-            "temperature": self._temperature if temperature is None else temperature
+            "temperature": self._temperature if temperature is None else temperature,
+            "max_tokens": max_tokens if max_tokens is not None else 8096
         }
-        if max_tokens is None:
-            pass
-        else:
-            params["max_tokens"] = max_tokens
 
-        return ChatOpenAI(**params)
+        return ChatAnthropic(**params)

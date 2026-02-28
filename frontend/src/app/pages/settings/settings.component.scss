@@ -88,6 +88,13 @@
   }
 }
 
+.error-details {
+  color: #c0392b;
+  border-top-color: rgba(192, 57, 43, 0.3);
+  font-size: 0.85rem;
+  word-break: break-word;
+}
+
 .status-box.ready {
   border-color: #28a745;
   

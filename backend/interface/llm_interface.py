@@ -1,7 +1,12 @@
+import os
 from abc import ABC, abstractmethod
 
 
 class LLMInterface(ABC):
+    def _get_config_path(self, filename: str) -> str:
+        """Return the absolute path to backend/data/<filename>."""
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", filename)
+    
     @abstractmethod
     def initialize(self):
         """Initialize the LLM backend."""

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Optional
 import os
 from pathlib import Path
@@ -8,15 +9,31 @@ from interface import LLMInterface
 
 
 class LLMLlamaCpp(LLMInterface):
+    CONFIG_FILE = "llm_llamacpp.json"
+
     def __init__(self):
-        self._model_file = os.getenv("LLAMA_MODEL_FILE", "")
-        self._n_ctx = int(os.getenv("LLAMA_N_CTX", "4096"))
-        self._n_gpu_layers = int(os.getenv("LLAMA_N_GPU_LAYERS", "-1"))
-        self._n_threads = int(os.getenv("LLAMA_N_THREADS", "8"))
-        self._temperature = float(os.getenv("LLAMA_TEMPERATURE", "0.5"))
+        self._model_file = ""
+        self._n_ctx = 4096
+        self._n_gpu_layers = -1
+        self._n_threads = 8
+        self._temperature = 0.5
         self._running = False
         self._llm: Optional[Llama] = None
         self._status = "not_loaded"
+
+        _data_path = self._get_config_path(self.CONFIG_FILE)
+        if os.path.isfile(_data_path):
+            with open(_data_path, "r", encoding="utf-8") as _f:
+                _cfg = json.load(_f)
+            self._model_file = _cfg.get("model_file", self._model_file)
+            self._n_ctx = int(_cfg.get("n_ctx", self._n_ctx))
+            self._n_gpu_layers = int(_cfg.get("n_gpu_layers", self._n_gpu_layers))
+            self._n_threads = int(_cfg.get("n_threads", self._n_threads))
+            self._temperature = float(_cfg.get("temperature", self._temperature))
+        else:
+            os.makedirs(os.path.dirname(_data_path), exist_ok=True)
+            with open(_data_path, "w", encoding="utf-8") as _f:
+                json.dump({"model_file": self._model_file, "n_ctx": self._n_ctx, "n_gpu_layers": self._n_gpu_layers, "n_threads": self._n_threads, "temperature": self._temperature}, _f, indent=2)
 
     def configure(self, settings: dict):
         if not settings:
@@ -32,6 +49,11 @@ class LLMLlamaCpp(LLMInterface):
             self._n_threads = int(settings["n_threads"])
         if "temperature" in settings:
             self._temperature = float(settings["temperature"])
+
+        _data_path = self._get_config_path(self.CONFIG_FILE)
+        os.makedirs(os.path.dirname(_data_path), exist_ok=True)
+        with open(_data_path, "w", encoding="utf-8") as _f:
+            json.dump({"model_file": self._model_file, "n_ctx": self._n_ctx, "n_gpu_layers": self._n_gpu_layers, "n_threads": self._n_threads, "temperature": self._temperature}, _f, indent=2)
 
     def get_settings_schema(self) -> dict:
         return {

@@ -5,6 +5,7 @@ __pycache__/
 config.json
 outputs/
 .env
+data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

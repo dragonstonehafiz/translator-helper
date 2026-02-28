@@ -72,23 +72,20 @@ uv pip uninstall torch torchvision
 uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 ```
 
-### 4. Getting API Keys and setting up the .env file
+### 4. Configuration
 
-In the backend directory, you should see a file called `.env.example`. Make a copy of that file in the same directory and rename to .env. Then generate an API key for [OpenAI](https://platform.openai.com/). Open the `.env` file you just created and copy it over.
+Settings (API keys, model names, temperatures, etc.) are stored as JSON files in `backend/data/`. These files are created automatically with default values the first time the backend starts up. You can set your API keys and preferences through the **Settings page** in the app — changes are saved immediately to the corresponding JSON file.
 
-```bash
-OPENAI_API_KEY="API_KEY"
-```
+| File | Provider |
+|---|---|
+| `backend/data/llm_chatgpt.json` | OpenAI ChatGPT |
+| `backend/data/llm_claude.json` | Anthropic Claude |
+| `backend/data/llm_llamacpp.json` | llama.cpp (local GGUF) |
+| `backend/data/audio_whisper.json` | Whisper |
 
-You may notice other lines on the `.env` file like **WHISPER_MODEL** and **WHISPER_DEVICE**. You can update these too if you would like the backend to start with certain settings when you start the backend server.
+### 5. Using llama.cpp (Local LLM)
 
-If you are using a local LLM backend (e.g., llama.cpp), the `.env` can also include model-specific variables such as **LLAMA_MODEL_FILE**, **LLAMA_N_CTX**, **LLAMA_N_GPU_LAYERS**, **LLAMA_N_THREADS**, and **LLAMA_TEMPERATURE**.
-
-You can comment out variables for providers you are not using (and uncomment the ones you are). Leaving all variables uncommented should not cause errors.
-
-### 5. Switching LLM Backends (ChatGPT vs llama.cpp)
-
-Right now, the backend uses **ChatGPT by default** in `backend/utils/model_manager.py`. To switch to a local llama.cpp model:
+If you want to use a local GGUF model instead of an API-based LLM, you need to install the llama.cpp dependency and place your model file:
 
 1. **Install llama.cpp dependency**
    ```bash
@@ -97,27 +94,20 @@ Right now, the backend uses **ChatGPT by default** in `backend/utils/model_manag
 
 2. **Place your GGUF model file**
    - Put the model in `backend/model-files/`
-   - Set `LLAMA_MODEL_FILE` in `.env` to the filename (e.g., `qwen2.5-7b-instruct-q4_k_m.gguf`)
 
 3. **Update the model manager**
-   - Change the LLM instantiation to `LLMLlamaCpp` in `backend/utils/model_manager.py`
-   - (The LLM load path is currently hard-coded to `LLMChatGPT` by default.)
+   - In `backend/utils/model_manager.py`, swap the import and the instantiation line inside `load_llm_model`:
 
 ```python
-# backend/utils/model_manager.py
-from models.llm_chatgpt import LLMChatGPT
-from models.llm_llamacpp import LLMLlamaCpp
+# Change the import at the top of the file:
+from models.llm_llamacpp import LLMLlamaCpp  # instead of LLMChatGPT / LLMClaude
 
-def load_llm_model(self):
-    if self.llm_client is None:
-        # self.llm_client = LLMChatGPT()  # default
-        self.llm_client = LLMLlamaCpp()   # switch to local llama.cpp
-    self.llm_client.initialize()
+# Change the instantiation inside load_llm_model:
+if self.llm_client is None:
+    self.llm_client = LLMLlamaCpp()  # instead of LLMChatGPT() / LLMClaude()
 ```
 
-If you want a proper **provider selector** (so you don’t have to edit code), say the word and we can add it.
-
-Once this is done, the backend should be ready for use.
+Once started, configure the model file and other settings through the **Settings page** in the app.
 
 ### 6. Setting up the Frontend
 
@@ -178,9 +168,9 @@ translator-helper/
 │   ├── server.py              # Main FastAPI application entry point
 │   ├── routes.py              # API route definitions
 │   ├── requirements.txt       # Python dependencies
-│   ├── .env.example           # Example environment variables
 │   ├── interface/             # Interfaces for model backends
 │   ├── models/                # Concrete model implementations
+│   ├── data/                  # JSON config files (auto-created on first run)
 │   ├── utils/                 # Utility modules
 │   │   ├── logger.py          # Logging setup
 │   │   ├── utils.py           # General utilities

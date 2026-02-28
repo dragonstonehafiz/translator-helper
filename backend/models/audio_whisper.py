@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Optional
 
@@ -8,15 +9,25 @@ from interface import AudioModelInterface
 
 
 class AudioWhisper(AudioModelInterface):
-    def __init__(self):
-        env_model = os.getenv("WHISPER_MODEL") or "medium"
-        env_device = os.getenv("WHISPER_DEVICE") or "cpu"
+    CONFIG_FILE = "audio_whisper.json"
 
-        self._model_name = env_model
-        self._device = env_device
+    def __init__(self):
+        self._model_name = "medium"
+        self._device = "cpu"
         self._model = None
         self._running = False
         self._status = "not_loaded"
+
+        _data_path = self._get_config_path(self.CONFIG_FILE)
+        if os.path.isfile(_data_path):
+            with open(_data_path, "r", encoding="utf-8") as _f:
+                _cfg = json.load(_f)
+            self._model_name = _cfg.get("model_name", self._model_name)
+            self._device = _cfg.get("device", self._device)
+        else:
+            os.makedirs(os.path.dirname(_data_path), exist_ok=True)
+            with open(_data_path, "w", encoding="utf-8") as _f:
+                json.dump({"model_name": self._model_name, "device": self._device}, _f, indent=2)
 
     def configure(self, settings: dict):
         if not settings:
@@ -25,6 +36,11 @@ class AudioWhisper(AudioModelInterface):
             self._model_name = settings["model_name"]
         if "device" in settings:
             self._device = settings["device"]
+
+        _data_path = self._get_config_path(self.CONFIG_FILE)
+        os.makedirs(os.path.dirname(_data_path), exist_ok=True)
+        with open(_data_path, "w", encoding="utf-8") as _f:
+            json.dump({"model_name": self._model_name, "device": self._device}, _f, indent=2)
 
     def get_settings_schema(self) -> dict:
         return {

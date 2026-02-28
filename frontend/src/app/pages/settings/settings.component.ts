@@ -23,6 +23,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
   llmReady: boolean | null = null;
   audioReady: boolean | null = null;
 
+  llmLoadingError: string | null = null;
+  audioLoadingError: string | null = null;
+
   loadingWhisper = false;
   loadingGpt = false;
 
@@ -117,6 +120,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.stateService.setReady(response.llm_ready && response.audio_ready);
         this.llmReady = response.llm_ready;
         this.audioReady = response.audio_ready;
+        this.llmLoadingError = response.llm_loading_error ?? null;
+        this.audioLoadingError = response.audio_loading_error ?? null;
         if (response.llm_ready) {
           this.stateService.setLoadingGpt(false);
         }

@@ -11,6 +11,7 @@ openai
 langchain
 langchain-community
 langchain-openai
+langchain-anthropic
 llama-cpp-python
 
 # Subtitles

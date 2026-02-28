@@ -107,6 +107,8 @@ async def get_server_variables():
         "llm": (llm_client.get_server_variables() if llm_client else []),
         "llm_ready": llm_ready,
         "audio_ready": audio_ready,
+        "llm_loading_error": model_manager.llm_loading_error,
+        "audio_loading_error": model_manager.audio_loading_error,
     }
 
 

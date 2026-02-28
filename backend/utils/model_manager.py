@@ -2,8 +2,9 @@ import os
 import time
 from typing import Optional
 
-from models.llm_chatgpt import LLMChatGPT
+# from models.llm_chatgpt import LLMChatGPT
 # from models.llm_llamacpp import LLMLlamaCpp
+from models.llm_claude import LLMClaude
 from models.audio_whisper import AudioWhisper
 from interface import LLMInterface, AudioModelInterface
 from utils.translate_subs import translate_subs
@@ -34,6 +35,8 @@ class ModelManager:
 
         self.llm_error = None
         self.transcription_error = None
+        self.llm_loading_error: str | None = None
+        self.audio_loading_error: str | None = None
 
     def is_llm_running(self) -> bool:
         return bool(self.llm_client and self.llm_client.is_running())
@@ -73,8 +76,10 @@ class ModelManager:
             else:
                 pass
             self.audio_client.initialize()
+            self.audio_loading_error = None
             logger.info(f"Whisper model loaded: model='{self.audio_client.get_model()}', device='{self.audio_client.get_device()}'")
         except Exception as e:
+            self.audio_loading_error = str(e)
             logger.error(f"Error loading Whisper model: {e}")
         finally:
             self.loading_audio_model = False
@@ -93,12 +98,14 @@ class ModelManager:
         try:
             self.loading_llm_model = True
             if self.llm_client is None:
-                self.llm_client = LLMChatGPT()
+                self.llm_client = LLMClaude()
             else:
                 pass
             self.llm_client.initialize()
+            self.llm_loading_error = None
             logger.info(f"LLM loaded: model='{self.llm_client.get_model()}', temperature={self.llm_client.get_temperature()}")
         except Exception as e:
+            self.llm_loading_error = str(e)
             logger.error(f"Error loading LLM model: {e}")
         finally:
             self.loading_llm_model = False
