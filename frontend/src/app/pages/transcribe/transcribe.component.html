@@ -5,11 +5,11 @@
   </div>
 
   <div class="form-section">
-    <app-subsection 
-      title="Transcribe Line" 
+    <app-subsection
+      title="Transcribe Line"
       [collapsed]="translateLineCollapsed"
       tooltip="Record audio from your microphone to transcribe into subtitle format">
-      
+
       <div class="recording-container">
         <div class="form-group">
           <label for="inputLanguage">Input Language</label>
@@ -17,6 +17,14 @@
             <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
           </select>
         </div>
+
+        <app-file-upload
+          accept="audio/*"
+          placeholder="Upload Audio File"
+          subtext="Drag and drop an audio file or click to select"
+          [selectedFiles]="selectedUploadFiles"
+          (filesSelected)="onAudioFileSelected($event)">
+        </app-file-upload>
 
         <div class="waveform-wrapper" [class.is-recording]="isRecording">
           <canvas #waveformCanvas class="waveform-canvas"></canvas>

@@ -30,6 +30,7 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
   isPlaying = false;
   selectionStart = 0;
   selectionEnd = 0;
+  selectedUploadFiles: File[] = [];
   private isSelecting = false;
   private selectionDragMode: 'new' | 'start' | 'end' = 'new';
   private ignoreNextClick = false;
@@ -226,11 +227,48 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
     this.selectionStart = 0;
     this.selectionEnd = this.playbackDuration;
     this.stopRecordingLoop();
-    
+
     // Stop timer
     // Stop MediaRecorder
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
       this.mediaRecorder.stop();
+    }
+  }
+
+  async onAudioFileSelected(files: File[]): Promise<void> {
+    if (!files || files.length === 0) return;
+
+    const audioFile = files[0];
+    this.selectedUploadFiles = [audioFile];
+
+    try {
+      // Clear previous recording
+      if (this.recordedAudioUrl) {
+        URL.revokeObjectURL(this.recordedAudioUrl);
+      }
+      if (this.audioPlayer?.nativeElement) {
+        this.audioPlayer.nativeElement.pause();
+      }
+
+      // Set up the audio file
+      const audioBlob = new Blob([audioFile], { type: audioFile.type });
+      this.recordedAudioBlob = audioBlob;
+      this.recordedAudioUrl = URL.createObjectURL(audioBlob);
+      this.decodedAudioBuffer = null;
+
+      // Draw waveform from the uploaded audio
+      await this.drawWaveformFromAudio(audioBlob);
+
+      // Reset player
+      if (this.audioPlayer?.nativeElement) {
+        this.audioPlayer.nativeElement.currentTime = 0;
+      }
+
+      this.cdr.detectChanges();
+    } catch (error) {
+      console.error('Error loading audio file:', error);
+      alert('Failed to load audio file. Please ensure it is a valid audio file.');
+      this.selectedUploadFiles = [];
     }
   }
 
