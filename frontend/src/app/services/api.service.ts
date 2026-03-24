@@ -120,6 +120,10 @@ export class ApiService {
     return this.http.get<{status: string, result?: {type: string, data: string}, message?: string}>(`${this.baseUrl}/transcribe/result`);
   }
 
+  transcribeFile(formData: FormData): Observable<{status: string, message?: string}> {
+    return this.http.post<{status: string, message?: string}>(`${this.baseUrl}/transcribe/transcribe-file`, formData);
+  }
+
   translateLine(text: string, context: any, inputLang: string, outputLang: string): Observable<{status: string, message?: string}> {
     const formData = new FormData();
     formData.append('text', text);

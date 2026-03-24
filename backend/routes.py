@@ -171,6 +171,31 @@ async def get_transcription_result():
         return {"status": "idle", "result": None, "error": None}
 
 
+@router.post("/api/transcribe/transcribe-file")
+async def api_transcribe_file(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    language: str = Form(...)
+):
+    """Transcribe a full audio file to .ass subtitle format."""
+    if model_manager.is_transcribe_file_running():
+        return {"status": "error", "message": "File transcription is already running"}
+
+    if not model_manager.is_audio_ready():
+        return {"status": "error", "message": "Whisper model not loaded"}
+
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp_file:
+            content = await file.read()
+            tmp_file.write(content)
+            tmp_file_path = tmp_file.name
+
+        background_tasks.add_task(model_manager.run_transcribe_file_task, tmp_file_path, language, file.filename)
+        return {"status": "processing", "message": "File transcription started"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @router.post("/api/utils/get-subtitle-file-info/")
 async def api_get_subtitle_file_info(file: UploadFile = File(...)):
     """Return stats about an uploaded ASS or SRT subtitle file."""

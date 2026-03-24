@@ -38,11 +38,18 @@ class ModelManager:
         self.llm_loading_error: str | None = None
         self.audio_loading_error: str | None = None
 
+        self.transcribe_file_result = None
+        self.transcribe_file_error = None
+        self._running_transcribe_file = False
+
     def is_llm_running(self) -> bool:
         return bool(self.llm_client and self.llm_client.is_running())
 
     def is_audio_running(self) -> bool:
         return bool(self.audio_client and self.audio_client.is_running())
+
+    def is_transcribe_file_running(self) -> bool:
+        return self._running_transcribe_file
 
     def is_llm_ready(self) -> bool:
         return bool(self.llm_client and self.llm_client.get_status() == "loaded")
@@ -139,6 +146,33 @@ class ModelManager:
             try:
                 os.remove(file_path)
             except:
+                pass
+
+    def run_transcribe_file_task(self, file_path: str, language: str, original_filename: str):
+        try:
+            self._running_transcribe_file = True
+            self.transcribe_file_result = None
+            self.transcribe_file_error = None
+
+            subs = self.audio_client.transcribe_file(file_path, language)
+
+            base_name = os.path.splitext(os.path.basename(original_filename))[0]
+            output_filename = base_name + ".ass"
+            output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "outputs", "transcribe-sub-files")
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = os.path.join(output_dir, output_filename)
+            subs.save(output_path)
+
+            self.transcribe_file_result = output_filename
+            logger.info("File transcription complete: '%s'", output_filename)
+        except Exception as e:
+            logger.error("Error transcribing file: %s", e)
+            self.transcribe_file_error = str(e)
+        finally:
+            self._running_transcribe_file = False
+            try:
+                os.remove(file_path)
+            except Exception:
                 pass
 
     def run_translate_file_task(

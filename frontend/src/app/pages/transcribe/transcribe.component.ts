@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef, OnDestroy, HostListener } from '@angular/core';
+import { Component, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef, OnDestroy, OnInit, HostListener } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -7,53 +7,65 @@ import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon
 import { LoadingTextIndicatorComponent } from '../../components/loading-text-indicator/loading-text-indicator.component';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 import { TextFieldComponent } from '../../components/text-field/text-field.component';
+import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
+import { DownloadsListComponent } from '../../components/downloads-list/downloads-list.component';
 import { ApiService } from '../../services/api.service';
 import { StateService } from '../../services/state.service';
 
 @Component({
   selector: 'app-transcribe',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent, TooltipIconComponent, LoadingTextIndicatorComponent],
+  imports: [
+    CommonModule, FormsModule,
+    SubsectionComponent, FileUploadComponent, TextFieldComponent,
+    TooltipIconComponent, LoadingTextIndicatorComponent,
+    PrimaryButtonComponent, DownloadsListComponent
+  ],
   templateUrl: './transcribe.component.html',
   styleUrl: './transcribe.component.scss'
 })
-export class TranscribeComponent implements AfterViewInit, OnDestroy {
+export class TranscribeComponent implements AfterViewInit, OnInit, OnDestroy {
   @ViewChild('waveformCanvas') waveformCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('audioPlayer') audioPlayer?: ElementRef<HTMLAudioElement>;
-  
+  @ViewChild('fileWaveformCanvas') fileWaveformCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('fileAudioPlayer') fileAudioPlayer?: ElementRef<HTMLAudioElement>;
+
+  // --- Transcribe Line section state ---
+  transcribeLineState = {
+    audioFile: null as File | null,
+    audioUrl: null as string | null,
+    audioBlob: null as Blob | null,
+    decodedBuffer: null as AudioBuffer | null,
+    channelData: null as Float32Array | null,
+    progress: 0,
+    playbackTime: 0,
+    playbackDuration: 0,
+    recordedDuration: 0,
+    isPlaying: false,
+    isRecording: false,
+    recordingDuration: 0,
+    selectionStart: 0,
+    selectionEnd: 0,
+  };
+
+  // --- Transcribe File section state ---
+  transcribeFileState = {
+    audioFile: null as File | null,
+    audioUrl: null as string | null,
+    audioBlob: null as Blob | null,
+    channelData: null as Float32Array | null,
+    progress: 0,
+    playbackTime: 0,
+    playbackDuration: 0,
+    isPlaying: false,
+  };
+
+  // --- Section-level (non-waveform) state ---
   translateLineCollapsed = true;
-  isRecording = false;
-  recordingDuration = 0;
-  recordedDuration = 0;
-  playbackTime = 0;
-  playbackDuration = 0;
-  isPlaying = false;
-  selectionStart = 0;
-  selectionEnd = 0;
-  selectedUploadFiles: File[] = [];
-  private isSelecting = false;
-  private selectionDragMode: 'new' | 'start' | 'end' = 'new';
-  private ignoreNextClick = false;
-  private decodedAudioBuffer: AudioBuffer | null = null;
-  private playbackRafId: number | null = null;
-  recordedAudioUrl: string | null = null;
-  recordedAudioBlob: Blob | null = null;
-  private recordingRafId: number | null = null;
-  private recordingStartTime = 0;
-  private mediaRecorder?: MediaRecorder;
-  private audioChunks: Blob[] = [];
-  private audioChannelData: Float32Array | null = null;
-  private audioProgress = 0;
-  
-  // Transcript state
   transcript = '';
-  transcriptReadMode = true;
-  transcriptFontSize = 16;
   isTranscribing = false;
-  private pollingInterval?: any;
-  
-  // Language settings
   inputLanguage = 'ja';
+  fileInputLanguage = 'ja';
   languageOptions = [
     { code: 'en', name: 'English' },
     { code: 'ja', name: 'Japanese' },
@@ -74,7 +86,24 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
     { code: 'pl', name: 'Polish' },
     { code: 'tr', name: 'Turkish' },
   ];
-  
+  isTranscribingFile = false;
+  fileAvailableDownloads: { name: string; size: number; modified: string }[] = [];
+  isFetchingFileDownloads = false;
+  fileDownloadError = '';
+  deletingFileDownload = '';
+
+  // --- Private implementation details ---
+  private isSelecting = false;
+  private selectionDragMode: 'new' | 'start' | 'end' = 'new';
+  private ignoreNextClick = false;
+  private playbackRafId: number | null = null;
+  private recordingRafId: number | null = null;
+  private recordingStartTime = 0;
+  private mediaRecorder?: MediaRecorder;
+  private audioChunks: Blob[] = [];
+  private pollingInterval?: any;
+  private filePollingInterval?: any;
+
   constructor(
     private cdr: ChangeDetectorRef,
     private sanitizer: DomSanitizer,
@@ -82,48 +111,77 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
     private stateService: StateService
   ) {}
 
+  ngOnInit(): void {
+    this.refreshFileDownloads();
+  }
+
   ngAfterViewInit(): void {
-    // Draw initial silent waveform
     setTimeout(() => this.drawWaveform(true), 100);
-    
-    // Set up audio player event listeners
+
     if (this.audioPlayer) {
       const audio = this.audioPlayer.nativeElement;
       audio.addEventListener('timeupdate', () => {
         if (audio.duration) {
-          this.audioProgress = audio.currentTime / audio.duration;
+          this.transcribeLineState.progress = audio.currentTime / audio.duration;
           this.redrawWaveformWithProgress();
         }
-        this.playbackTime = audio.currentTime || 0;
-        if (this.hasSelection() && audio.currentTime >= this.selectionEnd) {
+        this.transcribeLineState.playbackTime = audio.currentTime || 0;
+        if (this.hasSelection() && audio.currentTime >= this.transcribeLineState.selectionEnd) {
           audio.pause();
-          audio.currentTime = this.selectionEnd;
+          audio.currentTime = this.transcribeLineState.selectionEnd;
         }
       });
       audio.addEventListener('loadedmetadata', () => {
-        this.playbackDuration = Number.isFinite(audio.duration) ? audio.duration : 0;
-        this.recordedDuration = this.playbackDuration || this.recordedDuration;
-        if (this.playbackDuration > 0) {
-          this.selectionStart = 0;
-          this.selectionEnd = this.playbackDuration;
+        this.transcribeLineState.playbackDuration = Number.isFinite(audio.duration) ? audio.duration : 0;
+        this.transcribeLineState.recordedDuration = this.transcribeLineState.playbackDuration || this.transcribeLineState.recordedDuration;
+        if (this.transcribeLineState.playbackDuration > 0) {
+          this.transcribeLineState.selectionStart = 0;
+          this.transcribeLineState.selectionEnd = this.transcribeLineState.playbackDuration;
           this.redrawWaveformWithProgress();
         }
       });
       audio.addEventListener('play', () => {
-        this.isPlaying = true;
+        this.transcribeLineState.isPlaying = true;
         this.startPlaybackLoop();
       });
       audio.addEventListener('pause', () => {
-        this.isPlaying = false;
+        this.transcribeLineState.isPlaying = false;
         this.stopPlaybackLoop();
       });
       audio.addEventListener('ended', () => {
-        this.isPlaying = false;
+        this.transcribeLineState.isPlaying = false;
         this.stopPlaybackLoop();
       });
     }
-    
-    // Set up canvas click for seeking
+
+    if (this.fileAudioPlayer) {
+      const fileAudio = this.fileAudioPlayer.nativeElement;
+      fileAudio.addEventListener('timeupdate', () => {
+        if (fileAudio.duration) {
+          this.transcribeFileState.progress = fileAudio.currentTime / fileAudio.duration;
+          this.redrawFileWaveformWithProgress();
+        }
+        this.transcribeFileState.playbackTime = fileAudio.currentTime || 0;
+        this.cdr.detectChanges();
+      });
+      fileAudio.addEventListener('loadedmetadata', () => {
+        this.transcribeFileState.playbackDuration = Number.isFinite(fileAudio.duration) ? fileAudio.duration : 0;
+      });
+      fileAudio.addEventListener('play', () => {
+        this.transcribeFileState.isPlaying = true;
+        this.cdr.detectChanges();
+      });
+      fileAudio.addEventListener('pause', () => {
+        this.transcribeFileState.isPlaying = false;
+        this.cdr.detectChanges();
+      });
+      fileAudio.addEventListener('ended', () => {
+        this.transcribeFileState.isPlaying = false;
+        this.transcribeFileState.progress = 0;
+        this.cdr.detectChanges();
+      });
+    }
+
     if (this.waveformCanvas) {
       const canvas = this.waveformCanvas.nativeElement;
       canvas.addEventListener('click', (event) => this.handleWaveformClick(event));
@@ -131,8 +189,6 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
       canvas.addEventListener('mousemove', (event) => this.handleWaveformMouseMove(event));
       canvas.addEventListener('mouseup', () => this.handleWaveformMouseUp());
       canvas.addEventListener('mouseleave', () => this.handleWaveformMouseUp());
-      
-      // Add cursor pointer style
       this.waveformCanvas.nativeElement.style.cursor = 'pointer';
     }
   }
@@ -141,14 +197,17 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
   handleWindowKeydown(event: KeyboardEvent): void {
     if (!this.isSpacebar(event)) return;
     if (this.isEditableTarget(event.target)) return;
-    if (!this.recordedAudioUrl) return;
+    if (!this.transcribeLineState.audioUrl) return;
     event.preventDefault();
     this.togglePlayback();
   }
 
+  // =========================================================================
+  // Transcribe Line methods
+  // =========================================================================
+
   async startRecording(): Promise<void> {
     try {
-      // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
@@ -156,64 +215,53 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
           autoGainControl: false
         }
       });
-      
-      // Clear previous recording
-      if (this.recordedAudioUrl) {
-        URL.revokeObjectURL(this.recordedAudioUrl);
-        this.recordedAudioUrl = null;
-        this.recordedAudioBlob = null;
+
+      if (this.transcribeLineState.audioUrl) {
+        URL.revokeObjectURL(this.transcribeLineState.audioUrl);
+        this.transcribeLineState.audioUrl = null;
+        this.transcribeLineState.audioBlob = null;
       }
-      this.decodedAudioBuffer = null;
-      
-      // Draw silent waveform when starting new recording
+      this.transcribeLineState.decodedBuffer = null;
+
       this.drawWaveform(true);
-      this.recordedDuration = 0;
-      this.selectionStart = 0;
-      this.selectionEnd = 0;
-      
-      // Reset audio chunks
+      this.transcribeLineState.recordedDuration = 0;
+      this.transcribeLineState.selectionStart = 0;
+      this.transcribeLineState.selectionEnd = 0;
+
       this.audioChunks = [];
-      
-      // Create MediaRecorder
+
       this.mediaRecorder = new MediaRecorder(stream);
-      
-      // Collect audio data
+
       this.mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           this.audioChunks.push(event.data);
         }
       };
-      
-      // Handle recording stop
+
       this.mediaRecorder.onstop = async () => {
-        // Create blob from chunks with proper MIME type
         const mimeType = this.mediaRecorder?.mimeType || 'audio/webm';
         const audioBlob = new Blob(this.audioChunks, { type: mimeType });
-        this.recordedAudioBlob = audioBlob;
-        this.recordedAudioUrl = URL.createObjectURL(audioBlob);
-        
-        // Stop all tracks
+        this.transcribeLineState.audioBlob = audioBlob;
+        this.transcribeLineState.audioUrl = URL.createObjectURL(audioBlob);
+
         stream.getTracks().forEach(track => track.stop());
-        
-        // Analyze and draw waveform from actual audio
+
         await this.drawWaveformFromAudio(audioBlob);
         if (this.audioPlayer?.nativeElement) {
           this.audioPlayer.nativeElement.currentTime = 0;
         }
-        
-        // Trigger change detection
+
         this.cdr.detectChanges();
       };
-      
-      // Start recording
+
       this.mediaRecorder.start();
-      this.isRecording = true;
-      this.recordingDuration = 0;
-      this.playbackTime = 0;
-      this.playbackDuration = 0;
+      this.transcribeLineState.isRecording = true;
+      this.transcribeLineState.recordingDuration = 0;
+      this.transcribeLineState.playbackTime = 0;
+      this.transcribeLineState.playbackDuration = 0;
       this.recordingStartTime = performance.now();
       this.startRecordingLoop();
-      
+
     } catch (error) {
       console.error('Error accessing microphone:', error);
       alert('Could not access microphone. Please ensure you have granted microphone permissions.');
@@ -221,15 +269,13 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
   }
 
   stopRecording(): void {
-    this.isRecording = false;
-    this.recordedDuration = this.recordingDuration;
-    this.playbackDuration = this.recordedDuration;
-    this.selectionStart = 0;
-    this.selectionEnd = this.playbackDuration;
+    this.transcribeLineState.isRecording = false;
+    this.transcribeLineState.recordedDuration = this.transcribeLineState.recordingDuration;
+    this.transcribeLineState.playbackDuration = this.transcribeLineState.recordedDuration;
+    this.transcribeLineState.selectionStart = 0;
+    this.transcribeLineState.selectionEnd = this.transcribeLineState.playbackDuration;
     this.stopRecordingLoop();
 
-    // Stop timer
-    // Stop MediaRecorder
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
       this.mediaRecorder.stop();
     }
@@ -239,27 +285,23 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
     if (!files || files.length === 0) return;
 
     const audioFile = files[0];
-    this.selectedUploadFiles = [audioFile];
+    this.transcribeLineState.audioFile = audioFile;
 
     try {
-      // Clear previous recording
-      if (this.recordedAudioUrl) {
-        URL.revokeObjectURL(this.recordedAudioUrl);
+      if (this.transcribeLineState.audioUrl) {
+        URL.revokeObjectURL(this.transcribeLineState.audioUrl);
       }
       if (this.audioPlayer?.nativeElement) {
         this.audioPlayer.nativeElement.pause();
       }
 
-      // Set up the audio file
       const audioBlob = new Blob([audioFile], { type: audioFile.type });
-      this.recordedAudioBlob = audioBlob;
-      this.recordedAudioUrl = URL.createObjectURL(audioBlob);
-      this.decodedAudioBuffer = null;
+      this.transcribeLineState.audioBlob = audioBlob;
+      this.transcribeLineState.audioUrl = URL.createObjectURL(audioBlob);
+      this.transcribeLineState.decodedBuffer = null;
 
-      // Draw waveform from the uploaded audio
       await this.drawWaveformFromAudio(audioBlob);
 
-      // Reset player
       if (this.audioPlayer?.nativeElement) {
         this.audioPlayer.nativeElement.currentTime = 0;
       }
@@ -268,18 +310,17 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
     } catch (error) {
       console.error('Error loading audio file:', error);
       alert('Failed to load audio file. Please ensure it is a valid audio file.');
-      this.selectedUploadFiles = [];
+      this.transcribeLineState.audioFile = null;
     }
   }
 
   private drawWaveform(silent: boolean = false): void {
     if (!this.waveformCanvas) return;
-    
+
     const canvas = this.waveformCanvas.nativeElement;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas resolution
     canvas.width = canvas.offsetWidth * window.devicePixelRatio;
     canvas.height = canvas.offsetHeight * window.devicePixelRatio;
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
@@ -288,13 +329,11 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
     const height = canvas.offsetHeight;
     const centerY = height / 2;
 
-    // Clear canvas
     ctx.clearRect(0, 0, width, height);
     ctx.strokeStyle = '#667eea';
     ctx.lineWidth = 2;
     ctx.beginPath();
 
-    // Draw flat line for silent/no recording
     ctx.moveTo(0, centerY);
     ctx.lineTo(width, centerY);
     ctx.stroke();
@@ -302,27 +341,24 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
 
   private async drawWaveformFromAudio(audioBlob: Blob): Promise<void> {
     if (!this.waveformCanvas) return;
-    
+
     try {
       const canvas = this.waveformCanvas.nativeElement;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Read audio data
       const arrayBuffer = await audioBlob.arrayBuffer();
       const audioContext = new AudioContext();
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      this.decodedAudioBuffer = audioBuffer;
-      
-      // Get audio data from first channel
+      this.transcribeLineState.decodedBuffer = audioBuffer;
+
       const channelData = audioBuffer.getChannelData(0);
-      this.audioChannelData = channelData;
-      this.playbackDuration = audioBuffer.duration;
-      this.recordedDuration = audioBuffer.duration;
-      this.selectionStart = 0;
-      this.selectionEnd = audioBuffer.duration;
-      
-      // Set canvas resolution
+      this.transcribeLineState.channelData = channelData;
+      this.transcribeLineState.playbackDuration = audioBuffer.duration;
+      this.transcribeLineState.recordedDuration = audioBuffer.duration;
+      this.transcribeLineState.selectionStart = 0;
+      this.transcribeLineState.selectionEnd = audioBuffer.duration;
+
       canvas.width = canvas.offsetWidth * window.devicePixelRatio;
       canvas.height = canvas.offsetHeight * window.devicePixelRatio;
       ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
@@ -331,29 +367,26 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
       const height = canvas.offsetHeight;
       const centerY = height / 2;
 
-      // Clear canvas
       ctx.clearRect(0, 0, width, height);
       ctx.strokeStyle = '#667eea';
       ctx.lineWidth = 2;
       ctx.beginPath();
 
-      // Calculate samples to display
       const samples = Math.min(width, channelData.length);
       const step = width / samples;
       const blockSize = Math.floor(channelData.length / samples);
 
       for (let i = 0; i < samples; i++) {
-        // Get average amplitude for this block
         let sum = 0;
         for (let j = 0; j < blockSize; j++) {
           sum += Math.abs(channelData[i * blockSize + j]);
         }
         const average = sum / blockSize;
-        
+
         const x = i * step;
-        const amplitude = average * height * 0.8; // Scale amplitude
+        const amplitude = average * height * 0.8;
         const y = centerY + (i % 2 === 0 ? amplitude : -amplitude);
-        
+
         if (i === 0) {
           ctx.moveTo(x, y);
         } else {
@@ -363,19 +396,17 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
 
       ctx.stroke();
       this.drawSelectionOverlay(ctx, width, height);
-      
-      // Close audio context
+
       await audioContext.close();
     } catch (error) {
       console.error('Error drawing waveform:', error);
-      // Fall back to silent waveform on error
       this.drawWaveform(true);
     }
   }
 
   private redrawWaveformWithProgress(): void {
-    if (!this.waveformCanvas || !this.audioChannelData) return;
-    
+    if (!this.waveformCanvas || !this.transcribeLineState.channelData) return;
+
     const canvas = this.waveformCanvas.nativeElement;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -384,29 +415,27 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
     const height = canvas.offsetHeight;
     const centerY = height / 2;
 
-    // Clear and redraw waveform
     ctx.clearRect(0, 0, width, height);
-    
-    // Draw waveform
+
     ctx.strokeStyle = '#667eea';
     ctx.lineWidth = 2;
     ctx.beginPath();
 
-    const samples = Math.min(width, this.audioChannelData.length);
+    const samples = Math.min(width, this.transcribeLineState.channelData.length);
     const step = width / samples;
-    const blockSize = Math.floor(this.audioChannelData.length / samples);
+    const blockSize = Math.floor(this.transcribeLineState.channelData.length / samples);
 
     for (let i = 0; i < samples; i++) {
       let sum = 0;
       for (let j = 0; j < blockSize; j++) {
-        sum += Math.abs(this.audioChannelData[i * blockSize + j]);
+        sum += Math.abs(this.transcribeLineState.channelData[i * blockSize + j]);
       }
       const average = sum / blockSize;
-      
+
       const x = i * step;
       const amplitude = average * height * 0.8;
       const y = centerY + (i % 2 === 0 ? amplitude : -amplitude);
-      
+
       if (i === 0) {
         ctx.moveTo(x, y);
       } else {
@@ -415,12 +444,10 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
     }
 
     ctx.stroke();
-
     this.drawSelectionOverlay(ctx, width, height);
-    
-    // Draw progress line
-    if (this.audioProgress > 0) {
-      const progressX = this.audioProgress * width;
+
+    if (this.transcribeLineState.progress > 0) {
+      const progressX = this.transcribeLineState.progress * width;
       ctx.strokeStyle = '#ff6b6b';
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -435,37 +462,36 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
       this.ignoreNextClick = false;
       return;
     }
-    if (!this.waveformCanvas || !this.audioPlayer || !this.recordedAudioUrl) return;
-    
+    if (!this.waveformCanvas || !this.audioPlayer || !this.transcribeLineState.audioUrl) return;
+
     const canvas = this.waveformCanvas.nativeElement;
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const width = rect.width;
-    
-    // Calculate seek position
+
     const seekPercent = x / width;
     const audio = this.audioPlayer.nativeElement;
-    
+
     if (audio.duration) {
       let targetTime = seekPercent * audio.duration;
       if (this.hasSelection()) {
-        targetTime = Math.min(Math.max(targetTime, this.selectionStart), this.selectionEnd);
+        targetTime = Math.min(Math.max(targetTime, this.transcribeLineState.selectionStart), this.transcribeLineState.selectionEnd);
       }
       audio.currentTime = targetTime;
     }
   }
 
   private handleWaveformMouseDown(event: MouseEvent): void {
-    if (!this.waveformCanvas || !this.playbackDuration || !this.recordedAudioUrl) return;
+    if (!this.waveformCanvas || !this.transcribeLineState.playbackDuration || !this.transcribeLineState.audioUrl) return;
     this.ignoreNextClick = true;
     const canvas = this.waveformCanvas.nativeElement;
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const width = rect.width;
-    const time = (x / width) * this.playbackDuration;
+    const time = (x / width) * this.transcribeLineState.playbackDuration;
 
-    const startX = (this.selectionStart / this.playbackDuration) * width;
-    const endX = (this.selectionEnd / this.playbackDuration) * width;
+    const startX = (this.transcribeLineState.selectionStart / this.transcribeLineState.playbackDuration) * width;
+    const endX = (this.transcribeLineState.selectionEnd / this.transcribeLineState.playbackDuration) * width;
     const handleThreshold = 8;
 
     if (Math.abs(x - startX) <= handleThreshold) {
@@ -474,8 +500,8 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
       this.selectionDragMode = 'end';
     } else {
       this.selectionDragMode = 'new';
-      this.selectionStart = time;
-      this.selectionEnd = time;
+      this.transcribeLineState.selectionStart = time;
+      this.transcribeLineState.selectionEnd = time;
     }
 
     this.isSelecting = true;
@@ -483,51 +509,51 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
   }
 
   private handleWaveformMouseMove(event: MouseEvent): void {
-    if (!this.isSelecting || !this.waveformCanvas || !this.playbackDuration) return;
+    if (!this.isSelecting || !this.waveformCanvas || !this.transcribeLineState.playbackDuration) return;
     const canvas = this.waveformCanvas.nativeElement;
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const width = rect.width;
-    const time = (x / width) * this.playbackDuration;
+    const time = (x / width) * this.transcribeLineState.playbackDuration;
     this.updateSelection(time);
   }
 
   private handleWaveformMouseUp(): void {
     if (!this.isSelecting) return;
     this.isSelecting = false;
-    if (this.selectionEnd < this.selectionStart) {
-      const temp = this.selectionStart;
-      this.selectionStart = this.selectionEnd;
-      this.selectionEnd = temp;
+    if (this.transcribeLineState.selectionEnd < this.transcribeLineState.selectionStart) {
+      const temp = this.transcribeLineState.selectionStart;
+      this.transcribeLineState.selectionStart = this.transcribeLineState.selectionEnd;
+      this.transcribeLineState.selectionEnd = temp;
     }
     this.redrawWaveformWithProgress();
   }
 
   private updateSelection(time: number): void {
-    const clamped = Math.max(0, Math.min(time, this.playbackDuration));
+    const clamped = Math.max(0, Math.min(time, this.transcribeLineState.playbackDuration));
     if (this.selectionDragMode === 'start') {
-      this.selectionStart = clamped;
+      this.transcribeLineState.selectionStart = clamped;
     } else if (this.selectionDragMode === 'end') {
-      this.selectionEnd = clamped;
+      this.transcribeLineState.selectionEnd = clamped;
     } else {
-      this.selectionEnd = clamped;
+      this.transcribeLineState.selectionEnd = clamped;
     }
-    if (this.selectionEnd < this.selectionStart) {
-      const temp = this.selectionStart;
-      this.selectionStart = this.selectionEnd;
-      this.selectionEnd = temp;
+    if (this.transcribeLineState.selectionEnd < this.transcribeLineState.selectionStart) {
+      const temp = this.transcribeLineState.selectionStart;
+      this.transcribeLineState.selectionStart = this.transcribeLineState.selectionEnd;
+      this.transcribeLineState.selectionEnd = temp;
     }
     this.redrawWaveformWithProgress();
   }
 
   private hasSelection(): boolean {
-    return this.playbackDuration > 0 && this.selectionEnd > this.selectionStart;
+    return this.transcribeLineState.playbackDuration > 0 && this.transcribeLineState.selectionEnd > this.transcribeLineState.selectionStart;
   }
 
   private drawSelectionOverlay(ctx: CanvasRenderingContext2D, width: number, height: number): void {
     if (!this.hasSelection()) return;
-    const startX = (this.selectionStart / this.playbackDuration) * width;
-    const endX = (this.selectionEnd / this.playbackDuration) * width;
+    const startX = (this.transcribeLineState.selectionStart / this.transcribeLineState.playbackDuration) * width;
+    const endX = (this.transcribeLineState.selectionEnd / this.transcribeLineState.playbackDuration) * width;
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
     ctx.fillRect(0, 0, startX, height);
@@ -544,17 +570,17 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
   }
 
   playRecording(): void {
-    if (!this.audioPlayer || !this.recordedAudioUrl) return;
+    if (!this.audioPlayer || !this.transcribeLineState.audioUrl) return;
     const audio = this.audioPlayer.nativeElement;
     audio.play();
   }
 
   togglePlayback(): void {
-    if (!this.audioPlayer || !this.recordedAudioUrl) return;
+    if (!this.audioPlayer || !this.transcribeLineState.audioUrl) return;
     const audio = this.audioPlayer.nativeElement;
     if (audio.paused) {
       if (this.hasSelection()) {
-        audio.currentTime = this.selectionStart;
+        audio.currentTime = this.transcribeLineState.selectionStart;
       } else {
         audio.currentTime = 0;
       }
@@ -571,19 +597,19 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
     const tick = () => {
       if (!audio.paused && audio.duration) {
         if (this.hasSelection()) {
-          const end = this.selectionEnd;
+          const end = this.transcribeLineState.selectionEnd;
           if (audio.currentTime >= end - 0.005) {
             audio.currentTime = end;
             audio.pause();
-            this.playbackTime = end;
-            this.audioProgress = end / audio.duration;
+            this.transcribeLineState.playbackTime = end;
+            this.transcribeLineState.progress = end / audio.duration;
             this.redrawWaveformWithProgress();
             this.stopPlaybackLoop();
             return;
           }
         }
-        this.audioProgress = audio.currentTime / audio.duration;
-        this.playbackTime = audio.currentTime || 0;
+        this.transcribeLineState.progress = audio.currentTime / audio.duration;
+        this.transcribeLineState.playbackTime = audio.currentTime || 0;
         this.redrawWaveformWithProgress();
         this.playbackRafId = requestAnimationFrame(tick);
       } else {
@@ -602,11 +628,11 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
   private startRecordingLoop(): void {
     if (this.recordingRafId !== null) return;
     const tick = () => {
-      if (!this.isRecording) {
+      if (!this.transcribeLineState.isRecording) {
         this.stopRecordingLoop();
         return;
       }
-      this.recordingDuration = (performance.now() - this.recordingStartTime) / 1000;
+      this.transcribeLineState.recordingDuration = (performance.now() - this.recordingStartTime) / 1000;
       this.recordingRafId = requestAnimationFrame(tick);
     };
     this.recordingRafId = requestAnimationFrame(tick);
@@ -619,23 +645,21 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
   }
 
   async transcribeAudio(): Promise<void> {
-    if (!this.recordedAudioBlob || this.isTranscribing) return;
+    if (!this.transcribeLineState.audioBlob || this.isTranscribing) return;
 
     try {
       this.isTranscribing = true;
 
       const clippedBlob = await this.getClippedAudioBlob();
-      const mimeType = clippedBlob.type || this.recordedAudioBlob.type;
+      const mimeType = clippedBlob.type || this.transcribeLineState.audioBlob.type;
       const extension = mimeType.includes('wav')
         ? 'wav'
         : (mimeType.includes('webm') ? 'webm' : 'mp4');
       const audioFile = new File([clippedBlob], `recording.${extension}`, { type: mimeType });
 
-      // Start transcription
       this.apiService.transcribeAudio(audioFile, this.inputLanguage).subscribe({
         next: (response) => {
           if (response.status === 'processing') {
-            // Start polling for result
             this.startPolling();
           }
         },
@@ -653,7 +677,7 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
   }
 
   async downloadClippedAudioMp3(): Promise<void> {
-    if (!this.recordedAudioBlob) return;
+    if (!this.transcribeLineState.audioBlob) return;
     if (this.audioPlayer?.nativeElement) {
       this.audioPlayer.nativeElement.pause();
     }
@@ -676,23 +700,19 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
       this.apiService.getTranscriptionResult().subscribe({
         next: (response) => {
           if (response.status === 'complete' && response.result) {
-            // Transcription complete
             this.transcript = response.result.data;
             this.isTranscribing = false;
             this.stopPolling();
             this.cdr.detectChanges();
           } else if (response.status === 'error') {
-            // Error occurred
             console.error('Transcription error:', response.message);
             alert('Transcription failed: ' + (response.message || 'Unknown error'));
             this.isTranscribing = false;
             this.stopPolling();
           } else if (response.status === 'idle') {
-            // No transcription in progress
             this.isTranscribing = false;
             this.stopPolling();
           }
-          // If status is 'processing', continue polling
         },
         error: (error) => {
           console.error('Polling error:', error);
@@ -700,7 +720,7 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
           this.stopPolling();
         }
       });
-    }, 1000); // Poll every second
+    }, 1000);
   }
 
   private stopPolling(): void {
@@ -710,48 +730,40 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  toggleTranscriptMode(): void {
-    this.transcriptReadMode = !this.transcriptReadMode;
-  }
-
-  adjustTranscriptFontSize(delta: number): void {
-    this.transcriptFontSize = Math.max(12, Math.min(24, this.transcriptFontSize + delta));
-  }
-
   getDisplayCurrentTime(): number {
-    if (this.isRecording) {
+    if (this.transcribeLineState.isRecording) {
       return 0;
     }
-    if (this.playbackDuration > 0 && this.selectionEnd > this.selectionStart) {
-      return Math.max(0, this.playbackTime - this.selectionStart);
+    if (this.transcribeLineState.playbackDuration > 0 && this.transcribeLineState.selectionEnd > this.transcribeLineState.selectionStart) {
+      return Math.max(0, this.transcribeLineState.playbackTime - this.transcribeLineState.selectionStart);
     }
-    return this.playbackTime;
+    return this.transcribeLineState.playbackTime;
   }
 
   getDisplayTotalTime(): number {
-    if (this.isRecording) {
-      return this.recordingDuration;
+    if (this.transcribeLineState.isRecording) {
+      return this.transcribeLineState.recordingDuration;
     }
-    if (this.playbackDuration > 0 && this.selectionEnd > this.selectionStart) {
-      return Math.max(0, this.selectionEnd - this.selectionStart);
+    if (this.transcribeLineState.playbackDuration > 0 && this.transcribeLineState.selectionEnd > this.transcribeLineState.selectionStart) {
+      return Math.max(0, this.transcribeLineState.selectionEnd - this.transcribeLineState.selectionStart);
     }
-    return this.playbackDuration || this.recordedDuration;
+    return this.transcribeLineState.playbackDuration || this.transcribeLineState.recordedDuration;
   }
 
   private async getClippedAudioBlob(): Promise<Blob> {
-    if (!this.recordedAudioBlob) {
+    if (!this.transcribeLineState.audioBlob) {
       throw new Error('No recording available');
     }
 
-    const duration = this.playbackDuration || this.recordedDuration;
+    const duration = this.transcribeLineState.playbackDuration || this.transcribeLineState.recordedDuration;
     if (!this.hasSelection() || this.isFullSelection(duration)) {
-      return this.recordedAudioBlob;
+      return this.transcribeLineState.audioBlob;
     }
 
     const audioBuffer = await this.getDecodedAudioBuffer();
     const sampleRate = audioBuffer.sampleRate;
-    const startSample = Math.floor(this.selectionStart * sampleRate);
-    const endSample = Math.floor(this.selectionEnd * sampleRate);
+    const startSample = Math.floor(this.transcribeLineState.selectionStart * sampleRate);
+    const endSample = Math.floor(this.transcribeLineState.selectionEnd * sampleRate);
     const safeEnd = Math.max(startSample + 1, Math.min(endSample, audioBuffer.length));
     const numChannels = audioBuffer.numberOfChannels;
     const channels: Float32Array[] = [];
@@ -765,25 +777,248 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
   }
 
   private async getDecodedAudioBuffer(): Promise<AudioBuffer> {
-    if (this.decodedAudioBuffer) {
-      return this.decodedAudioBuffer;
+    if (this.transcribeLineState.decodedBuffer) {
+      return this.transcribeLineState.decodedBuffer;
     }
-    if (!this.recordedAudioBlob) {
+    if (!this.transcribeLineState.audioBlob) {
       throw new Error('No recording available');
     }
-    const arrayBuffer = await this.recordedAudioBlob.arrayBuffer();
+    const arrayBuffer = await this.transcribeLineState.audioBlob.arrayBuffer();
     const audioContext = new AudioContext();
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
     await audioContext.close();
-    this.decodedAudioBuffer = audioBuffer;
+    this.transcribeLineState.decodedBuffer = audioBuffer;
     return audioBuffer;
   }
 
   private isFullSelection(duration: number): boolean {
     if (!duration) return true;
     const epsilon = 0.01;
-    return Math.abs(this.selectionStart) <= epsilon && Math.abs(this.selectionEnd - duration) <= epsilon;
+    return Math.abs(this.transcribeLineState.selectionStart) <= epsilon && Math.abs(this.transcribeLineState.selectionEnd - duration) <= epsilon;
   }
+
+  // =========================================================================
+  // Transcribe File methods
+  // =========================================================================
+
+  async onFileAudioSelected(files: File[]): Promise<void> {
+    if (!files || files.length === 0) return;
+
+    const audioFile = files[0];
+    this.transcribeFileState.audioFile = audioFile;
+
+    try {
+      if (this.transcribeFileState.audioUrl) {
+        URL.revokeObjectURL(this.transcribeFileState.audioUrl);
+      }
+      if (this.fileAudioPlayer?.nativeElement) {
+        this.fileAudioPlayer.nativeElement.pause();
+      }
+
+      const arrayBuffer = await audioFile.arrayBuffer();
+      const audioContext = new AudioContext();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      await audioContext.close();
+
+      this.transcribeFileState.channelData = audioBuffer.getChannelData(0);
+      this.transcribeFileState.playbackDuration = audioBuffer.duration;
+      this.transcribeFileState.playbackTime = 0;
+      this.transcribeFileState.progress = 0;
+
+      const channels: Float32Array[] = [];
+      for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+        channels.push(audioBuffer.getChannelData(i));
+      }
+      this.transcribeFileState.audioBlob = this.encodeWav(channels, audioBuffer.sampleRate);
+      this.transcribeFileState.audioUrl = URL.createObjectURL(this.transcribeFileState.audioBlob);
+
+      this.drawFileWaveform();
+
+      if (this.fileAudioPlayer?.nativeElement) {
+        this.fileAudioPlayer.nativeElement.currentTime = 0;
+      }
+      this.cdr.detectChanges();
+    } catch (error) {
+      console.error('Error loading audio file for transcription:', error);
+      alert('Failed to load audio file. Please ensure it is a valid audio file.');
+      this.transcribeFileState.audioFile = null;
+    }
+  }
+
+  private drawFileWaveform(): void {
+    if (!this.fileWaveformCanvas || !this.transcribeFileState.channelData) return;
+
+    const canvas = this.fileWaveformCanvas.nativeElement;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+    canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+    const width = canvas.offsetWidth;
+    const height = canvas.offsetHeight;
+    const centerY = height / 2;
+    const channelData = this.transcribeFileState.channelData;
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.strokeStyle = '#667eea';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    const samples = Math.min(width, channelData.length);
+    const step = width / samples;
+    const blockSize = Math.floor(channelData.length / samples);
+
+    for (let i = 0; i < samples; i++) {
+      let sum = 0;
+      for (let j = 0; j < blockSize; j++) {
+        sum += Math.abs(channelData[i * blockSize + j]);
+      }
+      const average = sum / blockSize;
+      const x = i * step;
+      const amplitude = average * height * 0.8;
+      const y = centerY + (i % 2 === 0 ? amplitude : -amplitude);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  private redrawFileWaveformWithProgress(): void {
+    if (!this.fileWaveformCanvas || !this.transcribeFileState.channelData) return;
+
+    this.drawFileWaveform();
+
+    if (this.transcribeFileState.progress > 0) {
+      const canvas = this.fileWaveformCanvas.nativeElement;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const width = canvas.offsetWidth;
+      const height = canvas.offsetHeight;
+      const progressX = this.transcribeFileState.progress * width;
+      ctx.strokeStyle = '#ff6b6b';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(progressX, 0);
+      ctx.lineTo(progressX, height);
+      ctx.stroke();
+    }
+  }
+
+  toggleFilePlayback(): void {
+    const audio = this.fileAudioPlayer?.nativeElement;
+    if (!audio || !this.transcribeFileState.audioUrl) return;
+    if (audio.paused) {
+      audio.currentTime = 0;
+      audio.play();
+    } else {
+      audio.pause();
+    }
+  }
+
+  async transcribeFileAudio(): Promise<void> {
+    if (!this.transcribeFileState.audioBlob || this.isTranscribingFile) return;
+
+    try {
+      this.isTranscribingFile = true;
+      const audioFile = new File([this.transcribeFileState.audioBlob], 'transcribe.wav', { type: 'audio/wav' });
+      const formData = new FormData();
+      formData.append('file', audioFile);
+      formData.append('language', this.fileInputLanguage);
+
+      this.apiService.transcribeFile(formData).subscribe({
+        next: (response) => {
+          if (response.status === 'processing') {
+            this.startFilePolling();
+          } else {
+            this.isTranscribingFile = false;
+            alert(response.message || 'Failed to start transcription.');
+          }
+        },
+        error: (error) => {
+          console.error('Transcribe file request failed:', error);
+          alert('Failed to start transcription. Please try again.');
+          this.isTranscribingFile = false;
+        }
+      });
+    } catch (error) {
+      console.error('Error starting file transcription:', error);
+      this.isTranscribingFile = false;
+    }
+  }
+
+  private startFilePolling(): void {
+    this.filePollingInterval = setInterval(() => {
+      this.apiService.checkRunning().subscribe({
+        next: (response) => {
+          if (!response.running_whisper) {
+            this.isTranscribingFile = false;
+            this.stopFilePolling();
+            this.refreshFileDownloads();
+            this.cdr.detectChanges();
+          }
+        },
+        error: (error) => {
+          console.error('File polling error:', error);
+          this.isTranscribingFile = false;
+          this.stopFilePolling();
+        }
+      });
+    }, 1000);
+  }
+
+  private stopFilePolling(): void {
+    if (this.filePollingInterval) {
+      clearInterval(this.filePollingInterval);
+      this.filePollingInterval = undefined;
+    }
+  }
+
+  refreshFileDownloads(): void {
+    this.isFetchingFileDownloads = true;
+    this.fileDownloadError = '';
+    this.apiService.listFiles('transcribe-sub-files').subscribe({
+      next: (response) => {
+        this.fileAvailableDownloads = response.status === 'success' ? (response.files || []) : [];
+        if (response.status !== 'success') this.fileDownloadError = 'Unable to load downloads.';
+        this.isFetchingFileDownloads = false;
+      },
+      error: () => {
+        this.fileAvailableDownloads = [];
+        this.fileDownloadError = 'Failed to load downloads. Please try again.';
+        this.isFetchingFileDownloads = false;
+      }
+    });
+  }
+
+  downloadTranscribedFile(filename: string): void {
+    this.apiService.downloadFile('transcribe-sub-files', filename).subscribe({
+      next: (blob) => {
+        this.triggerDownload(blob, filename);
+      },
+      error: () => alert('Failed to download file. Please try again.')
+    });
+  }
+
+  deleteTranscribedFile(filename: string): void {
+    if (!filename || this.deletingFileDownload) return;
+    if (!window.confirm(`Delete ${filename}? This cannot be undone.`)) return;
+    this.deletingFileDownload = filename;
+    this.apiService.deleteFile('transcribe-sub-files', filename).subscribe({
+      next: () => {
+        this.fileAvailableDownloads = this.fileAvailableDownloads.filter(f => f.name !== filename);
+        this.deletingFileDownload = '';
+      },
+      error: () => {
+        alert('Failed to delete file. Please try again.');
+        this.deletingFileDownload = '';
+      }
+    });
+  }
+
+  // =========================================================================
+  // Shared utilities
+  // =========================================================================
 
   private encodeWav(channels: Float32Array[], sampleRate: number): Blob {
     const numChannels = channels.length;
@@ -891,6 +1126,7 @@ export class TranscribeComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopPolling();
+    this.stopFilePolling();
     this.stopRecordingLoop();
     this.stopPlaybackLoop();
   }

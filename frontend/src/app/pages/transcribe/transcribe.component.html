@@ -22,18 +22,18 @@
           accept="audio/*"
           placeholder="Upload Audio File"
           subtext="Drag and drop an audio file or click to select"
-          [selectedFiles]="selectedUploadFiles"
+          [selectedFiles]="transcribeLineState.audioFile ? [transcribeLineState.audioFile] : []"
           (filesSelected)="onAudioFileSelected($event)">
         </app-file-upload>
 
-        <div class="waveform-wrapper" [class.is-recording]="isRecording">
+        <div class="waveform-wrapper" [class.is-recording]="transcribeLineState.isRecording">
           <canvas #waveformCanvas class="waveform-canvas"></canvas>
-          <div class="waveform-overlay" *ngIf="isRecording">
+          <div class="waveform-overlay" *ngIf="transcribeLineState.isRecording">
             <app-loading-text-indicator text="Recording..." color="#667eea" size="1.5rem"></app-loading-text-indicator>
           </div>
         </div>
-        <audio #audioPlayer [src]="recordedAudioUrl" class="audio-player" aria-hidden="true"></audio>
-        
+        <audio #audioPlayer [src]="transcribeLineState.audioUrl" class="audio-player" aria-hidden="true"></audio>
+
         <div class="recording-status">
           <span class="duration">
             {{ formatDuration(getDisplayCurrentTime()) }} / {{ formatDuration(getDisplayTotalTime()) }}
@@ -41,25 +41,25 @@
         </div>
 
         <div class="recording-controls">
-          <button 
+          <button
             class="icon-btn play-btn"
-            [disabled]="!recordedAudioUrl"
+            [disabled]="!transcribeLineState.audioUrl"
             (click)="togglePlayback()">
             <span class="btn-icon" aria-hidden="true">
-              <svg *ngIf="!isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
+              <svg *ngIf="!transcribeLineState.isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
                 <polygon points="9,7 18,12 9,17"></polygon>
               </svg>
-              <svg *ngIf="isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
+              <svg *ngIf="transcribeLineState.isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
                 <rect x="7" y="7" width="4" height="10" rx="1"></rect>
                 <rect x="13" y="7" width="4" height="10" rx="1"></rect>
               </svg>
             </span>
-            <span class="sr-only">{{ isPlaying ? 'Pause Recording' : 'Play Recording' }}</span>
-            <span class="tooltip">{{ isPlaying ? 'Pause' : 'Play' }}</span>
+            <span class="sr-only">{{ transcribeLineState.isPlaying ? 'Pause Recording' : 'Play Recording' }}</span>
+            <span class="tooltip">{{ transcribeLineState.isPlaying ? 'Pause' : 'Play' }}</span>
           </button>
-          <button 
-            *ngIf="!isRecording" 
-            class="icon-btn record-btn" 
+          <button
+            *ngIf="!transcribeLineState.isRecording"
+            class="icon-btn record-btn"
             (click)="startRecording()">
             <span class="btn-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" role="img" focusable="false">
@@ -69,9 +69,9 @@
             <span class="sr-only">Start Recording</span>
             <span class="tooltip">Start Recording</span>
           </button>
-          <button 
-            *ngIf="isRecording" 
-            class="icon-btn stop-btn" 
+          <button
+            *ngIf="transcribeLineState.isRecording"
+            class="icon-btn stop-btn"
             (click)="stopRecording()">
             <span class="btn-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" role="img" focusable="false">
@@ -81,9 +81,9 @@
             <span class="sr-only">Stop Recording</span>
             <span class="tooltip">Stop Recording</span>
           </button>
-          <button 
+          <button
             class="icon-btn transcribe-btn"
-            [disabled]="!recordedAudioUrl || isTranscribing"
+            [disabled]="!transcribeLineState.audioUrl || isTranscribing"
             (click)="transcribeAudio()">
             <span class="btn-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" role="img" focusable="false">
@@ -96,7 +96,7 @@
           </button>
           <button
             class="icon-btn download-btn"
-            [disabled]="!recordedAudioBlob"
+            [disabled]="!transcribeLineState.audioBlob"
             (click)="downloadClippedAudioMp3()">
             <span class="btn-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" role="img" focusable="false">
@@ -110,8 +110,8 @@
         </div>
 
         <div class="transcript-wrapper" [class.is-loading]="isTranscribing">
-          <app-text-field 
-            label="Transcript" 
+          <app-text-field
+            label="Transcript"
             placeholder="Transcript will appear here..."
             [rows]="10"
             [(ngModel)]="transcript">
@@ -121,7 +121,80 @@
           </div>
         </div>
       </div>
-      
+
+    </app-subsection>
+
+    <app-subsection
+      title="Transcribe File"
+      tooltip="Transcribe a full audio file to .ass subtitle format">
+
+      <div class="recording-container">
+        <div class="form-group">
+          <label for="fileInputLang">Input Language</label>
+          <select id="fileInputLang" [(ngModel)]="fileInputLanguage">
+            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+          </select>
+        </div>
+
+        <app-file-upload
+          accept=".wav,.mp3,.mp4"
+          placeholder="Upload Audio File"
+          subtext=".wav / .mp3 / .mp4"
+          [selectedFiles]="transcribeFileState.audioFile ? [transcribeFileState.audioFile] : []"
+          (filesSelected)="onFileAudioSelected($event)">
+        </app-file-upload>
+
+        <div class="waveform-wrapper">
+          <canvas #fileWaveformCanvas class="waveform-canvas"></canvas>
+        </div>
+        <audio #fileAudioPlayer [src]="transcribeFileState.audioUrl" class="audio-player" aria-hidden="true"></audio>
+
+        <div class="recording-status">
+          <span class="duration">
+            {{ formatDuration(transcribeFileState.playbackTime) }} / {{ formatDuration(transcribeFileState.playbackDuration) }}
+          </span>
+        </div>
+
+        <div class="recording-controls">
+          <button
+            class="icon-btn play-btn"
+            [disabled]="!transcribeFileState.audioUrl"
+            (click)="toggleFilePlayback()">
+            <span class="btn-icon" aria-hidden="true">
+              <svg *ngIf="!transcribeFileState.isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
+                <polygon points="9,7 18,12 9,17"></polygon>
+              </svg>
+              <svg *ngIf="transcribeFileState.isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
+                <rect x="7" y="7" width="4" height="10" rx="1"></rect>
+                <rect x="13" y="7" width="4" height="10" rx="1"></rect>
+              </svg>
+            </span>
+            <span class="sr-only">{{ transcribeFileState.isPlaying ? 'Pause' : 'Play' }}</span>
+            <span class="tooltip">{{ transcribeFileState.isPlaying ? 'Pause' : 'Play' }}</span>
+          </button>
+          <app-primary-button
+            [disabled]="!transcribeFileState.audioBlob || isTranscribingFile"
+            (click)="transcribeFileAudio()">
+            {{ isTranscribingFile ? 'Transcribing...' : 'Transcribe File' }}
+          </app-primary-button>
+        </div>
+
+        <div *ngIf="isTranscribingFile" class="transcribe-file-loading">
+          <app-loading-text-indicator text="Transcribing..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
+        </div>
+
+        <app-downloads-list
+          title="Transcribed Files"
+          [files]="fileAvailableDownloads"
+          [isLoading]="isFetchingFileDownloads"
+          [error]="fileDownloadError"
+          [deletingFilename]="deletingFileDownload"
+          (refresh)="refreshFileDownloads()"
+          (download)="downloadTranscribedFile($event)"
+          (delete)="deleteTranscribedFile($event)">
+        </app-downloads-list>
+      </div>
+
     </app-subsection>
   </div>
 </div>
