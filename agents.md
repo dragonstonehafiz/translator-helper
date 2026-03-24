@@ -284,6 +284,58 @@ The application uses several reusable standalone components located in `frontend
 - `delete`: Fired with filename when delete is clicked
 - `collapsedChange`: Fired when collapse state changes
 
+---
+
+### app-waveform-player
+**Location**: `frontend/src/app/components/waveform-player/`
+
+**Purpose**: Audio waveform visualization and playback control with optional selection/trimming capability.
+
+**When to use**:
+- Displaying and playing recorded or uploaded audio files
+- Allowing users to visualize and trim audio (selection mode)
+- Any feature that needs audio playback with visual waveform feedback
+
+**Usage**:
+```html
+<app-waveform-player
+  #waveformRef
+  [selectionEnabled]="true"
+  [audioBlob]="audioBlob">
+</app-waveform-player>
+```
+
+**Inputs**:
+- `selectionEnabled` (optional, default: false): Enable audio trimming/selection mode. When true, users can click and drag to select a portion of audio
+- `audioBlob` (optional): Set the audio blob to decode and display. When set, the component decodes the audio, displays the waveform, and prepares it for playback
+
+**Public API (via ViewChild)**:
+- `togglePlayback()`: Play or pause the audio
+- `async getActiveBlob()`: Get the audio blob (returns selected portion if selection enabled, otherwise full blob)
+- `getDecodedBuffer()`: Get the decoded AudioBuffer for advanced audio manipulation
+- `clearAudio()`: Clear the waveform and stop playback
+- `hasAudio` (getter): Check if audio is loaded
+- `isPlaying` (public property): Current playback state (true if playing, false if paused)
+- `playbackTime` (public property): Current playback position in seconds
+- `playbackDuration` (public property): Total audio duration in seconds
+- `formatDuration(seconds)`: Format seconds to `M:SS.MMM` string for display
+
+**Features**:
+- Canvas-based waveform rendering with device pixel ratio scaling
+- Smooth 60fps playback progress indicator
+- Selection/trimming with visual overlay (start and end handles when enabled)
+- Automatic audio clipping to WAV format when selection is active
+- Audio URL cleanup on component destroy
+- Responsive to audio loading and playback state changes
+- Plays audio in configured selection range only (if selection enabled)
+
+**Internal Details**:
+- Decodes audio using Web Audio API's `AudioContext.decodeAudioData()`
+- Renders waveform to canvas using downsampled channel data
+- Uses `requestAnimationFrame` for smooth progress line updates (60fps)
+- Mouse event handling for selection drag/adjust on canvas (when enabled)
+- Encodes clipped audio to WAV format using manual PCM encoding
+
 ## Backend API Structure
 
 ### Endpoints
@@ -331,8 +383,9 @@ When no client is loaded yet, `audio` and `llm` are empty arrays (`[]`).
 - `GET /api/context/result`: Poll for context generation result
 
 **Transcription** (`backend/routes.py`):
-- `POST /api/transcribe/transcribe-line`: Transcribe audio file
-- `GET /api/transcribe/result`: Poll for transcription result
+- `POST /api/transcribe/transcribe-line`: Transcribe audio file or recording to text
+- `POST /api/transcribe/transcribe-file`: Transcribe a full audio file and generate .ass subtitle file (FormData: file, language)
+- `GET /api/transcribe/result`: Poll for transcription result (shared for both line and file transcription)
 
 **Utils** (`backend/routes.py`):
 - `POST /api/utils/get-subtitle-file-info/`: Upload an ASS or SRT file to get dialogue count, total characters (Speaker: dialogue), and average characters per line

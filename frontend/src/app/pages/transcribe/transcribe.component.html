@@ -26,35 +26,31 @@
         </app-file-upload>
 
         <div class="waveform-wrapper" [class.is-recording]="transcribeLineState.isRecording">
-          <canvas #waveformCanvas class="waveform-canvas"></canvas>
+          <app-waveform-player
+            #lineWaveform
+            [selectionEnabled]="true">
+          </app-waveform-player>
           <div class="waveform-overlay" *ngIf="transcribeLineState.isRecording">
             <app-loading-text-indicator text="Recording..." color="#667eea" size="1.5rem"></app-loading-text-indicator>
           </div>
-        </div>
-        <audio #audioPlayer [src]="transcribeLineState.audioUrl" class="audio-player" aria-hidden="true"></audio>
-
-        <div class="recording-status">
-          <span class="duration">
-            {{ formatDuration(getDisplayCurrentTime()) }} / {{ formatDuration(getDisplayTotalTime()) }}
-          </span>
         </div>
 
         <div class="recording-controls">
           <button
             class="icon-btn play-btn"
-            [disabled]="!transcribeLineState.audioUrl"
-            (click)="togglePlayback()">
+            [disabled]="!lineWaveform?.hasAudio"
+            (click)="lineWaveform?.togglePlayback()">
             <span class="btn-icon" aria-hidden="true">
-              <svg *ngIf="!transcribeLineState.isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
+              <svg *ngIf="!lineWaveform?.isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
                 <polygon points="9,7 18,12 9,17"></polygon>
               </svg>
-              <svg *ngIf="transcribeLineState.isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
+              <svg *ngIf="lineWaveform?.isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
                 <rect x="7" y="7" width="4" height="10" rx="1"></rect>
                 <rect x="13" y="7" width="4" height="10" rx="1"></rect>
               </svg>
             </span>
-            <span class="sr-only">{{ transcribeLineState.isPlaying ? 'Pause Recording' : 'Play Recording' }}</span>
-            <span class="tooltip">{{ transcribeLineState.isPlaying ? 'Pause' : 'Play' }}</span>
+            <span class="sr-only">{{ lineWaveform?.isPlaying ? 'Pause Recording' : 'Play Recording' }}</span>
+            <span class="tooltip">{{ lineWaveform?.isPlaying ? 'Pause' : 'Play' }}</span>
           </button>
           <button
             *ngIf="!transcribeLineState.isRecording"
@@ -82,7 +78,7 @@
           </button>
           <button
             class="icon-btn transcribe-btn"
-            [disabled]="!transcribeLineState.audioUrl || isTranscribing"
+            [disabled]="!lineWaveform?.hasAudio || isTranscribing"
             (click)="transcribeAudio()">
             <span class="btn-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" role="img" focusable="false">
@@ -95,7 +91,7 @@
           </button>
           <button
             class="icon-btn download-btn"
-            [disabled]="!transcribeLineState.audioBlob"
+            [disabled]="!lineWaveform?.hasAudio"
             (click)="downloadClippedAudioMp3()">
             <span class="btn-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" role="img" focusable="false">
@@ -143,36 +139,27 @@
           (filesSelected)="onFileAudioSelected($event)">
         </app-file-upload>
 
-        <div class="waveform-wrapper">
-          <canvas #fileWaveformCanvas class="waveform-canvas"></canvas>
-        </div>
-        <audio #fileAudioPlayer [src]="transcribeFileState.audioUrl" class="audio-player" aria-hidden="true"></audio>
-
-        <div class="recording-status">
-          <span class="duration">
-            {{ formatDuration(transcribeFileState.playbackTime) }} / {{ formatDuration(transcribeFileState.playbackDuration) }}
-          </span>
-        </div>
+        <app-waveform-player #fileWaveform></app-waveform-player>
 
         <div class="recording-controls">
           <button
             class="icon-btn play-btn"
-            [disabled]="!transcribeFileState.audioUrl"
-            (click)="toggleFilePlayback()">
+            [disabled]="!fileWaveform?.hasAudio"
+            (click)="fileWaveform?.togglePlayback()">
             <span class="btn-icon" aria-hidden="true">
-              <svg *ngIf="!transcribeFileState.isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
+              <svg *ngIf="!fileWaveform?.isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
                 <polygon points="9,7 18,12 9,17"></polygon>
               </svg>
-              <svg *ngIf="transcribeFileState.isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
+              <svg *ngIf="fileWaveform?.isPlaying" viewBox="0 0 24 24" role="img" focusable="false">
                 <rect x="7" y="7" width="4" height="10" rx="1"></rect>
                 <rect x="13" y="7" width="4" height="10" rx="1"></rect>
               </svg>
             </span>
-            <span class="sr-only">{{ transcribeFileState.isPlaying ? 'Pause' : 'Play' }}</span>
-            <span class="tooltip">{{ transcribeFileState.isPlaying ? 'Pause' : 'Play' }}</span>
+            <span class="sr-only">{{ fileWaveform?.isPlaying ? 'Pause' : 'Play' }}</span>
+            <span class="tooltip">{{ fileWaveform?.isPlaying ? 'Pause' : 'Play' }}</span>
           </button>
           <app-primary-button
-            [disabled]="!transcribeFileState.audioBlob || isTranscribingFile"
+            [disabled]="!fileWaveform?.hasAudio || isTranscribingFile"
             (click)="transcribeFileAudio()">
             {{ isTranscribingFile ? 'Transcribing...' : 'Transcribe File' }}
           </app-primary-button>

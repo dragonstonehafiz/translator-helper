@@ -1,0 +1,17 @@
+<div class="waveform-wrapper">
+  <canvas
+    #waveformCanvas
+    class="waveform-canvas"
+    (mousedown)="selectionEnabled && handleMouseDown($event)"
+    (mousemove)="selectionEnabled && handleMouseMove($event)"
+    (mouseup)="selectionEnabled && handleMouseUp($event)"
+    (mouseleave)="selectionEnabled && handleMouseUp($event)"
+    (click)="handleClick($event)">
+  </canvas>
+</div>
+
+<audio #audioPlayer class="audio-player" aria-hidden="true"></audio>
+
+<div class="waveform-status">
+  <span class="duration">{{ formatDuration(playbackTime) }} / {{ formatDuration(playbackDuration) }}</span>
+</div>

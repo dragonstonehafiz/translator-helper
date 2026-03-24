@@ -1,0 +1,39 @@
+.waveform-wrapper {
+  position: relative;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.waveform-canvas {
+  width: 100%;
+  height: 120px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 2px solid #e0e0e0;
+  cursor: crosshair;
+  display: block;
+}
+
+.audio-player {
+  display: none;
+}
+
+.waveform-status {
+  display: flex;
+  justify-content: center;
+  min-height: 32px;
+  margin-bottom: 0;
+
+  .duration {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #5568d3;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+    min-width: 90px;
+    text-align: center;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+}
