@@ -61,7 +61,6 @@ export class TranscribeComponent implements AfterViewInit, OnInit, OnDestroy {
   };
 
   // --- Section-level (non-waveform) state ---
-  translateLineCollapsed = true;
   transcript = '';
   isTranscribing = false;
   inputLanguage = 'ja';

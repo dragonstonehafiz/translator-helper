@@ -18,9 +18,8 @@
       </app-file-upload>
     </app-subsection>
 
-    <app-subsection 
-      title="Recap Generation" 
-      [collapsed]="recapCollapsed"
+    <app-subsection
+      title="Recap Generation"
       tooltip="Generate a comprehensive recap from multiple context files for continuity across episodes">
       
       <app-file-upload
@@ -149,7 +148,7 @@
               label="Additional Instructions"
               tooltip="Additional instructions are user-provided notes for translators or generation context."
               placeholder="Enter any additional instructions..."
-              [readMode]="false"
+              [initialReadMode]="false"
               [(ngModel)]="additionalInstructions"
               (ngModelChange)="updateAdditionalInstructions()">
             </app-text-field>

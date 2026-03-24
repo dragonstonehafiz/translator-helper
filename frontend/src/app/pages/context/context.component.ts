@@ -31,17 +31,6 @@ export class ContextComponent implements OnInit, OnDestroy {
   runningLlm = false;
   private pollingSubscription?: Subscription;
   
-  // Font sizes for textareas
-  characterListFontSize = 14;
-  synopsisFontSize = 14;
-  summaryFontSize = 14;
-  
-  // View modes (true = read mode, false = edit mode)
-  characterListReadMode = true;
-  synopsisReadMode = true;
-  summaryReadMode = true;
-  additionalInstructionsReadMode = false;
-  
   // Context checkboxes for character list generation
   characterListUseAdditionalInstructions = true;
   
@@ -58,18 +47,10 @@ export class ContextComponent implements OnInit, OnDestroy {
   isGeneratingSummary = false;
   isGeneratingRecap = false;
 
-  // Collapsible section states
-  importExportCollapsed = true;
-  fileUploadCollapsed = true;
-  contextCollapsed = true;
-  recapCollapsed = true;
-
   activeContextTab: 'additional' | 'character' | 'synopsis' | 'summary' = 'additional';
   
   // Recap section
   recap = '';
-  recapFontSize = 14;
-  recapReadMode = true;
   recapContextFiles: File[] = [];
   recapContexts: any[] = [];
   
@@ -207,30 +188,6 @@ export class ContextComponent implements OnInit, OnDestroy {
 
   updateAdditionalInstructions(): void {
     this.stateService.setAdditionalInstructions(this.additionalInstructions);
-  }
-
-  adjustCharacterListFontSize(delta: number): void {
-    this.characterListFontSize = Math.max(10, Math.min(24, this.characterListFontSize + delta));
-  }
-
-  adjustSynopsisFontSize(delta: number): void {
-    this.synopsisFontSize = Math.max(10, Math.min(24, this.synopsisFontSize + delta));
-  }
-
-  adjustSummaryFontSize(delta: number): void {
-    this.summaryFontSize = Math.max(10, Math.min(24, this.summaryFontSize + delta));
-  }
-
-  toggleCharacterListMode(): void {
-    this.characterListReadMode = !this.characterListReadMode;
-  }
-
-  toggleSynopsisMode(): void {
-    this.synopsisReadMode = !this.synopsisReadMode;
-  }
-
-  toggleSummaryMode(): void {
-    this.summaryReadMode = !this.summaryReadMode;
   }
 
   setContextTab(tab: 'additional' | 'character' | 'synopsis' | 'summary'): void {
@@ -577,32 +534,4 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.isGeneratingRecap = false;
   }
 
-  toggleRecapMode(): void {
-    this.recapReadMode = !this.recapReadMode;
-  }
-
-  adjustRecapFontSize(change: number): void {
-    this.recapFontSize = Math.max(10, Math.min(24, this.recapFontSize + change));
-  }
-
-  formatMarkdown(text: string): string {
-    if (!text) return '';
-    
-    // Basic markdown formatting
-    let html = text
-      // Headers
-      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-      // Bold
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      // Italic
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      // Links
-      .replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-      // Line breaks
-      .replace(/\n/g, '<br>');
-    
-    return html;
-  }
 }

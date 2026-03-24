@@ -5,9 +5,8 @@
   </div>
 
   <div class="form-section">
-    <app-subsection 
-      title="Context" 
-      [collapsed]="contextCollapsed"
+    <app-subsection
+      title="Context"
       tooltip="Saved context from the Context page">
 
       <app-context-status
@@ -87,9 +86,8 @@
       </div>
     </app-subsection>
 
-    <app-subsection 
-      title="Translate Line" 
-      [collapsed]="translateLineCollapsed"
+    <app-subsection
+      title="Translate Line"
       tooltip="Translate a single line of text">
       
       <div class="checkbox-group">
@@ -127,11 +125,11 @@
       </div>
 
       <div class="translate-field-wrapper" [class.is-loading]="isTranslatingLine">
-        <app-text-field 
-          label="Text to Translate" 
+        <app-text-field
+          label="Text to Translate"
           placeholder="Enter text to translate..."
           [rows]="4"
-          [readMode]="false"
+          [initialReadMode]="false"
           [(ngModel)]="lineTextToTranslate">
         </app-text-field>
         <div class="translate-field-overlay" *ngIf="isTranslatingLine">
@@ -151,9 +149,8 @@
       </app-text-field>
     </app-subsection>
 
-    <app-subsection 
-      title="Translate File" 
-      [collapsed]="translateFileCollapsed"
+    <app-subsection
+      title="Translate File"
       tooltip="Translate an entire subtitle file">
       
       <div class="checkbox-group">

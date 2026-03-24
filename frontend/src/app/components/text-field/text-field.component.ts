@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, forwardRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, forwardRef, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, NG_VALUE_ACCESSOR, ControlValueAccessor } from '@angular/forms';
 import { TooltipIconComponent } from '../tooltip-icon/tooltip-icon.component';
@@ -18,14 +18,15 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
     }
   ]
 })
-export class TextFieldComponent implements ControlValueAccessor {
+export class TextFieldComponent implements ControlValueAccessor, OnInit {
   @Input() label = '';
   @Input() tooltip = '';
   @Input() placeholder = '';
   @Input() rows = 8;
-  @Input() readMode = true;
-  
+  @Input() initialReadMode = true;
+
   private _value = '';
+  readMode = true;
   fontSize = 14;
   collapsed = false;
   
@@ -33,6 +34,10 @@ export class TextFieldComponent implements ControlValueAccessor {
   private onTouched: () => void = () => {};
 
   constructor(private sanitizer: DomSanitizer) {}
+
+  ngOnInit(): void {
+    this.readMode = this.initialReadMode;
+  }
 
   get value(): string {
     return this._value;

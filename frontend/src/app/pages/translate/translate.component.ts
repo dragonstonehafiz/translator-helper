@@ -21,11 +21,6 @@ import { StateService } from '../../services/state.service';
   styleUrl: './translate.component.scss'
 })
 export class TranslateComponent implements OnInit, OnDestroy {
-  // Subsection collapsed states
-  contextCollapsed = true;
-  translateLineCollapsed = true;
-  translateFileCollapsed = true;
-
   // Context data
   characterList = '';
   synopsis = '';

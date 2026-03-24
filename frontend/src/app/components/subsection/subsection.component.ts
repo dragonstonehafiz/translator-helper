@@ -11,6 +11,5 @@ import { TooltipIconComponent } from '../tooltip-icon/tooltip-icon.component';
 })
 export class SubsectionComponent {
   @Input() title: string = '';
-  @Input() collapsed: boolean = false;
   @Input() tooltip: string = '';
 }
