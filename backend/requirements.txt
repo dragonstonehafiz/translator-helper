@@ -4,7 +4,8 @@ uvicorn[standard]
 python-multipart
 
 # Transcription
-openai-whisper
+# openai-whisper
+whisperx
 
 # Translation / LLM
 openai

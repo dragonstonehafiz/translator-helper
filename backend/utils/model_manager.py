@@ -5,7 +5,8 @@ from typing import Optional
 # from models.llm_chatgpt import LLMChatGPT
 # from models.llm_llamacpp import LLMLlamaCpp
 from models.llm_claude import LLMClaude
-from models.audio_whisper import AudioWhisper
+# from models.audio_whisper import AudioWhisper
+from models.audio_whisperx import AudioWhisperX
 from interface import LLMInterface, AudioModelInterface
 from utils.translate_subs import translate_subs
 from utils.review_subs import review_subs
@@ -75,7 +76,7 @@ class ModelManager:
         try:
             self.loading_audio_model = True
             if self.audio_client is None:
-                self.audio_client = AudioWhisper()
+                self.audio_client = AudioWhisperX()
             else:
                 pass
             self.audio_client.initialize()
@@ -83,7 +84,7 @@ class ModelManager:
             logger.info(f"Whisper model loaded: model='{self.audio_client.get_model()}', device='{self.audio_client.get_device()}'")
         except Exception as e:
             self.audio_loading_error = str(e)
-            logger.error(f"Error loading Whisper model: {e}")
+            logger.error(f"Error loading Whisper model: {e}", exc_info=True)
         finally:
             self.loading_audio_model = False
 
@@ -109,7 +110,7 @@ class ModelManager:
             logger.info(f"LLM loaded: model='{self.llm_client.get_model()}', temperature={self.llm_client.get_temperature()}")
         except Exception as e:
             self.llm_loading_error = str(e)
-            logger.error(f"Error loading LLM model: {e}")
+            logger.error(f"Error loading LLM model: {e}", exc_info=True)
         finally:
             self.loading_llm_model = False
 
@@ -134,7 +135,7 @@ class ModelManager:
             self.transcription_elapsed = time.time() - start_time
             logger.info("Line transcription completed in %.2fs", self.transcription_elapsed)
         except Exception as e:
-            logger.error(f"Error transcribing audio: {e}")
+            logger.error(f"Error transcribing audio: {e}", exc_info=True)
             self.transcription_error = str(e)
             self.transcription_elapsed = time.time() - start_time
         finally:
@@ -169,7 +170,7 @@ class ModelManager:
             elapsed_seconds = time.time() - start_time
             logger.info("File transcription completed in %.2fs: '%s'", elapsed_seconds, output_filename)
         except Exception as e:
-            logger.error("Error transcribing file: %s", e)
+            logger.error(f"Error Transcribing File: {e}", exc_info=True)
             self.transcribe_file_error = str(e)
         finally:
             if self.audio_client:
@@ -243,7 +244,7 @@ class ModelManager:
             }
 
         except Exception as e:
-            logger.error(f"Error translating file: {e}")
+            logger.error(f"Error translating file: {e}", exc_info=True)
             self.llm_error = str(e)
         finally:
             if self.llm_client:
@@ -336,7 +337,7 @@ class ModelManager:
 
             logger.info("Review pass completed: output='%s'", reviewed_filename)
         except Exception as e:
-            logger.error(f"Error running review task: {e}")
+            logger.error(f"Error running review task: {e}", exc_info=True)
             self.llm_error = str(e)
         finally:
             if self.llm_client:
@@ -394,7 +395,7 @@ class ModelManager:
                         elapsed_seconds
                     )
         except Exception as e:
-            logger.error(f"Error running LLM task ({result_type}): {e}")
+            logger.error(f"Error running LLM task ({result_type}): {e}", exc_info=True)
             self.llm_error = str(e)
         finally:
             if self.llm_client:

@@ -124,6 +124,10 @@
       tooltip="Transcribe a full audio file to .ass subtitle format">
 
       <div class="recording-container">
+        <div class="warning-banner">
+          Subtitle timings may be inaccurate. It may be faster to create subtitle files manually.
+        </div>
+
         <div class="form-group">
           <label for="fileInputLang">Input Language</label>
           <select id="fileInputLang" [(ngModel)]="fileInputLanguage">
