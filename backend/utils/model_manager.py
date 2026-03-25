@@ -40,16 +40,12 @@ class ModelManager:
 
         self.transcribe_file_result = None
         self.transcribe_file_error = None
-        self._running_transcribe_file = False
 
     def is_llm_running(self) -> bool:
         return bool(self.llm_client and self.llm_client.is_running())
 
     def is_audio_running(self) -> bool:
         return bool(self.audio_client and self.audio_client.is_running())
-
-    def is_transcribe_file_running(self) -> bool:
-        return self._running_transcribe_file
 
     def is_llm_ready(self) -> bool:
         return bool(self.llm_client and self.llm_client.get_status() == "loaded")
@@ -136,6 +132,7 @@ class ModelManager:
             result = self.audio_client.transcribe_line(file_path, language)
             self.transcription_result = {"type": "transcription", "data": result}
             self.transcription_elapsed = time.time() - start_time
+            logger.info("Line transcription completed in %.2fs", self.transcription_elapsed)
         except Exception as e:
             logger.error(f"Error transcribing audio: {e}")
             self.transcription_error = str(e)
@@ -149,27 +146,34 @@ class ModelManager:
                 pass
 
     def run_transcribe_file_task(self, file_path: str, language: str, original_filename: str):
+        start_time = time.time()
         try:
-            self._running_transcribe_file = True
+            if self.audio_client:
+                self.audio_client.set_running(True)
             self.transcribe_file_result = None
             self.transcribe_file_error = None
+            logger.info("Starting file transcription: file='%s', language='%s'", original_filename, language)
 
             subs = self.audio_client.transcribe_file(file_path, language)
 
-            base_name = os.path.splitext(os.path.basename(original_filename))[0]
-            output_filename = base_name + ".ass"
+            safe_original_name = os.path.basename(original_filename)
+            base_name = safe_original_name.split(".")[0]
+            safe_lang = "".join(char for char in language if char.isalnum() or char in ("-", "_")) or "lang"
+            output_filename = f"{base_name}.{safe_lang}.ass"
             output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "outputs", "transcribe-sub-files")
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, output_filename)
             subs.save(output_path)
 
             self.transcribe_file_result = output_filename
-            logger.info("File transcription complete: '%s'", output_filename)
+            elapsed_seconds = time.time() - start_time
+            logger.info("File transcription completed in %.2fs: '%s'", elapsed_seconds, output_filename)
         except Exception as e:
             logger.error("Error transcribing file: %s", e)
             self.transcribe_file_error = str(e)
         finally:
-            self._running_transcribe_file = False
+            if self.audio_client:
+                self.audio_client.set_running(False)
             try:
                 os.remove(file_path)
             except Exception:
@@ -214,7 +218,7 @@ class ModelManager:
                 progress_callback=self._update_translation_progress
             )
             elapsed_seconds = time.time() - start_time
-            logger.info("File translation completed in %.2fs", elapsed_seconds)
+            logger.info("File translation completed (%.2fs)", elapsed_seconds)
 
             safe_original_name = os.path.basename(original_filename)
             base_name = safe_original_name.split(".")[0]

@@ -159,14 +159,10 @@
             <span class="tooltip">{{ fileWaveform?.isPlaying ? 'Pause' : 'Play' }}</span>
           </button>
           <app-primary-button
-            [disabled]="!fileWaveform?.hasAudio || isTranscribingFile"
+            [disabled]="!fileWaveform?.hasAudio || isTranscribing"
             (click)="transcribeFileAudio()">
-            {{ isTranscribingFile ? 'Transcribing...' : 'Transcribe File' }}
+            {{ isTranscribing ? 'Transcribing...' : 'Transcribe File' }}
           </app-primary-button>
-        </div>
-
-        <div *ngIf="isTranscribingFile" class="transcribe-file-loading">
-          <app-loading-text-indicator text="Transcribing..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
         </div>
 
         <app-downloads-list

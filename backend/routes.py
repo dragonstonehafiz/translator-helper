@@ -159,11 +159,6 @@ async def get_transcription_result():
         return {"status": "error", "result": None, "error": error}
     elif model_manager.transcription_result:
         result = model_manager.transcription_result
-        elapsed = model_manager.transcription_elapsed
-        if elapsed is not None:
-            logger.info("Transcription result (%.2fs): %s", elapsed, result.get("data"))
-        else:
-            logger.info("Transcription result: %s", result.get("data"))
         model_manager.transcription_result = None
         model_manager.transcription_elapsed = None
         return {"status": "complete", "result": result, "error": None}
@@ -178,8 +173,8 @@ async def api_transcribe_file(
     language: str = Form(...)
 ):
     """Transcribe a full audio file to .ass subtitle format."""
-    if model_manager.is_transcribe_file_running():
-        return {"status": "error", "message": "File transcription is already running"}
+    if model_manager.is_audio_running():
+        return {"status": "error", "message": "Transcription is already running"}
 
     if not model_manager.is_audio_ready():
         return {"status": "error", "message": "Whisper model not loaded"}
@@ -241,8 +236,6 @@ async def api_translate_line(
     try:
         import json
         context_dict = json.loads(context) if context else {}
-        context_keys = sorted(context_dict.keys()) if isinstance(context_dict, dict) else []
-        logger.info(f"Translate line context keys: {context_keys if context_keys else 'none'}")
 
         prompt_generator = PromptGenerator()
         system_prompt = prompt_generator.generate_translate_sub_prompt(
@@ -284,8 +277,6 @@ async def api_translate_file(
     try:
         import json
         context_dict = json.loads(context) if context else {}
-        context_keys = sorted(context_dict.keys()) if isinstance(context_dict, dict) else []
-        logger.info(f"Translate file context keys: {context_keys if context_keys else 'none'}")
 
         # Save uploaded file to temp location
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp_file:

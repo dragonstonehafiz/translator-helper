@@ -65,7 +65,6 @@ export class TranscribeComponent implements OnInit, OnDestroy {
     { code: 'pl', name: 'Polish' },
     { code: 'tr', name: 'Turkish' },
   ];
-  isTranscribingFile = false;
   fileAvailableDownloads: { name: string; size: number; modified: string }[] = [];
   isFetchingFileDownloads = false;
   fileDownloadError = '';
@@ -288,11 +287,12 @@ export class TranscribeComponent implements OnInit, OnDestroy {
   }
 
   async transcribeFileAudio(): Promise<void> {
-    if (!this.transcribeFileState.audioBlob || this.isTranscribingFile) return;
+    if (!this.transcribeFileState.audioBlob || this.isTranscribing) return;
 
     try {
-      this.isTranscribingFile = true;
-      const audioFile = new File([this.transcribeFileState.audioBlob], 'transcribe.wav', { type: 'audio/wav' });
+      this.isTranscribing = true;
+      const filename = this.transcribeFileState.audioFile?.name || 'audio.wav';
+      const audioFile = new File([this.transcribeFileState.audioBlob], filename, { type: 'audio/wav' });
       const formData = new FormData();
       formData.append('file', audioFile);
       formData.append('language', this.fileInputLanguage);
@@ -302,19 +302,19 @@ export class TranscribeComponent implements OnInit, OnDestroy {
           if (response.status === 'processing') {
             this.startFilePolling();
           } else {
-            this.isTranscribingFile = false;
+            this.isTranscribing = false;
             alert(response.message || 'Failed to start transcription.');
           }
         },
         error: (error) => {
           console.error('Transcribe file request failed:', error);
           alert('Failed to start transcription. Please try again.');
-          this.isTranscribingFile = false;
+          this.isTranscribing = false;
         }
       });
     } catch (error) {
       console.error('Error starting file transcription:', error);
-      this.isTranscribingFile = false;
+      this.isTranscribing = false;
     }
   }
 
@@ -323,7 +323,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
       this.apiService.checkRunning().subscribe({
         next: (response) => {
           if (!response.running_whisper) {
-            this.isTranscribingFile = false;
+            this.isTranscribing = false;
             this.stopFilePolling();
             this.refreshFileDownloads();
             this.cdr.detectChanges();
@@ -331,7 +331,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
         },
         error: (error) => {
           console.error('File polling error:', error);
-          this.isTranscribingFile = false;
+          this.isTranscribing = false;
           this.stopFilePolling();
         }
       });

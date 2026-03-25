@@ -109,9 +109,13 @@ class AudioWhisper(AudioModelInterface):
         subs.styles["Default"] = style
 
         for seg in segments:
+            # Use word-level timestamps if available for better accuracy
+            start_time = seg["start"] * 1000
+            end_time = seg["end"] * 1000
+
             line = pysubs2.SSAEvent(
-                start=seg["start"] * 1000,
-                end=seg["end"] * 1000,
+                start=start_time,
+                end=end_time,
                 text=seg["text"]
             )
             subs.events.append(line)
