@@ -158,4 +158,8 @@ export class ApiService {
   deleteFile(folder: string, filename: string): Observable<{status: string}> {
     return this.http.delete<{status: string}>(`${this.baseUrl}/file-management/${encodeURIComponent(folder)}/${encodeURIComponent(filename)}`);
   }
+
+  saveContext(filename: string, context: object): Observable<{status: string}> {
+    return this.http.post<{status: string}>(`${this.baseUrl}/context/save`, { filename, context });
+  }
 }

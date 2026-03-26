@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 import threading
 import tempfile
+import json
 import os
 from utils.model_manager import ModelManager
 from utils.prompts import PromptGenerator
@@ -586,6 +587,24 @@ async def api_generate_recap(request: GenerateRecapRequest, background_tasks: Ba
         target="context"
     )
     return {"status": "processing", "message": "Recap generation started"}
+
+
+class SaveContextRequest(BaseModel):
+    filename: str
+    context: dict
+
+
+@router.post("/api/context/save")
+async def save_context(request: SaveContextRequest):
+    """Save context data to a JSON file in outputs/context-files/."""
+    safe_name = os.path.basename(request.filename)
+    if not safe_name.endswith(".json"):
+        raise HTTPException(status_code=400, detail="Filename must end with .json")
+    output_dir = _get_files_dir("context-files")
+    file_path = output_dir / safe_name
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(request.context, f, ensure_ascii=False, indent=2)
+    return {"status": "success"}
 
 
 @router.get("/api/context/result")

@@ -186,29 +186,9 @@ class PromptGenerator:
 
         From the provided subtitle text, produce a character list in {output_lang}.
 
-        You must:
         - Identify all characters who speak or are referenced.
-        - Merge references that clearly refer to the same person (e.g., surname+honorific, given-name+honorific, nickname, title).
-        - BUT do NOT collapse how they are addressed: preserve every observed JP surface form so later translation can keep surname vs given name vs nickname vs title correctly.
-
-        # Critical rule about name forms
-
-        For each character, you must keep BOTH:
-        1) A canonical identity entry (the person)
-        2) A list of "JP Forms Seen" (the exact surface forms as they appear in subtitles, including honorifics/titles) WITH romanization for each form
-
-        Example of what to preserve in JP Forms Seen:
-        - 葛城さん (Katsuragi-san)
-        - リーリヤちゃん (Ririya-chan)
-        - 葛城リーリヤ (Katsuragi Ririya)
-        - プロデューサー (Producer)
-        Do not normalize these. Keep them exactly as seen.
-
-        # Romanization / spelling rules
-
-        - Provide Hepburn romanization for base names (surname/given) when possible.
-        - If multiple romanizations are plausible, pick one and keep it consistent.
-        - If you cannot confidently romanize a name, leave Base Romanization as "UNKNOWN" and still list the JP forms.
+        - Merge references that clearly refer to the same person.
+        - Do not invent relationships or facts not supported by the text/context.
 
         # Context
 
@@ -221,25 +201,16 @@ class PromptGenerator:
         Use this exact structure:
 
         CHARACTER 1
-        Canonical (EN): ...
-        Base Romanization: Surname=... | Given=... | Full=...
-        JP Forms Seen (with romanization):
-        - ... (romanization)
-        - ... (romanization)
-        Speech Style: ...
-        High-level Summary: ...
-
-        (blank line)
+        Name: ...
+        Description: ...
+        Role: ...
 
         CHARACTER 2
         ...
 
         Rules:
         - Keep one CHARACTER block per person/identity.
-        - "JP Forms Seen" must include every distinct surface form you notice for that person.
-        - If you merge two identities, include both sets of JP forms under the merged character.
-        - Keep Speech Style and High-level Summary short (1-2 lines each).
-        - Do not invent relationships or facts not supported by the text/context.
+        - Keep Description and Role short (1-2 lines each).
         """.strip()
 
         return system_prompt

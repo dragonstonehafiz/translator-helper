@@ -6,86 +6,28 @@
 
   <div class="form-section">
     <app-subsection
-      title="Import Context JSON"
-      tooltip="Import a saved context JSON to populate all fields on this page">
-      <p class="import-context-subtext">Drop a context file here to load languages, additional instructions, character list, synopsis, summary, and recap.</p>
-      <app-file-upload
-        accept=".json"
-        placeholder="Import Context File"
-        subtext=".json"
-        [selectedFiles]="importFile ? [importFile] : []"
-        (filesSelected)="onImportFilesSelected($event)">
-      </app-file-upload>
-    </app-subsection>
-
-    <app-subsection
-      title="Recap Generation"
-      tooltip="Generate a comprehensive recap from multiple context files for continuity across episodes">
-      
-      <app-file-upload
-        accept=".json"
-        [multiple]="true"
-        placeholder="Upload Context Files"
-        subtext=".json files (select multiple)"
-        [selectedFiles]="recapContextFiles"
-        (filesSelected)="onRecapFilesSelected($event)">
-      </app-file-upload>
-
-      <div class="file-table-container" *ngIf="recapContextFiles.length > 0">
-        <div class="file-table-header">
-          <span>Uploaded Context Files</span>
-          <app-tooltip-icon tooltip="Files are processed in the order shown. Use ↑/↓ buttons to reorder them for proper chronological sequence."></app-tooltip-icon>
+      title="Context Files"
+      tooltip="Saved context files. Load a previous context or import an external JSON to override the current file's context.">
+      <app-downloads-list
+        title="Saved Contexts"
+        [files]="availableContextFiles"
+        [isLoading]="isFetchingContextFiles"
+        [deletingFilename]="deletingContextFile ?? ''"
+        (refresh)="refreshContextFiles()"
+        (download)="loadContextFromFile($event)"
+        (delete)="deleteContextFile($event)">
+      </app-downloads-list>
+      <div class="import-context-section">
+        <div class="warning-banner">
+          Importing a context file will override all current context data. A subtitle file must be loaded first.
         </div>
-        <table class="file-table">
-          <thead>
-            <tr>
-              <th class="col-reorder"></th>
-              <th class="col-index">#</th>
-              <th class="col-filename">Filename</th>
-              <th class="col-remove"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let file of recapContextFiles; let i = index">
-              <td class="col-reorder">
-                <div class="reorder-buttons">
-                  <button type="button" 
-                          class="reorder-btn" 
-                          (click)="moveRecapFileUp(i)" 
-                          [disabled]="i === 0"
-                          title="Move up">↑</button>
-                  <button type="button" 
-                          class="reorder-btn" 
-                          (click)="moveRecapFileDown(i)" 
-                          [disabled]="i === recapContextFiles.length - 1"
-                          title="Move down">↓</button>
-                </div>
-              </td>
-              <td class="col-index">{{ i + 1 }}</td>
-              <td class="col-filename">{{ file.name }}</td>
-              <td class="col-remove">
-                <button type="button" class="remove-btn" (click)="removeRecapFile(i)" title="Remove file">✕</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <app-primary-button [fullWidth]="true" (click)="generateRecap()" [disabled]="runningLlm || recapContextFiles.length === 0">
-        Generate Recap
-      </app-primary-button>
-
-      <div class="form-group">
-        <div class="context-field-wrapper" [class.is-loading]="isGeneratingRecap">
-          <app-text-field 
-            label="Generated Recap" 
-            placeholder="Recap will appear here..."
-            [(ngModel)]="recap">
-          </app-text-field>
-          <div class="context-field-overlay" *ngIf="isGeneratingRecap">
-            <app-loading-text-indicator text="Generating Recap..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
-          </div>
-        </div>
+        <app-file-upload
+          accept=".json"
+          placeholder="Import Context File"
+          subtext=".json"
+          [selectedFiles]="[]"
+          (filesSelected)="onImportFilesSelected($event)">
+        </app-file-upload>
       </div>
     </app-subsection>
 
@@ -257,20 +199,78 @@
         </app-primary-button>
       </div>
 
-      <hr class="context-divider">
-      <app-context-status
-        [characterList]="characterList"
-        [synopsis]="synopsis"
-        [summary]="summary"
-        [recap]="recap"
-        [additionalInstructions]="additionalInstructions">
-      </app-context-status>
-      <app-primary-button
-        [fullWidth]="true"
-        (click)="exportContext()"
-        [disabled]="!hasAnyContextContent()">
-        Export Context
+    </app-subsection>
+
+    <app-subsection
+      title="Recap Generation"
+      tooltip="Generate a comprehensive recap from multiple context files for continuity across episodes">
+
+      <app-file-upload
+        accept=".json"
+        [multiple]="true"
+        placeholder="Upload Context Files"
+        subtext=".json files (select multiple)"
+        [selectedFiles]="recapContextFiles"
+        (filesSelected)="onRecapFilesSelected($event)">
+      </app-file-upload>
+
+      <div class="file-table-container" *ngIf="recapContextFiles.length > 0">
+        <div class="file-table-header">
+          <span>Uploaded Context Files</span>
+          <app-tooltip-icon tooltip="Files are processed in the order shown. Use ↑/↓ buttons to reorder them for proper chronological sequence."></app-tooltip-icon>
+        </div>
+        <table class="file-table">
+          <thead>
+            <tr>
+              <th class="col-reorder"></th>
+              <th class="col-index">#</th>
+              <th class="col-filename">Filename</th>
+              <th class="col-remove"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let file of recapContextFiles; let i = index">
+              <td class="col-reorder">
+                <div class="reorder-buttons">
+                  <button type="button"
+                          class="reorder-btn"
+                          (click)="moveRecapFileUp(i)"
+                          [disabled]="i === 0"
+                          title="Move up">↑</button>
+                  <button type="button"
+                          class="reorder-btn"
+                          (click)="moveRecapFileDown(i)"
+                          [disabled]="i === recapContextFiles.length - 1"
+                          title="Move down">↓</button>
+                </div>
+              </td>
+              <td class="col-index">{{ i + 1 }}</td>
+              <td class="col-filename">{{ file.name }}</td>
+              <td class="col-remove">
+                <button type="button" class="remove-btn" (click)="removeRecapFile(i)" title="Remove file">✕</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <app-primary-button [fullWidth]="true" (click)="generateRecap()" [disabled]="runningLlm || recapContextFiles.length === 0">
+        Generate Recap
       </app-primary-button>
+
+      <div class="form-group">
+        <div class="context-field-wrapper" [class.is-loading]="isGeneratingRecap">
+          <app-text-field
+            label="Generated Recap"
+            placeholder="Recap will appear here..."
+            [(ngModel)]="recap"
+            (ngModelChange)="updateRecap()">
+          </app-text-field>
+          <div class="context-field-overlay" *ngIf="isGeneratingRecap">
+            <app-loading-text-indicator text="Generating Recap..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
+          </div>
+        </div>
+      </div>
     </app-subsection>
   </div>
 </div>

@@ -11,11 +11,12 @@ import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon
 import { ContextStatusComponent } from '../../components/context-status/context-status.component';
 import { LoadingTextIndicatorComponent } from '../../components/loading-text-indicator/loading-text-indicator.component';
 import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
+import { DownloadsListComponent } from '../../components/downloads-list/downloads-list.component';
 
 @Component({
   selector: 'app-context',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent, TooltipIconComponent, ContextStatusComponent, LoadingTextIndicatorComponent, PrimaryButtonComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent, TooltipIconComponent, ContextStatusComponent, LoadingTextIndicatorComponent, PrimaryButtonComponent, DownloadsListComponent],
   templateUrl: './context.component.html',
   styleUrl: './context.component.scss'
 })
@@ -25,9 +26,14 @@ export class ContextComponent implements OnInit, OnDestroy {
   summary = '';
   additionalInstructions = '';
   selectedFile: File | null = null;
-  importFile: File | null = null;
+  currentFilename: string | null = null;
   inputLanguage = 'ja';
   outputLanguage = 'en';
+
+  // Context files downloads list
+  availableContextFiles: {name: string, size: number, modified: string}[] = [];
+  isFetchingContextFiles = false;
+  deletingContextFile = '';
   runningLlm = false;
   private pollingSubscription?: Subscription;
   
@@ -98,6 +104,8 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.stateService.runningLlm$.subscribe(running => {
       this.runningLlm = running;
     });
+
+    this.refreshContextFiles();
   }
 
   ngOnDestroy(): void {
@@ -151,6 +159,7 @@ export class ContextComponent implements OnInit, OnDestroy {
             this.stateService.setRecap(response.result.data);
             this.isGeneratingRecap = false;
           }
+          this.saveContext();
         } else if (response.status === 'error') {
           alert(`Error: ${response.message}`);
           this.clearGenerationFlags();
@@ -168,6 +177,10 @@ export class ContextComponent implements OnInit, OnDestroy {
       const file = files[0];
       if (file.name.endsWith('.ass') || file.name.endsWith('.srt')) {
         this.selectedFile = file;
+        const baseName = file.name.replace(/\.(ass|srt)$/i, '');
+        this.currentFilename = `${baseName}.json`;
+        this.refreshContextFiles();
+        this.loadContextFromFile(this.currentFilename);
       } else {
         alert('Please select an .ass or .srt file.');
       }
@@ -176,18 +189,27 @@ export class ContextComponent implements OnInit, OnDestroy {
 
   updateCharacterList(): void {
     this.stateService.setCharacterList(this.characterList);
+    this.saveContext();
   }
 
   updateSynopsis(): void {
     this.stateService.setSynopsis(this.synopsis);
+    this.saveContext();
   }
 
   updateSummary(): void {
     this.stateService.setSummary(this.summary);
+    this.saveContext();
   }
 
   updateAdditionalInstructions(): void {
     this.stateService.setAdditionalInstructions(this.additionalInstructions);
+    this.saveContext();
+  }
+
+  updateRecap(): void {
+    this.stateService.setRecap(this.recap);
+    this.saveContext();
   }
 
   setContextTab(tab: 'additional' | 'character' | 'synopsis' | 'summary'): void {
@@ -334,8 +356,9 @@ export class ContextComponent implements OnInit, OnDestroy {
     });
   }
 
-  exportContext(): void {
-    const contextData = {
+  saveContext(): void {
+    if (!this.currentFilename) return;
+    const context = {
       inputLanguage: this.inputLanguage,
       outputLanguage: this.outputLanguage,
       characterList: this.characterList,
@@ -343,48 +366,106 @@ export class ContextComponent implements OnInit, OnDestroy {
       summary: this.summary,
       recap: this.recap,
       additionalInstructions: this.additionalInstructions,
-      exportDate: new Date().toISOString()
     };
+    this.apiService.saveContext(this.currentFilename, context).subscribe({
+      next: () => this.refreshContextFiles(),
+      error: (err) => console.error('Failed to save context:', err)
+    });
+  }
 
-    const blob = new Blob([JSON.stringify(contextData, null, 2)], { type: 'application/json' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    
-    // Use subtitle file name without extension, or default to generated-context
-    let filename = 'generated-context.json';
-    if (this.selectedFile) {
-      const baseName = this.selectedFile.name.replace(/\.(ass|srt)$/i, '');
-      filename = `${baseName}.json`;
-    }
-    
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+  refreshContextFiles(): void {
+    this.isFetchingContextFiles = true;
+    this.apiService.listFiles('context-files').subscribe({
+      next: (response) => {
+        this.availableContextFiles = response.files;
+        this.isFetchingContextFiles = false;
+      },
+      error: (err) => {
+        console.error('Error fetching context files:', err);
+        this.isFetchingContextFiles = false;
+      }
+    });
+  }
+
+  loadContextFromFile(filename: string): void {
+    this.apiService.downloadFile('context-files', filename).subscribe({
+      next: (blob) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = JSON.parse(e.target?.result as string);
+            if (data.inputLanguage !== undefined) this.inputLanguage = data.inputLanguage;
+            if (data.outputLanguage !== undefined) this.outputLanguage = data.outputLanguage;
+            if (data.characterList !== undefined) {
+              this.characterList = data.characterList;
+              this.stateService.setCharacterList(data.characterList);
+            }
+            if (data.synopsis !== undefined) {
+              this.synopsis = data.synopsis;
+              this.stateService.setSynopsis(data.synopsis);
+            }
+            if (data.summary !== undefined) {
+              this.summary = data.summary;
+              this.stateService.setSummary(data.summary);
+            }
+            if (data.recap !== undefined) {
+              this.recap = data.recap;
+              this.stateService.setRecap(data.recap);
+            }
+            if (data.additionalInstructions !== undefined) {
+              this.additionalInstructions = data.additionalInstructions;
+              this.stateService.setAdditionalInstructions(data.additionalInstructions);
+            }
+          } catch (error) {
+            console.error('Error parsing context file:', error);
+            alert('Failed to load context file.');
+          }
+        };
+        reader.readAsText(blob);
+      },
+      error: (err) => {
+        if (err.status !== 404) {
+          console.error('Error loading context file:', err);
+          alert('Failed to load context file.');
+        }
+      }
+    });
+  }
+
+  deleteContextFile(filename: string): void {
+    this.deletingContextFile = filename;
+    this.apiService.deleteFile('context-files', filename).subscribe({
+      next: () => {
+        this.deletingContextFile = '';
+        this.refreshContextFiles();
+      },
+      error: (err) => {
+        console.error('Error deleting context file:', err);
+        this.deletingContextFile = '';
+      }
+    });
   }
 
   onImportFilesSelected(files: File[]): void {
-    if (files.length > 0) {
-      const file = files[0];
-      if (file.name.endsWith('.json')) {
-        this.importFile = file;
-        this.processImportFile(file);
-      } else {
-        alert('Please select a JSON file.');
-      }
+    if (files.length === 0) return;
+    const file = files[0];
+    if (!file.name.endsWith('.json')) {
+      alert('Please select a JSON file.');
+      return;
     }
-  }
-
-  private processImportFile(file: File): void {
+    if (!this.currentFilename) {
+      alert('Please upload a subtitle file first before importing context.');
+      return;
+    }
+    const existingFile = this.availableContextFiles.find(f => f.name === this.currentFilename);
+    if (existingFile) {
+      const confirmed = confirm(`This will overwrite the existing context file "${this.currentFilename}". Are you sure?`);
+      if (!confirmed) return;
+    }
     const reader = new FileReader();
-    
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target?.result as string);
-        
-        // Load all fields from the imported data
         if (data.inputLanguage !== undefined) this.inputLanguage = data.inputLanguage;
         if (data.outputLanguage !== undefined) this.outputLanguage = data.outputLanguage;
         if (data.characterList !== undefined) {
@@ -407,14 +488,12 @@ export class ContextComponent implements OnInit, OnDestroy {
           this.additionalInstructions = data.additionalInstructions;
           this.stateService.setAdditionalInstructions(data.additionalInstructions);
         }
-        
-        alert('Context imported successfully!');
+        this.saveContext();
       } catch (error) {
         console.error('Error parsing import file:', error);
         alert('Failed to import context. Invalid JSON file.');
       }
     };
-    
     reader.readAsText(file);
   }
 
