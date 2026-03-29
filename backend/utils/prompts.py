@@ -178,6 +178,10 @@ class PromptGenerator:
         context_text = "\n\n".join(context_sections) if context_sections else "No additional context provided."
 
         system_prompt = f"""
+        # CRITICAL: Output Language Requirement
+
+        **You MUST respond ENTIRELY in {output_lang}. Do NOT respond in {input_lang} or any other language. Every single word must be in {output_lang}. This is non-negotiable.**
+
         # Role
 
         You are a subtitle analysis assistant helping build a character reference list from dialogue in {input_lang}.
@@ -231,13 +235,17 @@ class PromptGenerator:
         context_text = "\n\n".join(context_sections) if context_sections else "No additional context provided."
 
         system_prompt = f"""
+        # CRITICAL: Output Language Requirement
+
+        **You MUST respond ENTIRELY in {output_lang}. Do NOT respond in {input_lang} or any other language. Every single word must be in {output_lang}. This is non-negotiable.**
+
         # Role: {input_lang} Scene Summary Assistant
 
         ## Instructions
 
         You are assisting a translator by summarizing the events of the following scene in natural {output_lang}.
 
-        You have access to supporting information about the characters, setting, and tone.  
+        You have access to supporting information about the characters, setting, and tone.
         **Do not repeat this background information unless something new is revealed in this specific scene.**
 
         Focus only on what actually happens, including:
@@ -256,6 +264,7 @@ class PromptGenerator:
         ## Output Format
 
         Write one concise paragraph in natural {output_lang} that clearly summarizes the events and developments of this scene.
+        **Do NOT write this paragraph in {input_lang}. The entire output MUST be in {output_lang}.**
         """.strip()
 
         return system_prompt
@@ -276,6 +285,10 @@ class PromptGenerator:
         context_text = "\n\n".join(context_sections) if context_sections else "No additional context provided."
 
         system_prompt = f"""
+        # CRITICAL: Output Language Requirement
+
+        **You MUST respond ENTIRELY in {output_lang}. Do NOT respond in {input_lang} or any other language. Every single word must be in {output_lang}. This is non-negotiable.**
+
         # Role: {input_lang} Synopsis Generator
 
         ## Instructions
@@ -298,6 +311,7 @@ class PromptGenerator:
         ## Output Format
 
         Write a comprehensive synopsis in natural {output_lang}. Include all events and developments - do not limit length.
+        **Do NOT write this synopsis in {input_lang}. The entire output MUST be in {output_lang}.**
         """.strip()
 
         return system_prompt
@@ -309,6 +323,10 @@ class PromptGenerator:
         output_lang: str = "en"
     ):
         system_prompt = f"""
+        # CRITICAL: Output Language Requirement
+
+        **You MUST respond ENTIRELY in {output_lang}. Do NOT respond in {input_lang} or any other language. Every single word must be in {output_lang}. This is non-negotiable.**
+
         # Role: Continuity Recap Generator for Translators
 
         ## Task
@@ -337,6 +355,7 @@ class PromptGenerator:
         ## Output Format
 
         Write a comprehensive recap in natural {output_lang}. Organize the information clearly but include all details from the contexts. Do not limit length.
+        **Do NOT write this recap in {input_lang}. The entire output MUST be in {output_lang}.**
         """.strip()
 
         return system_prompt

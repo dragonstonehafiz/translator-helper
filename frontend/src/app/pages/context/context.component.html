@@ -12,7 +12,7 @@
         title="Saved Contexts"
         [files]="availableContextFiles"
         [isLoading]="isFetchingContextFiles"
-        [deletingFilename]="deletingContextFile ?? ''"
+        [deletingFilename]="deletingContextFile"
         (refresh)="refreshContextFiles()"
         (download)="loadContextFromFile($event)"
         (delete)="deleteContextFile($event)">
