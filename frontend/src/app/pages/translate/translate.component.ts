@@ -49,7 +49,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
   fileUseRecap = false;
   fileInputLanguage = 'ja';
   fileOutputLanguage = 'en';
-  batchSize = 3;
+  batchSize = 50;
   fileToTranslate: File | null = null;
   isTranslatingFile = false;
   fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
