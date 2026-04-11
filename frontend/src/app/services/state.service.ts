@@ -44,11 +44,11 @@ export class StateService {
   private serverLlmVarsSubject = new BehaviorSubject<Array<{ key?: string; label?: string; value?: unknown }> | null>(null);
   public serverLlmVars$: Observable<Array<{ key?: string; label?: string; value?: unknown }> | null> = this.serverLlmVarsSubject.asObservable();
 
-  private loadingWhisperSubject = new BehaviorSubject<boolean>(false);
-  public loadingWhisper$: Observable<boolean> = this.loadingWhisperSubject.asObservable();
+  private loadingAudioSubject = new BehaviorSubject<boolean>(false);
+  public loadingAudio$: Observable<boolean> = this.loadingAudioSubject.asObservable();
 
-  private loadingGptSubject = new BehaviorSubject<boolean>(false);
-  public loadingGpt$: Observable<boolean> = this.loadingGptSubject.asObservable();
+  private loadingLlmSubject = new BehaviorSubject<boolean>(false);
+  public loadingLlm$: Observable<boolean> = this.loadingLlmSubject.asObservable();
 
 
   private characterListSubject = new BehaviorSubject<string>('');
@@ -119,12 +119,12 @@ export class StateService {
     };
   }
 
-  setLoadingWhisper(loading: boolean): void {
-    this.loadingWhisperSubject.next(loading);
+  setLoadingAudio(loading: boolean): void {
+    this.loadingAudioSubject.next(loading);
   }
 
-  setLoadingGpt(loading: boolean): void {
-    this.loadingGptSubject.next(loading);
+  setLoadingLlm(loading: boolean): void {
+    this.loadingLlmSubject.next(loading);
   }
 
 

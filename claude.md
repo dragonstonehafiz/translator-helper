@@ -10,6 +10,9 @@ Translator Helper is a full-stack application for transcribing, translating, and
 - **Backend Interfaces**: Abstract interfaces for LLM and audio models (see `backend/interface/`)
 - **Backend Models**: Concrete model implementations (see `backend/models/`)
   - `backend/models/model_manager.py` is model-focused (load/config/infer), not task-result orchestration
+- **Backend Routes**: Domain-specific route modules under `backend/routes/`
+  - `context.py`, `transcribe.py`, `translate.py`, `file_management.py`, and `utils.py`
+  - `shared.py` contains shared route helpers and singleton access
 - **Backend Orchestrator**: Task execution and in-memory task state (see `backend/orchestrator/`)
   - `TaskOrchestrator`: runs one active task at a time (`is_running`)
   - `ResultHandler`: stores latest task output per task class (`task_type`)
@@ -346,13 +349,14 @@ The application uses several reusable standalone components located in `frontend
 ### Endpoints
 
 **Health & Status**:
-- `GET /api/running`: Check running operations status
+- `GET /utils/running`: Check running operations status
+  - Returns `running_llm`, `running_audio`, `loading_llm_model`, and `loading_audio_model`
 
 **Settings**:
-- `POST /api/load-audio-model`: Load audio transcription model
-- `POST /api/load-llm-model`: Load LLM model (API key optional, omit it to reuse the stored key)
-- `GET /api/settings/schema`: Get settings schema for model configuration
-- `GET /api/server/variables`: Get current server configuration and readiness grouped by provider
+- `POST /utils/load-audio-model`: Load audio transcription model
+- `POST /utils/load-llm-model`: Load LLM model (API key optional, omit it to reuse the stored key)
+- `GET /utils/settings-schema`: Get settings schema for model configuration
+- `GET /utils/server-variables`: Get current server configuration and readiness grouped by provider
 The server loads `.env` via python-dotenv at startup, and models read defaults from environment (e.g., `OPENAI_*`, `WHISPER_*`).
 
 ### Settings Schema (Backend -> Frontend)
@@ -379,28 +383,41 @@ status cards correctly. Values are returned as display-ready objects:
 ```
 When no client is loaded yet, `audio` and `llm` are empty arrays (`[]`).
 
-**Context Generation** (`backend/routes.py`):
-- `POST /api/context/generate-character-list`: Generate character list from subtitle file
-- `POST /api/context/generate-synopsis`: Generate synopsis from subtitle file
-- `POST /api/context/generate-high-level-summary`: Generate summary from subtitle file
-- `POST /api/context/generate-recap`: Generate recap from multiple contexts
-- `GET /api/context/result`: Poll for context generation result
+The running-status endpoint returns:
+```json
+{
+  "running_llm": false,
+  "running_audio": false,
+  "loading_llm_model": false,
+  "loading_audio_model": false
+}
+```
 
-**Transcription** (`backend/routes.py`):
-- `POST /api/transcribe/transcribe-line`: Transcribe audio file or recording to text
-- `POST /api/transcribe/transcribe-file`: Transcribe a full audio file and generate .ass subtitle file (FormData: file, language)
-- `GET /api/transcribe/result`: Poll for transcription result (shared for both line and file transcription)
+**Context Generation** (`backend/routes/context.py`):
+- `POST /context/generate-character-list`: Generate character list from subtitle file
+- `POST /context/generate-synopsis`: Generate synopsis from subtitle file
+- `POST /context/generate-high-level-summary`: Generate summary from subtitle file
+- `POST /context/generate-recap`: Generate recap from multiple contexts
+- `POST /context/save`: Save a context JSON file
+- `GET /context/result`: Poll for context generation result
 
-**Utils** (`backend/routes.py`):
-- `POST /api/utils/get-subtitle-file-info/`: Upload an ASS or SRT file to get dialogue count, total characters (Speaker: dialogue), and average characters per line
+**Transcription** (`backend/routes/transcribe.py`):
+- `POST /transcribe/transcribe-line`: Transcribe audio file or recording to text
+- `POST /transcribe/transcribe-file`: Transcribe a full audio file and generate .ass subtitle file (FormData: file, language)
+- `GET /transcribe/result`: Poll for transcription result (shared for both line and file transcription)
 
-**Translation** (`backend/routes.py`):
-- `POST /api/translate/translate-line`: Translate text line with context (FormData: text, context JSON, input_lang, output_lang)
-- `POST /api/translate/translate-file`: Translate subtitle file with batch size (FormData: file, context JSON, input_lang, output_lang, batch_size)
-- `GET /api/translate/result`: Poll for translation result
-- `GET /api/file-management/{folder}`: List files in `backend/outputs/{folder}/`
-- `GET /api/file-management/{folder}/{filename}`: Download a file
-- `DELETE /api/file-management/{folder}/{filename}`: Delete a file
+**Utils** (`backend/routes/utils.py`):
+- `POST /utils/get-subtitle-file-info`: Upload an ASS or SRT file to get dialogue count, total characters (Speaker: dialogue), and average characters per line
+
+**Translation** (`backend/routes/translate.py`):
+- `POST /translate/translate-line`: Translate text line with context (FormData: text, context JSON, input_lang, output_lang)
+- `POST /translate/translate-file`: Translate subtitle file with batch size (FormData: file, context JSON, input_lang, output_lang, batch_size)
+- `GET /translate/result`: Poll for translation result
+
+**File Management** (`backend/routes/file_management.py`):
+- `GET /file-management/{folder}`: List files in `backend/outputs/{folder}/`
+- `GET /file-management/{folder}/{filename}`: Download a file
+- `DELETE /file-management/{folder}/{filename}`: Delete a file
 
 ### Background Tasks
 
@@ -418,7 +435,7 @@ Translation progress (file translation) includes:
 - `avg_seconds_per_line`
 - `eta_seconds`
 
-For file translations, `/api/translate/result` can include task result payload (including output filename). The translated files are saved in `backend/outputs/sub-files/` and retrieved via `/api/file-management/sub-files`.
+For file translations, `/translate/result` can include task result payload (including output filename). The translated files are saved in `backend/outputs/sub-files/` and retrieved via `/file-management/sub-files`.
 
 ## Styling Guidelines
 
@@ -535,7 +552,7 @@ Use `app-text-field` instead of creating a new textarea:
 ```
 
 ### Adding a New Backend Endpoint
-1. Add handler in `backend/routes.py`
+1. Add handler in the appropriate module under `backend/routes/`
 2. Add method to `ApiService` in frontend
 3. Call from component using the service method
 

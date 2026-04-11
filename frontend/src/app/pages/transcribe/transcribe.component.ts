@@ -322,7 +322,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
     this.filePollingInterval = setInterval(() => {
       this.apiService.checkRunning().subscribe({
         next: (response) => {
-          if (!response.running_whisper) {
+          if (!response.running_audio) {
             this.isTranscribing = false;
             this.stopFilePolling();
             this.refreshFileDownloads();

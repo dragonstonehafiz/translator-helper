@@ -26,8 +26,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
   llmLoadingError: string | null = null;
   audioLoadingError: string | null = null;
 
-  loadingWhisper = false;
-  loadingGpt = false;
+  loadingAudio = false;
+  loadingLlm = false;
 
   llmDetails: Array<{ label: string; value: string }> = [];
   audioDetails: Array<{ label: string; value: string }> = [];
@@ -56,12 +56,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.loadFromState();
 
     // Subscribe to loading states
-    this.stateService.loadingWhisper$.subscribe(loading => {
-      this.loadingWhisper = loading;
+    this.stateService.loadingAudio$.subscribe(loading => {
+      this.loadingAudio = loading;
     });
 
-    this.stateService.loadingGpt$.subscribe(loading => {
-      this.loadingGpt = loading;
+    this.stateService.loadingLlm$.subscribe(loading => {
+      this.loadingLlm = loading;
     });
 
     this.startStatusPolling();
@@ -123,10 +123,10 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.llmLoadingError = response.llm_loading_error ?? null;
         this.audioLoadingError = response.audio_loading_error ?? null;
         if (response.llm_ready) {
-          this.stateService.setLoadingGpt(false);
+          this.stateService.setLoadingLlm(false);
         }
         if (response.audio_ready) {
-          this.stateService.setLoadingWhisper(false);
+          this.stateService.setLoadingAudio(false);
         }
 
         this.audioDetails = audioVars.map(item => ({
@@ -156,8 +156,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
   private loadRunningStatus(): void {
     this.apiService.checkRunning().subscribe({
       next: (status) => {
-        this.stateService.setLoadingGpt(status.loading_gpt_model);
-        this.stateService.setLoadingWhisper(status.loading_whisper_model);
+        this.stateService.setLoadingLlm(status.loading_llm_model);
+        this.stateService.setLoadingAudio(status.loading_audio_model);
       },
       error: (error) => {
         console.error('Failed to load running status:', error);
@@ -222,8 +222,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
   }
 
 
-  loadWhisperModel(): void {
-    if (this.loadingWhisper) return;
+  loadAudioModel(): void {
+    if (this.loadingAudio) return;
 
     const modelName = this.settingsValues.audio['model_name'] as string | undefined;
     const device = this.settingsValues.audio['device'] as string | undefined;
@@ -235,20 +235,20 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
     const settings = { ...this.settingsValues.audio };
 
-    this.apiService.loadWhisperModel(settings).subscribe({
+    this.apiService.loadAudioModel(settings).subscribe({
       next: (response) => {
         console.log(response.message);
-        this.stateService.setLoadingWhisper(true);
+        this.stateService.setLoadingAudio(true);
       },
       error: (error) => {
-        console.error('Failed to load Whisper model:', error);
-        alert('Failed to load Whisper model');
+        console.error('Failed to load audio model:', error);
+        alert('Failed to load audio model');
       }
     });
   }
 
-  loadGptModel(): void {
-    if (this.loadingGpt) {
+  loadLlmModel(): void {
+    if (this.loadingLlm) {
       return;
     }
 
@@ -272,14 +272,14 @@ export class SettingsComponent implements OnInit, OnDestroy {
       delete settings['api_key'];
     }
 
-    this.apiService.loadGptModel(settings).subscribe({
+    this.apiService.loadLlmModel(settings).subscribe({
       next: (response) => {
         console.log(response.message);
-        this.stateService.setLoadingGpt(true);
+        this.stateService.setLoadingLlm(true);
       },
       error: (error) => {
-        console.error('Failed to load GPT model:', error);
-        alert('Failed to load GPT model');
+        console.error('Failed to load LLM:', error);
+        alert('Failed to load LLM');
       }
     });
   }

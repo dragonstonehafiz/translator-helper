@@ -7,31 +7,27 @@ import { SettingsSchemaBundle } from './state.service';
   providedIn: 'root'
 })
 export class ApiService {
-  private baseUrl = 'http://localhost:8000/api';
+  private baseUrl = 'http://localhost:8000';
 
   constructor(private http: HttpClient) { }
 
-  checkRunning(): Observable<{running_llm: boolean, running_whisper: boolean, loading_whisper_model: boolean, loading_gpt_model: boolean}> {
-    return this.http.get<{running_llm: boolean, running_whisper: boolean, loading_whisper_model: boolean, loading_gpt_model: boolean}>(`${this.baseUrl}/running`);
-  }
-
-  healthCheck(): Observable<{status: string, message: string}> {
-    return this.http.get<{status: string, message: string}>(`${this.baseUrl}/health`);
+  checkRunning(): Observable<{running_llm: boolean, running_audio: boolean, loading_audio_model: boolean, loading_llm_model: boolean}> {
+    return this.http.get<{running_llm: boolean, running_audio: boolean, loading_audio_model: boolean, loading_llm_model: boolean}>(`${this.baseUrl}/utils/running`);
   }
 
   getSettingsSchema(): Observable<SettingsSchemaBundle> {
-    return this.http.get<SettingsSchemaBundle>(`${this.baseUrl}/settings/schema`);
+    return this.http.get<SettingsSchemaBundle>(`${this.baseUrl}/utils/settings-schema`);
   }
 
-  loadWhisperModel(settings: Record<string, unknown>): Observable<{status: string, message: string}> {
-    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/load-audio-model`, {
+  loadAudioModel(settings: Record<string, unknown>): Observable<{status: string, message: string}> {
+    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/utils/load-audio-model`, {
       provider: 'audio',
       settings
     });
   }
 
-  loadGptModel(settings: Record<string, unknown>): Observable<{status: string, message: string}> {
-    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/load-llm-model`, {
+  loadLlmModel(settings: Record<string, unknown>): Observable<{status: string, message: string}> {
+    return this.http.post<{status: string, message: string}>(`${this.baseUrl}/utils/load-llm-model`, {
       provider: 'llm',
       settings
     });
@@ -52,16 +48,7 @@ export class ApiService {
       audio_ready: boolean;
       llm_loading_error: string | null;
       audio_loading_error: string | null;
-    }>(`${this.baseUrl}/server/variables`);
-  }
-
-  generateWebContext(seriesName: string, keywords: string, inputLang: string, outputLang: string): Observable<{status: string, context?: string, message?: string}> {
-    return this.http.post<{status: string, context?: string, message?: string}>(`${this.baseUrl}/context/generate-web-context`, {
-      series_name: seriesName,
-      keywords: keywords,
-      input_lang: inputLang,
-      output_lang: outputLang
-    });
+    }>(`${this.baseUrl}/utils/server-variables`);
   }
 
   getContextResult(): Observable<{status: string, result?: {type: string, data: string}, message?: string}> {
@@ -113,7 +100,7 @@ export class ApiService {
   getTranscribeFileInfo(file: File): Observable<{status: string, result?: {total_lines: string, character_count: string, average_character_count: string}, message?: string}> {
     const formData = new FormData();
     formData.append('file', file);
-    return this.http.post<{status: string, result?: {total_lines: string, character_count: string, average_character_count: string}, message?: string}>(`${this.baseUrl}/utils/get-subtitle-file-info/`, formData);
+    return this.http.post<{status: string, result?: {total_lines: string, character_count: string, average_character_count: string}, message?: string}>(`${this.baseUrl}/utils/get-subtitle-file-info`, formData);
   }
 
   getTranscriptionResult(): Observable<{status: string, result?: {type: string, data: string}, message?: string}> {

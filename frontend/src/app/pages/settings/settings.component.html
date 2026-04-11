@@ -55,7 +55,7 @@
               *ngSwitchCase="'select'"
               [id]="'llm-' + field.key"
               [(ngModel)]="settingsValues.llm[field.key]"
-              [disabled]="loadingGpt || llmReady === null">
+              [disabled]="loadingLlm || llmReady === null">
               <option *ngFor="let option of field.options || []" [value]="option.value">{{ option.label }}</option>
             </select>
             <input
@@ -66,34 +66,34 @@
               [min]="field.min ?? null"
               [max]="field.max ?? null"
               [step]="field.step ?? null"
-              [disabled]="loadingGpt || llmReady === null">
+              [disabled]="loadingLlm || llmReady === null">
             <input
               *ngSwitchCase="'password'"
               type="password"
               [id]="'llm-' + field.key"
               [(ngModel)]="settingsValues.llm[field.key]"
               [placeholder]="field.placeholder"
-              [disabled]="loadingGpt || llmReady === null">
+              [disabled]="loadingLlm || llmReady === null">
             <input
               *ngSwitchCase="'boolean'"
               type="checkbox"
               [id]="'llm-' + field.key"
               [(ngModel)]="settingsValues.llm[field.key]"
-              [disabled]="loadingGpt || llmReady === null">
+              [disabled]="loadingLlm || llmReady === null">
             <input
               *ngSwitchDefault
               type="text"
               [id]="'llm-' + field.key"
               [(ngModel)]="settingsValues.llm[field.key]"
               [placeholder]="field.placeholder"
-              [disabled]="loadingGpt || llmReady === null">
+              [disabled]="loadingLlm || llmReady === null">
           </ng-container>
         </div>
       </div>
       <div class="load-button-spacing">
-        <app-primary-button [fullWidth]="true" (click)="loadGptModel()" [disabled]="loadingGpt || (llmApiKeyRequired && !settingsValues.llm['api_key'] && !llmReady)">
-          <span *ngIf="!loadingGpt">Reload LLM</span>
-          <span *ngIf="loadingGpt">Loading...</span>
+        <app-primary-button [fullWidth]="true" (click)="loadLlmModel()" [disabled]="loadingLlm || (llmApiKeyRequired && !settingsValues.llm['api_key'] && !llmReady)">
+          <span *ngIf="!loadingLlm">Reload LLM</span>
+          <span *ngIf="loadingLlm">Loading...</span>
         </app-primary-button>
       </div>
     </app-subsection>
@@ -110,7 +110,7 @@
               *ngSwitchCase="'select'"
               [id]="'audio-' + field.key"
               [(ngModel)]="settingsValues.audio[field.key]"
-              [disabled]="loadingWhisper || audioReady === null">
+              [disabled]="loadingAudio || audioReady === null">
               <option *ngFor="let option of field.options || []" [value]="option.value">{{ option.label }}</option>
             </select>
             <input
@@ -121,34 +121,34 @@
               [min]="field.min ?? null"
               [max]="field.max ?? null"
               [step]="field.step ?? null"
-              [disabled]="loadingWhisper || audioReady === null">
+              [disabled]="loadingAudio || audioReady === null">
             <input
               *ngSwitchCase="'password'"
               type="password"
               [id]="'audio-' + field.key"
               [(ngModel)]="settingsValues.audio[field.key]"
               [placeholder]="field.placeholder"
-              [disabled]="loadingWhisper || audioReady === null">
+              [disabled]="loadingAudio || audioReady === null">
             <input
               *ngSwitchCase="'boolean'"
               type="checkbox"
               [id]="'audio-' + field.key"
               [(ngModel)]="settingsValues.audio[field.key]"
-              [disabled]="loadingWhisper || audioReady === null">
+              [disabled]="loadingAudio || audioReady === null">
             <input
               *ngSwitchDefault
               type="text"
               [id]="'audio-' + field.key"
               [(ngModel)]="settingsValues.audio[field.key]"
               [placeholder]="field.placeholder"
-              [disabled]="loadingWhisper || audioReady === null">
+              [disabled]="loadingAudio || audioReady === null">
           </ng-container>
         </div>
       </div>
       <div class="load-button-spacing">
-        <app-primary-button [fullWidth]="true" (click)="loadWhisperModel()" [disabled]="loadingWhisper">
-          <span *ngIf="!loadingWhisper">Reload Transcription Model</span>
-          <span *ngIf="loadingWhisper">Loading...</span>
+        <app-primary-button [fullWidth]="true" (click)="loadAudioModel()" [disabled]="loadingAudio">
+          <span *ngIf="!loadingAudio">Reload Transcription Model</span>
+          <span *ngIf="loadingAudio">Loading...</span>
         </app-primary-button>
       </div>
     </app-subsection>
