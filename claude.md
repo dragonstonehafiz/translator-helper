@@ -6,9 +6,14 @@ This document provides guidelines for AI agents working on the Translator Helper
 
 Translator Helper is a full-stack application for transcribing, translating, and managing subtitle files. It consists of:
 - **Frontend**: Angular 17.3.12 standalone application with TypeScript and SCSS
-- **Backend**: FastAPI Python server with Whisper (transcription) and OpenAI (translation/context)
+- **Backend**: FastAPI Python server with WhisperX (transcription) and Claude/OpenAI-capable LLM backends (translation/context)
 - **Backend Interfaces**: Abstract interfaces for LLM and audio models (see `backend/interface/`)
 - **Backend Models**: Concrete model implementations (see `backend/models/`)
+  - `backend/models/model_manager.py` is model-focused (load/config/infer), not task-result orchestration
+- **Backend Orchestrator**: Task execution and in-memory task state (see `backend/orchestrator/`)
+  - `TaskOrchestrator`: runs one active task at a time (`is_running`)
+  - `ResultHandler`: stores latest task output per task class (`task_type`)
+  - `ProgressHandler`: stores progress per task class for long-running tasks
   - LLM and audio interfaces now expose `get_status()` returning `"loaded" | "not_loaded" | "error"`
   - Local LLM implementation is available via llama.cpp (GGUF)
 
@@ -341,7 +346,6 @@ The application uses several reusable standalone components located in `frontend
 ### Endpoints
 
 **Health & Status**:
-- `GET /api/health`: Health check
 - `GET /api/running`: Check running operations status
 
 **Settings**:
@@ -402,15 +406,19 @@ When no client is loaded yet, `audio` and `llm` are empty arrays (`[]`).
 
 Long-running operations use FastAPI's BackgroundTasks with polling:
 1. POST endpoint starts background task, returns `{"status": "processing"}`
-2. Background function sets `running_X = True`, performs operation, stores result in `X_result`, sets `running_X = False`
-3. GET `/result` endpoint polls for completion: `"processing"` | `"complete"` | `"error"` | `"idle"`
+2. Background function executes a task class through `TaskOrchestrator`
+3. Each task writes final output/error to `ResultHandler` keyed by `task_type`
+4. Progress-capable tasks write progress to `ProgressHandler` keyed by `task_type`
+5. GET `/result` endpoints return merged status/result/progress: `"processing"` | `"translating"` | `"complete"`/`"success"` | `"error"` | `"idle"`
+6. Task classes write execution timing entries to a shared `backend/outputs/task-timings.log` file (no per-task log files)
+
 
 Translation progress (file translation) includes:
 - `current`, `total`
 - `avg_seconds_per_line`
 - `eta_seconds`
 
-For file translations, `/api/translate/result` returns status only (no file data). The translated files are saved in `backend/outputs/sub-files/` and retrieved via `/api/file-management/sub-files`.
+For file translations, `/api/translate/result` can include task result payload (including output filename). The translated files are saved in `backend/outputs/sub-files/` and retrieved via `/api/file-management/sub-files`.
 
 ## Styling Guidelines
 
@@ -506,34 +514,6 @@ When making changes to:
 - No database (in-memory state)
 - Single user at a time for transcription/context generation
 - Desktop-only UI (no mobile responsiveness)
-
-## File Structure
-
-```
-translator-helper/
-|-- backend/
-|   |-- interface/             # Interfaces for LLM and audio model backends
-|   |-- models/                # Concrete implementations for model backends
-|   |   `-- llm_llamacpp.py
-|   |-- routes.py              # API route definitions
-|   |-- server.py              # FastAPI application
-|   `-- utils/                 # Utilities
-|       |-- model_manager.py   # Shared model/task management
-|       `-- utils.py
-|-- frontend/
-|   `-- src/
-|       |-- app/
-|       |   |-- components/    # Reusable components (described above)
-|       |   |-- pages/         # Page components
-|       |   |   |-- context/
-|       |   |   |-- home/
-|       |   |   |-- settings/
-|       |   |   |-- transcribe/
-|       |   |   `-- translate/
-|       |   `-- services/      # Angular services
-|       `-- assets/
-`-- data/                      # Sample subtitle files
-```
 
 ## Common Tasks
 
