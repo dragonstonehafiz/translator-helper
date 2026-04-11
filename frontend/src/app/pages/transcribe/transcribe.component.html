@@ -78,7 +78,7 @@
           </button>
           <button
             class="icon-btn transcribe-btn"
-            [disabled]="!lineWaveform?.hasAudio || isTranscribing"
+            [disabled]="!lineWaveform?.hasAudio || isAnyTaskRunning()"
             (click)="transcribeAudio()">
             <span class="btn-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" role="img" focusable="false">
@@ -163,7 +163,7 @@
             <span class="tooltip">{{ fileWaveform?.isPlaying ? 'Pause' : 'Play' }}</span>
           </button>
           <app-primary-button
-            [disabled]="!fileWaveform?.hasAudio || isTranscribing"
+            [disabled]="!fileWaveform?.hasAudio || isAnyTaskRunning()"
             (click)="transcribeFileAudio()">
             {{ isTranscribing ? 'Transcribing...' : 'Transcribe File' }}
           </app-primary-button>

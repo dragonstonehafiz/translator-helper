@@ -132,7 +132,7 @@
           </label>
         </div>
 
-        <app-primary-button [fullWidth]="true" (click)="generateCharacterList()" [disabled]="runningLlm || !selectedFile">
+        <app-primary-button [fullWidth]="true" (click)="generateCharacterList()" [disabled]="isAnyTaskRunning() || !selectedFile">
           Generate Character List
         </app-primary-button>
       </div>
@@ -163,7 +163,7 @@
             <span>Include Character List</span>
           </label>
         </div>
-        <app-primary-button [fullWidth]="true" (click)="generateSynopsis()" [disabled]="runningLlm || !selectedFile">
+        <app-primary-button [fullWidth]="true" (click)="generateSynopsis()" [disabled]="isAnyTaskRunning() || !selectedFile">
           Generate Synopsis
         </app-primary-button>
       </div>
@@ -194,7 +194,7 @@
             <span>Include Character List</span>
           </label>
         </div>
-        <app-primary-button [fullWidth]="true" (click)="generateSummary()" [disabled]="runningLlm || !selectedFile">
+        <app-primary-button [fullWidth]="true" (click)="generateSummary()" [disabled]="isAnyTaskRunning() || !selectedFile">
           Generate Summary
         </app-primary-button>
       </div>
@@ -254,7 +254,7 @@
         </table>
       </div>
 
-      <app-primary-button [fullWidth]="true" (click)="generateRecap()" [disabled]="runningLlm || recapContextFiles.length === 0">
+      <app-primary-button [fullWidth]="true" (click)="generateRecap()" [disabled]="isAnyTaskRunning() || recapContextFiles.length === 0">
         Generate Recap
       </app-primary-button>
 

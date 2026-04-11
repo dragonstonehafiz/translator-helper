@@ -2,17 +2,17 @@
 Translation routes.
 """
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, Query, UploadFile
 
 from orchestrator.task_translate_file import TaskTranslateFile
 from orchestrator.task_translate_line import TaskTranslateLine
 
 from .shared import (
     TRANSLATE_TASK_TYPES,
+    build_task_response,
+    ensure_task_type,
     model_manager,
     parse_json_form,
-    progress_handler,
-    read_latest,
     run_single_task,
     save_upload_to_temp,
     task_orchestrator,
@@ -86,22 +86,6 @@ async def api_translate_file(
 
 
 @router.get("/result")
-async def get_translation_result():
-    active_task_type = task_orchestrator.get_active_task_type()
-    if task_orchestrator.is_running() and active_task_type in set(TRANSLATE_TASK_TYPES):
-        active_progress = progress_handler.get(active_task_type) if active_task_type else None
-        if active_progress and active_progress.get("total", 0) > 0:
-            return {"status": "translating", "result": None, "error": None, "progress": active_progress}
-        return {"status": "processing", "result": None, "error": None}
-
-    record, progress = read_latest(TRANSLATE_TASK_TYPES)
-    if record is None:
-        return {"status": "idle", "result": None, "error": None}
-
-    if record["status"] == "error":
-        return {"status": "error", "result": None, "message": record["error"], "progress": progress}
-    if record["status"] == "complete":
-        return {"status": "complete", "result": record["result"], "progress": progress}
-    if progress:
-        return {"status": "translating", "result": None, "error": None, "progress": progress}
-    return {"status": "processing", "result": None, "error": None}
+async def get_translation_result(task_type: str = Query(...)):
+    ensure_task_type(task_type, TRANSLATE_TASK_TYPES)
+    return build_task_response(task_type)

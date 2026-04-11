@@ -10,8 +10,8 @@ import { PrimaryButtonComponent } from '../../components/primary-button/primary-
 import { LoadingTextIndicatorComponent } from '../../components/loading-text-indicator/loading-text-indicator.component';
 import { ProgressBarComponent } from '../../components/progress-bar/progress-bar.component';
 import { DownloadsListComponent } from '../../components/downloads-list/downloads-list.component';
-import { ApiService } from '../../services/api.service';
-import { StateService } from '../../services/state.service';
+import { ApiService, TaskResultResponse } from '../../services/api.service';
+import { StateService, TASK_TYPES } from '../../services/state.service';
 
 @Component({
   selector: 'app-translate',
@@ -90,6 +90,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadContextFromState();
+    this.restoreTaskState();
     this.refreshDownloads();
   }
 
@@ -112,6 +113,24 @@ export class TranslateComponent implements OnInit, OnDestroy {
       if (state.recap) this.recap = state.recap;
       if (state.additionalInstructions) this.additionalInstructions = state.additionalInstructions;
     });
+  }
+
+  private restoreTaskState(): void {
+    const lineTask = this.stateService.getTaskState(TASK_TYPES.translateLine);
+    const fileTask = this.stateService.getTaskState(TASK_TYPES.translateFile);
+
+    this.isTranslatingLine = lineTask.status === 'processing';
+    this.lineTranslationResult = lineTask.result?.data ?? '';
+
+    this.isTranslatingFile = fileTask.status === 'processing';
+    this.fileTranslationProgress = fileTask.progress ?? { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
+
+    if (lineTask.status === 'processing' || lineTask.isPolling) {
+      this.startLinePolling();
+    }
+    if (fileTask.status === 'processing' || fileTask.isPolling) {
+      this.startFilePolling();
+    }
   }
 
   setContextTab(tab: 'additional' | 'character' | 'synopsis' | 'summary' | 'recap'): void {
@@ -137,10 +156,17 @@ export class TranslateComponent implements OnInit, OnDestroy {
   }
 
   translateLine(): void {
-    if (!this.lineTextToTranslate || this.isTranslatingLine) return;
+    if (!this.lineTextToTranslate || this.isTranslatingLine || this.stateService.hasActiveTask()) return;
 
     this.isTranslatingLine = true;
     this.lineTranslationResult = '';
+    this.stateService.setTaskState(TASK_TYPES.translateLine, {
+      status: 'processing',
+      result: null,
+      message: null,
+      progress: null,
+      isPolling: true,
+    });
 
     const context = this.buildContext(
       this.lineUseAdditionalInstructions,
@@ -158,22 +184,45 @@ export class TranslateComponent implements OnInit, OnDestroy {
       next: (response: {status: string, message?: string}) => {
         if (response.status === 'processing') {
           this.startLinePolling();
+        } else {
+          this.stateService.setTaskState(TASK_TYPES.translateLine, {
+            status: 'error',
+            message: response.message || 'Failed to start translation.',
+            isPolling: false,
+          });
+          alert('Failed to start translation. Please try again.');
+          this.isTranslatingLine = false;
         }
       },
       error: (error: any) => {
         console.error('Translation request failed:', error);
         alert('Failed to start translation. Please try again.');
+        this.stateService.setTaskState(TASK_TYPES.translateLine, {
+          status: 'error',
+          message: 'Failed to start translation. Please try again.',
+          isPolling: false,
+        });
         this.isTranslatingLine = false;
       }
     });
   }
 
   private startLinePolling(): void {
+    if (this.linePollingInterval) {
+      return;
+    }
     this.linePollingInterval = setInterval(() => {
-      this.apiService.getTranslationResult().subscribe({
-        next: (response: {status: string, result?: {type: string, data: string}, message?: string}) => {
+      this.apiService.getTranslationResult(TASK_TYPES.translateLine).subscribe({
+        next: (response: TaskResultResponse) => {
+          this.stateService.setTaskState(TASK_TYPES.translateLine, {
+            status: response.status,
+            result: response.result,
+            message: response.message ?? null,
+            progress: response.progress ?? null,
+            isPolling: response.status === 'processing',
+          });
           if (response.status === 'complete' && response.result) {
-            this.lineTranslationResult = response.result.data;
+            this.lineTranslationResult = response.result.data ?? '';
             this.isTranslatingLine = false;
             this.stopLinePolling();
           } else if (response.status === 'error') {
@@ -240,10 +289,17 @@ export class TranslateComponent implements OnInit, OnDestroy {
   }
 
   translateFile(): void {
-    if (!this.fileToTranslate || this.isTranslatingFile) return;
+    if (!this.fileToTranslate || this.isTranslatingFile || this.stateService.hasActiveTask()) return;
 
     this.isTranslatingFile = true;
     this.fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
+    this.stateService.setTaskState(TASK_TYPES.translateFile, {
+      status: 'processing',
+      result: null,
+      message: null,
+      progress: null,
+      isPolling: true,
+    });
 
     const context = this.buildContext(
       this.fileUseAdditionalInstructions,
@@ -263,23 +319,44 @@ export class TranslateComponent implements OnInit, OnDestroy {
       next: (response: {status: string, message?: string}) => {
         if (response.status === 'processing') {
           this.startFilePolling();
+        } else {
+          this.stateService.setTaskState(TASK_TYPES.translateFile, {
+            status: 'error',
+            message: response.message || 'Failed to start file translation.',
+            isPolling: false,
+          });
+          this.isTranslatingFile = false;
         }
       },
       error: (error: any) => {
         console.error('File translation request failed:', error);
         alert('Failed to start file translation. Please try again.');
+        this.stateService.setTaskState(TASK_TYPES.translateFile, {
+          status: 'error',
+          message: 'Failed to start file translation. Please try again.',
+          isPolling: false,
+        });
         this.isTranslatingFile = false;
       }
     });
   }
 
   private startFilePolling(): void {
+    if (this.filePollingInterval) {
+      return;
+    }
     this.filePollingInterval = setInterval(() => {
-      this.apiService.getTranslationResult().subscribe({
-        next: (response: {status: string, result?: {type: string, data: string, filename?: string}, message?: string, progress?: {current: number, total: number, avg_seconds_per_line: number, eta_seconds: number}}) => {
-          if (response.status === 'translating' && response.progress) {
+      this.apiService.getTranslationResult(TASK_TYPES.translateFile).subscribe({
+        next: (response: TaskResultResponse) => {
+          this.stateService.setTaskState(TASK_TYPES.translateFile, {
+            status: response.status,
+            result: response.result,
+            message: response.message ?? null,
+            progress: response.progress ?? null,
+            isPolling: response.status === 'processing',
+          });
+          if (response.progress) {
             this.fileTranslationProgress = response.progress;
-            return;
           }
           if (response.status === 'complete') {
             this.isTranslatingFile = false;
@@ -313,6 +390,10 @@ export class TranslateComponent implements OnInit, OnDestroy {
       clearInterval(this.filePollingInterval);
       this.filePollingInterval = undefined;
     }
+  }
+
+  isAnyTaskRunning(): boolean {
+    return this.stateService.hasActiveTask();
   }
 
   refreshDownloads(): void {

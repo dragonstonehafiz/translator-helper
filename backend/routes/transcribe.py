@@ -2,7 +2,7 @@
 Transcription routes.
 """
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, Query, UploadFile
 
 from orchestrator.task_transcribe_file import TaskTranscribeFile
 from orchestrator.task_transcribe_line import TaskTranscribeLine
@@ -10,8 +10,9 @@ from orchestrator.task_transcribe_line import TaskTranscribeLine
 from .shared import (
     AUDIO_TASK_TYPES,
     TRANSCRIBE_TASK_TYPES,
+    build_task_response,
+    ensure_task_type,
     model_manager,
-    read_latest,
     run_single_task,
     save_upload_to_temp,
     task_orchestrator,
@@ -67,17 +68,6 @@ async def api_transcribe_file(
 
 
 @router.get("/result")
-async def get_transcription_result():
-    active_task_type = task_orchestrator.get_active_task_type()
-    if task_orchestrator.is_running() and active_task_type in AUDIO_TASK_TYPES:
-        return {"status": "processing", "result": None, "error": None}
-
-    record, _ = read_latest(TRANSCRIBE_TASK_TYPES)
-    if record is None:
-        return {"status": "idle", "result": None, "error": None}
-
-    if record["status"] == "error":
-        return {"status": "error", "result": None, "error": record["error"], "message": record["error"]}
-    if record["status"] == "complete":
-        return {"status": "complete", "result": record["result"], "error": None}
-    return {"status": "processing", "result": None, "error": None}
+async def get_transcription_result(task_type: str = Query(...)):
+    ensure_task_type(task_type, TRANSCRIBE_TASK_TYPES)
+    return build_task_response(task_type)

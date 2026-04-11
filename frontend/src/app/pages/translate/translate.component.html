@@ -137,7 +137,7 @@
         </div>
       </div>
 
-      <app-primary-button [fullWidth]="true" (click)="translateLine()" [disabled]="!lineTextToTranslate || isTranslatingLine">
+      <app-primary-button [fullWidth]="true" (click)="translateLine()" [disabled]="!lineTextToTranslate || isAnyTaskRunning()">
         {{ isTranslatingLine ? 'Translating...' : 'Translate Line' }}
       </app-primary-button>
 
@@ -235,7 +235,7 @@
         (filesSelected)="onFileSelected($event)">
       </app-file-upload>
 
-      <app-primary-button [fullWidth]="true" (click)="translateFile()" [disabled]="!fileToTranslate || isTranslatingFile">
+      <app-primary-button [fullWidth]="true" (click)="translateFile()" [disabled]="!fileToTranslate || isAnyTaskRunning()">
         {{ isTranslatingFile ? 'Translating...' : 'Translate File' }}
       </app-primary-button>
 

@@ -4,6 +4,7 @@ Shared helpers and state for backend route modules.
 
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 import json
 import os
 import tempfile
@@ -85,6 +86,43 @@ def read_latest(task_types: list[str]):
         return None, None
     progress = progress_handler.get(record["task_type"])
     return record, progress
+
+
+def ensure_task_type(task_type: str, allowed_task_types: list[str] | set[str]) -> str:
+    if task_type not in allowed_task_types:
+        raise HTTPException(status_code=400, detail="Invalid task_type")
+    return task_type
+
+
+def build_task_response(task_type: str) -> dict[str, Any]:
+    record = result_handler.get(task_type)
+    progress = progress_handler.get(task_type)
+    active_task_type = task_orchestrator.get_active_task_type()
+
+    response: dict[str, Any] = {"task_type": task_type, "result": None}
+    if progress:
+        response["progress"] = progress
+
+    if task_orchestrator.is_running() and active_task_type == task_type:
+        response["status"] = "processing"
+        return response
+
+    if record is None:
+        response["status"] = "idle"
+        return response
+
+    if record["status"] == "error":
+        response["status"] = "error"
+        response["message"] = record["error"]
+        return response
+
+    if record["status"] == "complete":
+        response["status"] = "complete"
+        response["result"] = record["result"]
+        return response
+
+    response["status"] = "processing"
+    return response
 
 
 async def save_upload_to_temp(file: UploadFile, default_suffix: str = "") -> str:

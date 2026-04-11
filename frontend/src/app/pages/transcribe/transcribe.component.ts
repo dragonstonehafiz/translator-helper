@@ -9,7 +9,8 @@ import { TextFieldComponent } from '../../components/text-field/text-field.compo
 import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
 import { DownloadsListComponent } from '../../components/downloads-list/downloads-list.component';
 import { WaveformPlayerComponent } from '../../components/waveform-player/waveform-player.component';
-import { ApiService } from '../../services/api.service';
+import { ApiService, TaskResultResponse } from '../../services/api.service';
+import { StateService, TASK_TYPES } from '../../services/state.service';
 
 @Component({
   selector: 'app-transcribe',
@@ -79,9 +80,11 @@ export class TranscribeComponent implements OnInit, OnDestroy {
   constructor(
     private cdr: ChangeDetectorRef,
     private apiService: ApiService,
+    private stateService: StateService,
   ) {}
 
   ngOnInit(): void {
+    this.restoreTaskState();
     this.refreshFileDownloads();
   }
 
@@ -168,14 +171,26 @@ export class TranscribeComponent implements OnInit, OnDestroy {
   }
 
   async transcribeAudio(): Promise<void> {
-    if (!this.transcribeLineState.audioBlob || this.isTranscribing) return;
+    if (!this.transcribeLineState.audioBlob || this.isTranscribing || this.stateService.hasActiveTask()) return;
 
     try {
       this.isTranscribing = true;
+      this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
+        status: 'processing',
+        result: null,
+        message: null,
+        progress: null,
+        isPolling: true,
+      });
 
       const clippedBlob = await this.lineWaveform.getActiveBlob();
       if (!clippedBlob) {
         this.isTranscribing = false;
+        this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
+          status: 'error',
+          message: 'Failed to get audio blob. Please try again.',
+          isPolling: false,
+        });
         alert('Failed to get audio blob. Please try again.');
         return;
       }
@@ -190,17 +205,34 @@ export class TranscribeComponent implements OnInit, OnDestroy {
         next: (response) => {
           if (response.status === 'processing') {
             this.startPolling();
+          } else {
+            this.isTranscribing = false;
+            this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
+              status: 'error',
+              message: response.message || 'Failed to start transcription.',
+              isPolling: false,
+            });
           }
         },
         error: (error) => {
           console.error('Transcription request failed:', error);
           alert('Failed to start transcription. Please try again.');
+          this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
+            status: 'error',
+            message: 'Failed to start transcription. Please try again.',
+            isPolling: false,
+          });
           this.isTranscribing = false;
         }
       });
     } catch (error) {
       console.error('Error starting transcription:', error);
       alert('Failed to start transcription. Please try again.');
+      this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
+        status: 'error',
+        message: 'Failed to start transcription. Please try again.',
+        isPolling: false,
+      });
       this.isTranscribing = false;
     }
   }
@@ -223,11 +255,21 @@ export class TranscribeComponent implements OnInit, OnDestroy {
   }
 
   private startPolling(): void {
+    if (this.pollingInterval) {
+      return;
+    }
     this.pollingInterval = setInterval(() => {
-      this.apiService.getTranscriptionResult().subscribe({
-        next: (response) => {
+      this.apiService.getTranscriptionResult(TASK_TYPES.transcribeLine).subscribe({
+        next: (response: TaskResultResponse) => {
+          this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
+            status: response.status,
+            result: response.result,
+            message: response.message ?? null,
+            progress: response.progress ?? null,
+            isPolling: response.status === 'processing',
+          });
           if (response.status === 'complete' && response.result) {
-            this.transcript = response.result.data;
+            this.transcript = response.result.data ?? '';
             this.isTranscribing = false;
             this.stopPolling();
             this.cdr.detectChanges();
@@ -287,10 +329,17 @@ export class TranscribeComponent implements OnInit, OnDestroy {
   }
 
   async transcribeFileAudio(): Promise<void> {
-    if (!this.transcribeFileState.audioBlob || this.isTranscribing) return;
+    if (!this.transcribeFileState.audioBlob || this.isTranscribing || this.stateService.hasActiveTask()) return;
 
     try {
       this.isTranscribing = true;
+      this.stateService.setTaskState(TASK_TYPES.transcribeFile, {
+        status: 'processing',
+        result: null,
+        message: null,
+        progress: null,
+        isPolling: true,
+      });
       const filename = this.transcribeFileState.audioFile?.name || 'audio.wav';
       const audioFile = new File([this.transcribeFileState.audioBlob], filename, { type: 'audio/wav' });
       const formData = new FormData();
@@ -303,30 +352,58 @@ export class TranscribeComponent implements OnInit, OnDestroy {
             this.startFilePolling();
           } else {
             this.isTranscribing = false;
+            this.stateService.setTaskState(TASK_TYPES.transcribeFile, {
+              status: 'error',
+              message: response.message || 'Failed to start transcription.',
+              isPolling: false,
+            });
             alert(response.message || 'Failed to start transcription.');
           }
         },
         error: (error) => {
           console.error('Transcribe file request failed:', error);
           alert('Failed to start transcription. Please try again.');
+          this.stateService.setTaskState(TASK_TYPES.transcribeFile, {
+            status: 'error',
+            message: 'Failed to start transcription. Please try again.',
+            isPolling: false,
+          });
           this.isTranscribing = false;
         }
       });
     } catch (error) {
       console.error('Error starting file transcription:', error);
+      this.stateService.setTaskState(TASK_TYPES.transcribeFile, {
+        status: 'error',
+        message: 'Failed to start transcription. Please try again.',
+        isPolling: false,
+      });
       this.isTranscribing = false;
     }
   }
 
   private startFilePolling(): void {
+    if (this.filePollingInterval) {
+      return;
+    }
     this.filePollingInterval = setInterval(() => {
-      this.apiService.checkRunning().subscribe({
-        next: (response) => {
-          if (!response.running_audio) {
+      this.apiService.getTranscriptionResult(TASK_TYPES.transcribeFile).subscribe({
+        next: (response: TaskResultResponse) => {
+          this.stateService.setTaskState(TASK_TYPES.transcribeFile, {
+            status: response.status,
+            result: response.result,
+            message: response.message ?? null,
+            progress: response.progress ?? null,
+            isPolling: response.status === 'processing',
+          });
+          if (response.status === 'complete') {
             this.isTranscribing = false;
             this.stopFilePolling();
             this.refreshFileDownloads();
             this.cdr.detectChanges();
+          } else if (response.status === 'error' || response.status === 'idle') {
+            this.isTranscribing = false;
+            this.stopFilePolling();
           }
         },
         error: (error) => {
@@ -489,6 +566,25 @@ export class TranscribeComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.stopPolling();
     this.stopFilePolling();
+  }
+
+  isAnyTaskRunning(): boolean {
+    return this.stateService.hasActiveTask();
+  }
+
+  private restoreTaskState(): void {
+    const lineTask = this.stateService.getTaskState(TASK_TYPES.transcribeLine);
+    const fileTask = this.stateService.getTaskState(TASK_TYPES.transcribeFile);
+
+    this.transcript = lineTask.result?.data ?? '';
+    this.isTranscribing = lineTask.status === 'processing' || fileTask.status === 'processing';
+
+    if (lineTask.status === 'processing' || lineTask.isPolling) {
+      this.startPolling();
+    }
+    if (fileTask.status === 'processing' || fileTask.isPolling) {
+      this.startFilePolling();
+    }
   }
 
   private isSpacebar(event: KeyboardEvent): boolean {

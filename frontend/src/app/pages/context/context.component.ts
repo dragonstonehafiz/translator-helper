@@ -1,9 +1,9 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { StateService } from '../../services/state.service';
+import { StateService, StoredTaskState, TASK_TYPES } from '../../services/state.service';
 import { ApiService } from '../../services/api.service';
-import { Subscription, interval } from 'rxjs';
+import { Observable, Subscription, interval } from 'rxjs';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 import { TextFieldComponent } from '../../components/text-field/text-field.component';
@@ -34,8 +34,9 @@ export class ContextComponent implements OnInit, OnDestroy {
   availableContextFiles: {name: string, size: number, modified: string}[] = [];
   isFetchingContextFiles = false;
   deletingContextFile = '';
-  runningLlm = false;
   private pollingSubscription?: Subscription;
+  private taskStateSubscription?: Subscription;
+  private activePollingTaskType: string | null = null;
   
   // Context checkboxes for character list generation
   characterListUseAdditionalInstructions = true;
@@ -100,31 +101,35 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.summary = this.stateService.getSummary();
     this.recap = this.stateService.getRecap();
     this.additionalInstructions = this.stateService.getAdditionalInstructions();
-
-    this.stateService.runningLlm$.subscribe(running => {
-      this.runningLlm = running;
+    this.taskStateSubscription = this.stateService.taskStates$.subscribe(() => {
+      this.syncGenerationFlags();
     });
+    this.syncGenerationFlags();
+    this.resumePollingIfNeeded();
 
     this.refreshContextFiles();
   }
 
   ngOnDestroy(): void {
     this.stopPolling();
+    this.taskStateSubscription?.unsubscribe();
   }
 
-  startPolling(): void {
-    if (this.pollingSubscription) {
+  startPolling(taskType: string): void {
+    if (this.activePollingTaskType === taskType && this.pollingSubscription) {
       return;
     }
+    this.stopPolling();
+    this.activePollingTaskType = taskType;
     this.pollingSubscription = interval(1000).subscribe(() => {
-      this.apiService.checkRunning().subscribe({
-        next: (status) => {
-          const wasRunning = this.stateService.getRunningLlm();
-          this.stateService.setRunningLlm(status.running_llm);
-          
-          // If context just finished running, check for result
-          if (wasRunning && !status.running_llm) {
-            this.checkContextResult();
+      this.apiService.getContextResult(taskType).subscribe({
+        next: (response) => {
+          this.updateTaskStateFromResponse(taskType, response.status, response.result, response.message);
+          if (response.status === 'complete' && response.result) {
+            this.applyContextResult(response.result.type, response.result.data ?? '');
+            this.saveContext();
+            this.stopPolling();
+          } else if (response.status === 'error' || response.status === 'idle') {
             this.stopPolling();
           }
         },
@@ -136,40 +141,7 @@ export class ContextComponent implements OnInit, OnDestroy {
   stopPolling(): void {
     this.pollingSubscription?.unsubscribe();
     this.pollingSubscription = undefined;
-  }
-
-  checkContextResult(): void {
-    this.apiService.getContextResult().subscribe({
-      next: (response) => {
-        if (response.status === 'success' && response.result) {
-          if (response.result.type === 'character_list') {
-            this.characterList = response.result.data;
-            this.stateService.setCharacterList(response.result.data);
-            this.isGeneratingCharacterList = false;
-          } else if (response.result.type === 'synopsis') {
-            this.synopsis = response.result.data;
-            this.stateService.setSynopsis(response.result.data);
-            this.isGeneratingSynopsis = false;
-          } else if (response.result.type === 'summary') {
-            this.summary = response.result.data;
-            this.stateService.setSummary(response.result.data);
-            this.isGeneratingSummary = false;
-          } else if (response.result.type === 'recap') {
-            this.recap = response.result.data;
-            this.stateService.setRecap(response.result.data);
-            this.isGeneratingRecap = false;
-          }
-          this.saveContext();
-        } else if (response.status === 'error') {
-          alert(`Error: ${response.message}`);
-          this.clearGenerationFlags();
-        }
-      },
-      error: (err) => {
-        console.error('Error checking context result:', err);
-        this.clearGenerationFlags();
-      }
-    });
+    this.activePollingTaskType = null;
   }
 
   onSubtitleFilesSelected(files: File[]): void {
@@ -233,11 +205,9 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.stateService.getRunningLlm()) {
+    if (this.stateService.hasActiveTask()) {
       return;
     }
-
-    this.isGeneratingCharacterList = true;
 
     // Build context dict with only checked and non-empty fields
     const context: any = {};
@@ -245,27 +215,14 @@ export class ContextComponent implements OnInit, OnDestroy {
       context.additional_instructions = this.additionalInstructions;
     }
     
-    this.apiService.generateCharacterList(
+    this.startContextTask(
+      TASK_TYPES.generateCharacterList,
+      this.apiService.generateCharacterList(
       this.selectedFile,
       context,
       this.inputLanguage,
       this.outputLanguage
-    ).subscribe({
-      next: (response) => {
-        if (response.status === 'processing') {
-          console.log('Character list generation started, waiting for result...');
-          this.startPolling();
-        } else if (response.status === 'error') {
-          alert(`Error: ${response.message}`);
-          this.isGeneratingCharacterList = false;
-        }
-      },
-      error: (err) => {
-        console.error('Error generating character list:', err);
-        alert('Failed to generate character list. Please try again.');
-        this.isGeneratingCharacterList = false;
-      }
-    });
+    ));
   }
 
   generateSynopsis(): void {
@@ -274,11 +231,9 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.stateService.getRunningLlm()) {
+    if (this.stateService.hasActiveTask()) {
       return;
     }
-
-    this.isGeneratingSynopsis = true;
 
     // Build context dict with only checked and non-empty fields
     const context: any = {};
@@ -289,27 +244,14 @@ export class ContextComponent implements OnInit, OnDestroy {
       context.character_list = this.characterList;
     }
     
-    this.apiService.generateSynopsis(
+    this.startContextTask(
+      TASK_TYPES.generateSynopsis,
+      this.apiService.generateSynopsis(
       this.selectedFile,
       context,
       this.inputLanguage,
       this.outputLanguage
-    ).subscribe({
-      next: (response) => {
-        if (response.status === 'processing') {
-          console.log('Synopsis generation started, waiting for result...');
-          this.startPolling();
-        } else if (response.status === 'error') {
-          alert(`Error: ${response.message}`);
-          this.isGeneratingSynopsis = false;
-        }
-      },
-      error: (err) => {
-        console.error('Error generating synopsis:', err);
-        alert('Failed to generate synopsis. Please try again.');
-        this.isGeneratingSynopsis = false;
-      }
-    });
+    ));
   }
 
   generateSummary(): void {
@@ -318,11 +260,9 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.stateService.getRunningLlm()) {
+    if (this.stateService.hasActiveTask()) {
       return;
     }
-
-    this.isGeneratingSummary = true;
 
     // Build context dict with only checked and non-empty fields
     const context: any = {};
@@ -333,27 +273,14 @@ export class ContextComponent implements OnInit, OnDestroy {
       context.character_list = this.characterList;
     }
     
-    this.apiService.generateSummary(
+    this.startContextTask(
+      TASK_TYPES.generateSummary,
+      this.apiService.generateSummary(
       this.selectedFile,
       context,
       this.inputLanguage,
       this.outputLanguage
-    ).subscribe({
-      next: (response) => {
-        if (response.status === 'processing') {
-          console.log('Summary generation started, waiting for result...');
-          this.startPolling();
-        } else if (response.status === 'error') {
-          alert(`Error: ${response.message}`);
-          this.isGeneratingSummary = false;
-        }
-      },
-      error: (err) => {
-        console.error('Error generating summary:', err);
-        alert('Failed to generate summary. Please try again.');
-        this.isGeneratingSummary = false;
-      }
-    });
+    ));
   }
 
   saveContext(): void {
@@ -578,39 +505,108 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.stateService.getRunningLlm()) {
+    if (this.stateService.hasActiveTask()) {
       return;
     }
-
-    this.isGeneratingRecap = true;
-
-    this.apiService.generateRecap(
+    this.startContextTask(
+      TASK_TYPES.generateRecap,
+      this.apiService.generateRecap(
       this.recapContexts,
       this.inputLanguage,
       this.outputLanguage
-    ).subscribe({
+    ));
+  }
+
+  isAnyTaskRunning(): boolean {
+    return this.stateService.hasActiveTask();
+  }
+
+  private startContextTask(taskType: string, request$: Observable<{status: string, message?: string}>): void {
+    this.stateService.setTaskState(taskType, {
+      status: 'processing',
+      result: null,
+      message: null,
+      progress: null,
+      isPolling: false,
+    });
+    request$.subscribe({
       next: (response) => {
         if (response.status === 'processing') {
-          console.log('Recap generation started');
-          this.startPolling();
-        } else if (response.status === 'error') {
-          alert(response.message || 'Error generating recap');
-          this.isGeneratingRecap = false;
+          this.stateService.setTaskState(taskType, { isPolling: true });
+          this.startPolling(taskType);
+        } else {
+          this.stateService.setTaskState(taskType, {
+            status: 'error',
+            message: response.message || 'Failed to start task.',
+            isPolling: false,
+          });
+          alert(`Error: ${response.message}`);
+          this.stopPolling();
         }
       },
-      error: (error) => {
-        console.error('Error:', error);
-        alert('Failed to start recap generation');
-        this.isGeneratingRecap = false;
+      error: (err) => {
+        console.error('Error starting context task:', err);
+        this.stateService.setTaskState(taskType, {
+          status: 'error',
+          message: 'Failed to start context task. Please try again.',
+          isPolling: false,
+        });
+        alert('Failed to start context task. Please try again.');
+        this.stopPolling();
       }
     });
   }
 
-  private clearGenerationFlags(): void {
-    this.isGeneratingCharacterList = false;
-    this.isGeneratingSynopsis = false;
-    this.isGeneratingSummary = false;
-    this.isGeneratingRecap = false;
+  private syncGenerationFlags(): void {
+    this.isGeneratingCharacterList = this.isTaskProcessing(TASK_TYPES.generateCharacterList);
+    this.isGeneratingSynopsis = this.isTaskProcessing(TASK_TYPES.generateSynopsis);
+    this.isGeneratingSummary = this.isTaskProcessing(TASK_TYPES.generateSummary);
+    this.isGeneratingRecap = this.isTaskProcessing(TASK_TYPES.generateRecap);
+  }
+
+  private isTaskProcessing(taskType: string): boolean {
+    return this.stateService.getTaskState(taskType).status === 'processing';
+  }
+
+  private resumePollingIfNeeded(): void {
+    const taskTypes = [
+      TASK_TYPES.generateCharacterList,
+      TASK_TYPES.generateSynopsis,
+      TASK_TYPES.generateSummary,
+      TASK_TYPES.generateRecap,
+    ];
+    const resumableTask = taskTypes.find(taskType => {
+      const taskState = this.stateService.getTaskState(taskType);
+      return taskState.status === 'processing' || taskState.isPolling;
+    });
+    if (resumableTask) {
+      this.startPolling(resumableTask);
+    }
+  }
+
+  private updateTaskStateFromResponse(taskType: string, status: string, result?: {type: string, data?: string} | null, message?: string): void {
+    this.stateService.setTaskState(taskType, {
+      status: (status === 'idle' ? 'idle' : status) as StoredTaskState['status'],
+      result: result ?? null,
+      message: message ?? null,
+      isPolling: status === 'processing',
+    });
+  }
+
+  private applyContextResult(type: string, data: string): void {
+    if (type === 'character_list') {
+      this.characterList = data;
+      this.stateService.setCharacterList(data);
+    } else if (type === 'synopsis') {
+      this.synopsis = data;
+      this.stateService.setSynopsis(data);
+    } else if (type === 'summary') {
+      this.summary = data;
+      this.stateService.setSummary(data);
+    } else if (type === 'recap') {
+      this.recap = data;
+      this.stateService.setRecap(data);
+    }
   }
 
 }

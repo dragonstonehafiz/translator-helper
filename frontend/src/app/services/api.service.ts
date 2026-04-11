@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { SettingsSchemaBundle } from './state.service';
+import { SettingsSchemaBundle, TaskProgress, TaskResultPayload, TaskStatus } from './state.service';
 
 @Injectable({
   providedIn: 'root'
@@ -51,8 +51,8 @@ export class ApiService {
     }>(`${this.baseUrl}/utils/server-variables`);
   }
 
-  getContextResult(): Observable<{status: string, result?: {type: string, data: string}, message?: string}> {
-    return this.http.get<{status: string, result?: {type: string, data: string}, message?: string}>(`${this.baseUrl}/context/result`);
+  getContextResult(taskType: string): Observable<TaskResultResponse> {
+    return this.http.get<TaskResultResponse>(`${this.baseUrl}/context/result?task_type=${encodeURIComponent(taskType)}`);
   }
 
   generateCharacterList(file: File, context: any, inputLang: string, outputLang: string): Observable<{status: string, character_list?: string, message?: string}> {
@@ -103,8 +103,8 @@ export class ApiService {
     return this.http.post<{status: string, result?: {total_lines: string, character_count: string, average_character_count: string}, message?: string}>(`${this.baseUrl}/utils/get-subtitle-file-info`, formData);
   }
 
-  getTranscriptionResult(): Observable<{status: string, result?: {type: string, data: string}, message?: string}> {
-    return this.http.get<{status: string, result?: {type: string, data: string}, message?: string}>(`${this.baseUrl}/transcribe/result`);
+  getTranscriptionResult(taskType: string): Observable<TaskResultResponse> {
+    return this.http.get<TaskResultResponse>(`${this.baseUrl}/transcribe/result?task_type=${encodeURIComponent(taskType)}`);
   }
 
   transcribeFile(formData: FormData): Observable<{status: string, message?: string}> {
@@ -130,8 +130,8 @@ export class ApiService {
     return this.http.post<{status: string, message?: string}>(`${this.baseUrl}/translate/translate-file`, formData);
   }
 
-  getTranslationResult(): Observable<{status: string, result?: {type: string, data: string, filename?: string}, message?: string}> {
-    return this.http.get<{status: string, result?: {type: string, data: string, filename?: string}, message?: string}>(`${this.baseUrl}/translate/result`);
+  getTranslationResult(taskType: string): Observable<TaskResultResponse> {
+    return this.http.get<TaskResultResponse>(`${this.baseUrl}/translate/result?task_type=${encodeURIComponent(taskType)}`);
   }
 
   listFiles(folder: string): Observable<{status: string, files: {name: string, size: number, modified: string}[]}> {
@@ -149,4 +149,12 @@ export class ApiService {
   saveContext(filename: string, context: object): Observable<{status: string}> {
     return this.http.post<{status: string}>(`${this.baseUrl}/context/save`, { filename, context });
   }
+}
+
+export interface TaskResultResponse {
+  task_type: string;
+  status: TaskStatus;
+  result: TaskResultPayload | null;
+  message?: string;
+  progress?: TaskProgress;
 }

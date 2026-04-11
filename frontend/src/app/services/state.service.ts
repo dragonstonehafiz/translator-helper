@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 
 export type SettingsFieldType = 'select' | 'text' | 'password' | 'number' | 'boolean';
+export type TaskStatus = 'idle' | 'processing' | 'complete' | 'error';
 
 export interface SettingsField {
   key: string;
@@ -28,6 +29,48 @@ export interface SettingsSchemaBundle {
   llm: SettingsSchema | null;
 }
 
+export interface TaskProgress {
+  task_type: string;
+  current: number;
+  total: number;
+  avg_seconds_per_line: number;
+  eta_seconds: number;
+}
+
+export interface TaskResultPayload {
+  type: string;
+  data?: string;
+  filename?: string;
+}
+
+export interface StoredTaskState {
+  taskType: string;
+  status: TaskStatus;
+  result: TaskResultPayload | null;
+  message: string | null;
+  progress: TaskProgress | null;
+  isPolling: boolean;
+}
+
+export interface AppContentState {
+  characterList: string;
+  synopsis: string;
+  summary: string;
+  recap: string;
+  additionalInstructions: string;
+}
+
+export const TASK_TYPES = {
+  generateCharacterList: 'TaskGenerateCharacterList',
+  generateSynopsis: 'TaskGenerateSynopsis',
+  generateSummary: 'TaskGenerateSummary',
+  generateRecap: 'TaskGenerateRecap',
+  translateLine: 'TaskTranslateLine',
+  translateFile: 'TaskTranslateFile',
+  transcribeLine: 'TaskTranscribeLine',
+  transcribeFile: 'TaskTranscribeFile',
+} as const;
+
 @Injectable({
   providedIn: 'root'
 })
@@ -50,6 +93,14 @@ export class StateService {
   private loadingLlmSubject = new BehaviorSubject<boolean>(false);
   public loadingLlm$: Observable<boolean> = this.loadingLlmSubject.asObservable();
 
+  private contentStateSubject = new BehaviorSubject<AppContentState>({
+    characterList: '',
+    synopsis: '',
+    summary: '',
+    recap: '',
+    additionalInstructions: '',
+  });
+  public contentState$: Observable<AppContentState> = this.contentStateSubject.asObservable();
 
   private characterListSubject = new BehaviorSubject<string>('');
   public characterList$: Observable<string> = this.characterListSubject.asObservable();
@@ -66,8 +117,8 @@ export class StateService {
   private additionalInstructionsSubject = new BehaviorSubject<string>('');
   public additionalInstructions$: Observable<string> = this.additionalInstructionsSubject.asObservable();
 
-  private runningLlmSubject = new BehaviorSubject<boolean>(false);
-  public runningLlm$: Observable<boolean> = this.runningLlmSubject.asObservable();
+  private taskStatesSubject = new BehaviorSubject<Record<string, StoredTaskState>>({});
+  public taskStates$: Observable<Record<string, StoredTaskState>> = this.taskStatesSubject.asObservable();
 
   private settingsSchemaSubject = new BehaviorSubject<SettingsSchemaBundle>({
     audio: null,
@@ -127,9 +178,8 @@ export class StateService {
     this.loadingLlmSubject.next(loading);
   }
 
-
   setCharacterList(list: string): void {
-    this.characterListSubject.next(list);
+    this.patchContentState({ characterList: list });
   }
 
   getCharacterList(): string {
@@ -137,7 +187,7 @@ export class StateService {
   }
 
   setSummary(summary: string): void {
-    this.summarySubject.next(summary);
+    this.patchContentState({ summary });
   }
 
   getSummary(): string {
@@ -145,7 +195,7 @@ export class StateService {
   }
 
   setSynopsis(synopsis: string): void {
-    this.synopsisSubject.next(synopsis);
+    this.patchContentState({ synopsis });
   }
 
   getSynopsis(): string {
@@ -153,7 +203,7 @@ export class StateService {
   }
 
   setRecap(recap: string): void {
-    this.recapSubject.next(recap);
+    this.patchContentState({ recap });
   }
 
   getRecap(): string {
@@ -161,19 +211,51 @@ export class StateService {
   }
 
   setAdditionalInstructions(instructions: string): void {
-    this.additionalInstructionsSubject.next(instructions);
+    this.patchContentState({ additionalInstructions: instructions });
   }
 
   getAdditionalInstructions(): string {
     return this.additionalInstructionsSubject.value;
   }
 
-  setRunningLlm(running: boolean): void {
-    this.runningLlmSubject.next(running);
+  setTaskState(taskType: string, patch: Partial<StoredTaskState>): StoredTaskState {
+    const current = this.getTaskState(taskType);
+    const next: StoredTaskState = {
+      ...current,
+      ...patch,
+      taskType,
+    };
+    this.taskStatesSubject.next({
+      ...this.taskStatesSubject.value,
+      [taskType]: next,
+    });
+    return next;
   }
 
-  getRunningLlm(): boolean {
-    return this.runningLlmSubject.value;
+  getTaskState(taskType: string): StoredTaskState {
+    return this.taskStatesSubject.value[taskType] ?? this.createIdleTaskState(taskType);
+  }
+
+  clearTaskState(taskType: string): void {
+    const next = { ...this.taskStatesSubject.value };
+    delete next[taskType];
+    this.taskStatesSubject.next(next);
+  }
+
+  hasActiveTask(taskTypes?: string[]): boolean {
+    return Object.values(this.taskStatesSubject.value).some(task => {
+      if (task.status !== 'processing') {
+        return false;
+      }
+      return !taskTypes || taskTypes.includes(task.taskType);
+    });
+  }
+
+  getState(): Observable<AppContentState> {
+    return new Observable(observer => {
+      observer.next(this.contentStateSubject.value);
+      observer.complete();
+    });
   }
 
   setSettingsSchema(schema: SettingsSchemaBundle): void {
@@ -184,22 +266,24 @@ export class StateService {
     return this.settingsSchemaSubject.value;
   }
 
-  getState(): Observable<{
-    characterList: string;
-    synopsis: string;
-    summary: string;
-    recap: string;
-    additionalInstructions: string;
-  }> {
-    return new Observable(observer => {
-      observer.next({
-        characterList: this.getCharacterList(),
-        synopsis: this.getSynopsis(),
-        summary: this.getSummary(),
-        recap: this.getRecap(),
-        additionalInstructions: this.getAdditionalInstructions()
-      });
-      observer.complete();
-    });
+  private patchContentState(patch: Partial<AppContentState>): void {
+    const next = { ...this.contentStateSubject.value, ...patch };
+    this.contentStateSubject.next(next);
+    this.characterListSubject.next(next.characterList);
+    this.synopsisSubject.next(next.synopsis);
+    this.summarySubject.next(next.summary);
+    this.recapSubject.next(next.recap);
+    this.additionalInstructionsSubject.next(next.additionalInstructions);
+  }
+
+  private createIdleTaskState(taskType: string): StoredTaskState {
+    return {
+      taskType,
+      status: 'idle',
+      result: null,
+      message: null,
+      progress: null,
+      isPolling: false,
+    };
   }
 }

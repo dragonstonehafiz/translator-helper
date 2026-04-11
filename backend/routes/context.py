@@ -5,7 +5,7 @@ Context generation routes.
 import json
 import os
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
 
 from orchestrator.task_generate_character_list import TaskGenerateCharacterList
 from orchestrator.task_generate_recap import TaskGenerateRecap
@@ -16,10 +16,11 @@ from .shared import (
     CONTEXT_TASK_TYPES,
     GenerateRecapRequest,
     SaveContextRequest,
+    build_task_response,
+    ensure_task_type,
     get_files_dir,
     model_manager,
     parse_json_form,
-    read_latest,
     run_single_task,
     save_upload_to_temp,
     task_orchestrator,
@@ -125,16 +126,6 @@ async def save_context(request: SaveContextRequest):
 
 
 @router.get("/result")
-async def get_context_result():
-    active_task_type = task_orchestrator.get_active_task_type()
-    if task_orchestrator.is_running() and active_task_type in CONTEXT_TASK_TYPES:
-        return {"status": "processing", "message": "Context generation in progress"}
-
-    record, _ = read_latest(CONTEXT_TASK_TYPES)
-    if record is None:
-        return {"status": "idle", "message": "No context generation has been run"}
-    if record["status"] == "error":
-        return {"status": "error", "message": record["error"]}
-    if record["status"] == "complete":
-        return {"status": "success", "result": record["result"]}
-    return {"status": "processing", "message": "Context generation in progress"}
+async def get_context_result(task_type: str = Query(...)):
+    ensure_task_type(task_type, CONTEXT_TASK_TYPES)
+    return build_task_response(task_type)

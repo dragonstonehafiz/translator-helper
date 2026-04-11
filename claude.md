@@ -399,12 +399,12 @@ The running-status endpoint returns:
 - `POST /context/generate-high-level-summary`: Generate summary from subtitle file
 - `POST /context/generate-recap`: Generate recap from multiple contexts
 - `POST /context/save`: Save a context JSON file
-- `GET /context/result`: Poll for context generation result
+- `GET /context/result?task_type=<TaskType>`: Poll for a specific context task result
 
 **Transcription** (`backend/routes/transcribe.py`):
 - `POST /transcribe/transcribe-line`: Transcribe audio file or recording to text
 - `POST /transcribe/transcribe-file`: Transcribe a full audio file and generate .ass subtitle file (FormData: file, language)
-- `GET /transcribe/result`: Poll for transcription result (shared for both line and file transcription)
+- `GET /transcribe/result?task_type=<TaskType>`: Poll for a specific transcription task result
 
 **Utils** (`backend/routes/utils.py`):
 - `POST /utils/get-subtitle-file-info`: Upload an ASS or SRT file to get dialogue count, total characters (Speaker: dialogue), and average characters per line
@@ -412,7 +412,7 @@ The running-status endpoint returns:
 **Translation** (`backend/routes/translate.py`):
 - `POST /translate/translate-line`: Translate text line with context (FormData: text, context JSON, input_lang, output_lang)
 - `POST /translate/translate-file`: Translate subtitle file with batch size (FormData: file, context JSON, input_lang, output_lang, batch_size)
-- `GET /translate/result`: Poll for translation result
+- `GET /translate/result?task_type=<TaskType>`: Poll for a specific translation task result
 
 **File Management** (`backend/routes/file_management.py`):
 - `GET /file-management/{folder}`: List files in `backend/outputs/{folder}/`
@@ -426,7 +426,7 @@ Long-running operations use FastAPI's BackgroundTasks with polling:
 2. Background function executes a task class through `TaskOrchestrator`
 3. Each task writes final output/error to `ResultHandler` keyed by `task_type`
 4. Progress-capable tasks write progress to `ProgressHandler` keyed by `task_type`
-5. GET `/result` endpoints return merged status/result/progress: `"processing"` | `"translating"` | `"complete"`/`"success"` | `"error"` | `"idle"`
+5. GET `/result` endpoints now require the exact `task_type` being polled and return `"processing"` | `"complete"` | `"error"` | `"idle"` plus any stored `result`/`progress`
 6. Task classes write execution timing entries to a shared `backend/outputs/task-timings.log` file (no per-task log files)
 
 
@@ -500,6 +500,9 @@ For file translations, `/translate/result` can include task result payload (incl
   - `getState()`: Returns Observable with all saved context data (characterList, synopsis, summary, recap)
   - Individual getters: `getCharacterList()`, `getSynopsis()`, `getSummary()`, `getRecap()`
   - Individual setters: `setCharacterList()`, `setSynopsis()`, `setSummary()`, `setRecap()`
+  - Task state is also tracked per backend task type using `getTaskState()`, `setTaskState()`, `clearTaskState()`, and `hasActiveTask()`
+  - Task state shape is `taskType`, `status`, `result`, `message`, `progress`, `isPolling`
+  - Task state persists across Angular route changes within the current app session, but not across a full browser refresh
 - Use component-level state for local UI state
 - Use `ApiService` for all backend API calls
 
