@@ -239,14 +239,6 @@
         {{ isTranslatingFile ? 'Translating...' : 'Translate File' }}
       </app-primary-button>
 
-      <app-progress-bar
-        *ngIf="fileTranslationProgress.total > 0"
-        [current]="fileTranslationProgress.current"
-        [total]="fileTranslationProgress.total"
-        [avgSecondsPerLine]="fileTranslationProgress.avg_seconds_per_line"
-        [etaSeconds]="fileTranslationProgress.eta_seconds">
-      </app-progress-bar>
-
       <app-downloads-list
         [files]="availableDownloads"
         [isLoading]="isFetchingDownloads"

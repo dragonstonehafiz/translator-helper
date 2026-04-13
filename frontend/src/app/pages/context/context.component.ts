@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { StateService, StoredTaskState, TASK_TYPES } from '../../services/state.service';
+import { StateService, StoredTaskState, TASK_TYPES, TaskProgress } from '../../services/state.service';
 import { ApiService } from '../../services/api.service';
 import { Observable, Subscription, interval } from 'rxjs';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
@@ -21,6 +21,13 @@ import { DownloadsListComponent } from '../../components/downloads-list/download
   styleUrl: './context.component.scss'
 })
 export class ContextComponent implements OnInit, OnDestroy {
+  private readonly defaultTaskProgress = {
+    [TASK_TYPES.generateCharacterList]: { current: 0, total: 1, status: 'Generating character list from the subtitle file', eta_seconds: 0 },
+    [TASK_TYPES.generateSynopsis]: { current: 0, total: 1, status: 'Generating synopsis from the subtitle file', eta_seconds: 0 },
+    [TASK_TYPES.generateSummary]: { current: 0, total: 1, status: 'Generating summary from the subtitle file', eta_seconds: 0 },
+    [TASK_TYPES.generateRecap]: { current: 0, total: 1, status: 'Generating recap from imported context files', eta_seconds: 0 },
+  } as const;
+
   characterList = '';
   synopsis = '';
   summary = '';
@@ -526,7 +533,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       status: 'processing',
       result: null,
       message: null,
-      progress: null,
+      progress: this.defaultProgress(taskType as keyof typeof this.defaultTaskProgress),
       isPolling: false,
     });
     request$.subscribe({
@@ -589,8 +596,16 @@ export class ContextComponent implements OnInit, OnDestroy {
       status: (status === 'idle' ? 'idle' : status) as StoredTaskState['status'],
       result: result ?? null,
       message: message ?? null,
+      progress: this.stateService.getTaskState(taskType).progress,
       isPolling: status === 'processing',
     });
+  }
+
+  private defaultProgress(taskType: keyof typeof this.defaultTaskProgress): TaskProgress {
+    return {
+      task_type: taskType,
+      ...this.defaultTaskProgress[taskType],
+    };
   }
 
   private applyContextResult(type: string, data: string): void {

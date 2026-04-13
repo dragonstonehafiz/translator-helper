@@ -8,19 +8,23 @@ import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon
 import { ContextStatusComponent } from '../../components/context-status/context-status.component';
 import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
 import { LoadingTextIndicatorComponent } from '../../components/loading-text-indicator/loading-text-indicator.component';
-import { ProgressBarComponent } from '../../components/progress-bar/progress-bar.component';
 import { DownloadsListComponent } from '../../components/downloads-list/downloads-list.component';
 import { ApiService, TaskResultResponse } from '../../services/api.service';
-import { StateService, TASK_TYPES } from '../../services/state.service';
+import { StateService, TASK_TYPES, TaskProgress } from '../../services/state.service';
 
 @Component({
   selector: 'app-translate',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, FileUploadComponent, TooltipIconComponent, ContextStatusComponent, PrimaryButtonComponent, LoadingTextIndicatorComponent, ProgressBarComponent, DownloadsListComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, FileUploadComponent, TooltipIconComponent, ContextStatusComponent, PrimaryButtonComponent, LoadingTextIndicatorComponent, DownloadsListComponent],
   templateUrl: './translate.component.html',
   styleUrl: './translate.component.scss'
 })
 export class TranslateComponent implements OnInit, OnDestroy {
+  private readonly defaultTaskProgress = {
+    [TASK_TYPES.translateLine]: { current: 0, total: 1, status: 'Translating the entered text', eta_seconds: 0 },
+    [TASK_TYPES.translateFile]: { current: 0, total: 1, status: 'Preparing subtitle file translation', eta_seconds: 0 },
+  } as const;
+
   // Context data
   characterList = '';
   synopsis = '';
@@ -52,7 +56,6 @@ export class TranslateComponent implements OnInit, OnDestroy {
   batchSize = 50;
   fileToTranslate: File | null = null;
   isTranslatingFile = false;
-  fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
   isFetchingFileInfo = false;
   fileInfoError = '';
   fileInfo: { totalLines: string; characterCount: string; averageCharacterCount: string } | null = null;
@@ -123,7 +126,6 @@ export class TranslateComponent implements OnInit, OnDestroy {
     this.lineTranslationResult = lineTask.result?.data ?? '';
 
     this.isTranslatingFile = fileTask.status === 'processing';
-    this.fileTranslationProgress = fileTask.progress ?? { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
 
     if (lineTask.status === 'processing' || lineTask.isPolling) {
       this.startLinePolling();
@@ -164,7 +166,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
       status: 'processing',
       result: null,
       message: null,
-      progress: null,
+      progress: this.defaultProgress(TASK_TYPES.translateLine),
       isPolling: true,
     });
 
@@ -218,7 +220,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
             status: response.status,
             result: response.result,
             message: response.message ?? null,
-            progress: response.progress ?? null,
+            progress: response.progress ?? this.getExistingProgress(TASK_TYPES.translateLine),
             isPolling: response.status === 'processing',
           });
           if (response.status === 'complete' && response.result) {
@@ -292,12 +294,11 @@ export class TranslateComponent implements OnInit, OnDestroy {
     if (!this.fileToTranslate || this.isTranslatingFile || this.stateService.hasActiveTask()) return;
 
     this.isTranslatingFile = true;
-    this.fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
     this.stateService.setTaskState(TASK_TYPES.translateFile, {
       status: 'processing',
       result: null,
       message: null,
-      progress: null,
+      progress: this.defaultProgress(TASK_TYPES.translateFile),
       isPolling: true,
     });
 
@@ -352,33 +353,26 @@ export class TranslateComponent implements OnInit, OnDestroy {
             status: response.status,
             result: response.result,
             message: response.message ?? null,
-            progress: response.progress ?? null,
+            progress: response.progress ?? this.getExistingProgress(TASK_TYPES.translateFile),
             isPolling: response.status === 'processing',
           });
-          if (response.progress) {
-            this.fileTranslationProgress = response.progress;
-          }
           if (response.status === 'complete') {
             this.isTranslatingFile = false;
-            this.fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
             this.stopFilePolling();
             this.refreshDownloads();
           } else if (response.status === 'error') {
             console.error('File translation error:', response.message);
             alert('File translation failed: ' + (response.message || 'Unknown error'));
             this.isTranslatingFile = false;
-            this.fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
             this.stopFilePolling();
           } else if (response.status === 'idle') {
             this.isTranslatingFile = false;
-            this.fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
             this.stopFilePolling();
           }
         },
         error: (error: any) => {
           console.error('Polling error:', error);
           this.isTranslatingFile = false;
-          this.fileTranslationProgress = { current: 0, total: 0, avg_seconds_per_line: 0, eta_seconds: 0 };
           this.stopFilePolling();
         }
       });
@@ -454,6 +448,17 @@ export class TranslateComponent implements OnInit, OnDestroy {
         this.deletingDownload = '';
       }
     });
+  }
+
+  private defaultProgress(taskType: keyof typeof this.defaultTaskProgress): TaskProgress {
+    return {
+      task_type: taskType,
+      ...this.defaultTaskProgress[taskType],
+    };
+  }
+
+  private getExistingProgress(taskType: string): TaskProgress | null {
+    return this.stateService.getTaskState(taskType).progress;
   }
 
 }

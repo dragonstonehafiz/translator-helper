@@ -33,7 +33,7 @@ export interface TaskProgress {
   task_type: string;
   current: number;
   total: number;
-  avg_seconds_per_line: number;
+  status: string;
   eta_seconds: number;
 }
 
@@ -234,6 +234,10 @@ export class StateService {
 
   getTaskState(taskType: string): StoredTaskState {
     return this.taskStatesSubject.value[taskType] ?? this.createIdleTaskState(taskType);
+  }
+
+  getTaskStates(): Record<string, StoredTaskState> {
+    return this.taskStatesSubject.value;
   }
 
   clearTaskState(taskType: string): void {

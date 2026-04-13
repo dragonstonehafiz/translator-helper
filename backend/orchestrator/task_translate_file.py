@@ -46,12 +46,14 @@ class TaskTranslateFile(BaseTask):
             elapsed = time.time() - start_time
             avg = (elapsed / current) if current > 0 else 0.0
             eta = avg * (total - current) if total > current else 0.0
+            batch_count = max(1, (total + batch_size - 1) // batch_size)
+            completed_batches = 0 if current == 0 else ((current - 1) // batch_size) + 1
             progress_handler.set(
                 self.task_type,
                 {
                     "current": current,
                     "total": total,
-                    "avg_seconds_per_line": avg,
+                    "status": f"Batch {completed_batches}/{batch_count} complete",
                     "eta_seconds": eta,
                 },
             )
@@ -64,7 +66,7 @@ class TaskTranslateFile(BaseTask):
                 {
                     "current": 0,
                     "total": len(subs),
-                    "avg_seconds_per_line": 0.0,
+                    "status": f"Preparing {len(subs)} subtitle lines for translation",
                     "eta_seconds": 0.0,
                 },
             )
@@ -90,13 +92,12 @@ class TaskTranslateFile(BaseTask):
             output_path = os.path.join(output_dir, translated_filename)
             translated_subs.save(output_path)
 
-            final_progress = progress_handler.get(self.task_type) or {}
             progress_handler.set(
                 self.task_type,
                 {
-                    "current": final_progress.get("total", len(subs)),
-                    "total": final_progress.get("total", len(subs)),
-                    "avg_seconds_per_line": final_progress.get("avg_seconds_per_line", 0.0),
+                    "current": len(subs),
+                    "total": len(subs),
+                    "status": "Saving translated subtitle file",
                     "eta_seconds": 0.0,
                 },
             )

@@ -1,21 +1,55 @@
+import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { RouterOutlet, Router } from '@angular/router';
 import { NavbarComponent } from './components/navbar/navbar.component';
+import { ProgressBarComponent } from './components/progress-bar/progress-bar.component';
 import { ApiService } from './services/api.service';
-import { StateService } from './services/state.service';
+import { StateService, TaskProgress, TASK_TYPES } from './services/state.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, NavbarComponent],
+  imports: [CommonModule, RouterOutlet, NavbarComponent, ProgressBarComponent],
   template: `
     <app-navbar></app-navbar>
     <router-outlet></router-outlet>
+
+    <div class="progress-overlay" *ngIf="activeProgress">
+      <div class="progress-overlay-card">
+        <app-progress-bar
+          [taskLabel]="activeTaskLabel"
+          [current]="activeProgress.current"
+          [total]="activeProgress.total"
+          [statusText]="activeProgress.status"
+          [etaSeconds]="activeProgress.eta_seconds">
+        </app-progress-bar>
+      </div>
+    </div>
   `,
   styleUrl: './app.component.scss'
 })
 export class AppComponent implements OnInit {
   title = 'Translator Helper';
+  private readonly taskOrder = [
+    TASK_TYPES.translateFile,
+    TASK_TYPES.translateLine,
+    TASK_TYPES.transcribeFile,
+    TASK_TYPES.transcribeLine,
+    TASK_TYPES.generateCharacterList,
+    TASK_TYPES.generateSynopsis,
+    TASK_TYPES.generateSummary,
+    TASK_TYPES.generateRecap,
+  ];
+  private readonly taskLabels: Record<string, string> = {
+    [TASK_TYPES.translateFile]: 'File Translation',
+    [TASK_TYPES.translateLine]: 'Line Translation',
+    [TASK_TYPES.transcribeFile]: 'File Transcription',
+    [TASK_TYPES.transcribeLine]: 'Line Transcription',
+    [TASK_TYPES.generateCharacterList]: 'Character List',
+    [TASK_TYPES.generateSynopsis]: 'Synopsis',
+    [TASK_TYPES.generateSummary]: 'Summary',
+    [TASK_TYPES.generateRecap]: 'Recap',
+  };
 
   constructor(
     private apiService: ApiService,
@@ -25,6 +59,32 @@ export class AppComponent implements OnInit {
 
   ngOnInit(): void {
     this.checkBackendReady();
+  }
+
+  get activeProgress(): TaskProgress | null {
+    const taskStates = this.stateService.getTaskStates();
+
+    for (const taskType of this.taskOrder) {
+      const taskState = taskStates[taskType];
+      if (taskState?.status === 'processing' && taskState.progress) {
+        return taskState.progress;
+      }
+    }
+
+    return null;
+  }
+
+  get activeTaskLabel(): string {
+    const taskStates = this.stateService.getTaskStates();
+
+    for (const taskType of this.taskOrder) {
+      const taskState = taskStates[taskType];
+      if (taskState?.status === 'processing' && taskState.progress) {
+        return this.taskLabels[taskType] ?? 'Task In Progress';
+      }
+    }
+
+    return 'Task In Progress';
   }
 
   private checkBackendReady(): void {

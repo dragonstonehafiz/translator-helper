@@ -16,7 +16,7 @@ Translator Helper is a full-stack application for transcribing, translating, and
 - **Backend Orchestrator**: Task execution and in-memory task state (see `backend/orchestrator/`)
   - `TaskOrchestrator`: runs one active task at a time (`is_running`)
   - `ResultHandler`: stores latest task output per task class (`task_type`)
-  - `ProgressHandler`: stores progress per task class for long-running tasks
+  - `ProgressHandler`: stores progress per task class (`task_type`) for exact-task polling
   - LLM and audio interfaces now expose `get_status()` returning `"loaded" | "not_loaded" | "error"`
   - Local LLM implementation is available via llama.cpp (GGUF)
 
@@ -240,20 +240,31 @@ The application uses several reusable standalone components located in `frontend
 ### app-progress-bar
 **Location**: `frontend/src/app/components/progress-bar/`
 
-**Purpose**: Progress bar with numeric label for current/total.
+**Purpose**: Shared progress row used by the global fixed bottom overlay for active tasks.
 
 **When to use**:
-- Showing task progress (e.g., file translation progress)
+- Showing task progress with task label, current/total, status text, and ETA metadata
+- Rendered from the app shell as a fixed bottom overlay instead of inline within a single page section
+- Used for all active tasks; tasks without granular backend progress use a single-step `0/1` progress model in the frontend
 
 **Usage**:
 ```html
-<app-progress-bar [current]="current" [total]="total"></app-progress-bar>
+<app-progress-bar
+  [taskLabel]="taskLabel"
+  [current]="current"
+  [total]="total"
+  [statusText]="statusText"
+  [etaSeconds]="etaSeconds">
+</app-progress-bar>
 ```
 
 **Properties**:
+- `taskLabel` (optional, default: "Task"): Display label for the active task
 - `current` (optional, default: 0): Current step
 - `total` (optional, default: 0): Total steps
+- `statusText` (optional, default: ""): Task metadata shown next to the bar
 - `labelColor` (optional, default: "#5568d3"): Label text color
+- `etaSeconds` (optional, default: 0): Estimated seconds remaining
 
 ---
 
@@ -426,14 +437,21 @@ Long-running operations use FastAPI's BackgroundTasks with polling:
 2. Background function executes a task class through `TaskOrchestrator`
 3. Each task writes final output/error to `ResultHandler` keyed by `task_type`
 4. Progress-capable tasks write progress to `ProgressHandler` keyed by `task_type`
-5. GET `/result` endpoints now require the exact `task_type` being polled and return `"processing"` | `"complete"` | `"error"` | `"idle"` plus any stored `result`/`progress`
+5. GET `/result` endpoints require the exact `task_type` being polled and return `"processing"` | `"complete"` | `"error"` | `"idle"` plus any stored `result`/`progress`
 6. Task classes write execution timing entries to a shared `backend/outputs/task-timings.log` file (no per-task log files)
 
 
 Translation progress (file translation) includes:
-- `current`, `total`
-- `avg_seconds_per_line`
+- `current`
+- `total`
+- `status`
 - `eta_seconds`
+
+Tasks without backend-provided granular progress use a frontend-created single-step overlay progress payload:
+- `current: 0`
+- `total: 1`
+- task-specific `status`
+- `eta_seconds: 0`
 
 For file translations, `/translate/result` can include task result payload (including output filename). The translated files are saved in `backend/outputs/sub-files/` and retrieved via `/file-management/sub-files`.
 

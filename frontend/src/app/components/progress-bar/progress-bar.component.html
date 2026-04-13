@@ -1,13 +1,22 @@
-<div class="progress-container" *ngIf="total > 0">
+<div class="progress-container" *ngIf="statusText || etaSeconds > 0">
   <div class="progress-row">
-    <div class="progress-label" [style.color]="labelColor">{{ current }} / {{ total }}</div>
+    <div class="progress-summary" [style.color]="labelColor">
+      <span class="progress-title">{{ fullLabel }}</span>
+    </div>
     <div class="progress-bar">
       <div class="progress-fill" [style.width.%]="percent"></div>
     </div>
     <div class="progress-meta" [style.color]="labelColor">
-      <span>{{ formattedAvg }}</span>
-      <span *ngIf="formattedEta">•</span>
-      <span>{{ formattedEta }}</span>
+      <span *ngIf="statusText">{{ statusText }}</span>
+      <span *ngIf="statusText && etaSeconds > 0">&bull;</span>
+      <span *ngIf="etaSeconds > 0">{{ formattedEta }}</span>
+    </div>
+  </div>
+  <div class="progress-row progress-row-mobile" [style.color]="labelColor">
+    <div class="progress-meta">
+      <span *ngIf="statusText">{{ statusText }}</span>
+      <span *ngIf="statusText && etaSeconds > 0">&bull;</span>
+      <span *ngIf="etaSeconds > 0">{{ formattedEta }}</span>
     </div>
   </div>
 </div>

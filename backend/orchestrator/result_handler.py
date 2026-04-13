@@ -1,5 +1,4 @@
 import threading
-import time
 from typing import Any, Optional
 
 
@@ -26,7 +25,6 @@ class ResultHandler:
                 "success": None,
                 "result": None,
                 "error": None,
-                "_updated_at": time.time(),
             }
 
     def set_complete(self, task_type: str, result: Optional[dict[str, Any]] = None):
@@ -37,7 +35,6 @@ class ResultHandler:
                 "success": True,
                 "result": result,
                 "error": None,
-                "_updated_at": time.time(),
             }
 
     def set_error(self, task_type: str, error: str):
@@ -48,7 +45,6 @@ class ResultHandler:
                 "success": False,
                 "result": None,
                 "error": error,
-                "_updated_at": time.time(),
             }
 
     def get(self, task_type: str) -> Optional[dict[str, Any]]:
@@ -57,19 +53,6 @@ class ResultHandler:
             if record is None:
                 return None
             return self._public(record)
-
-    def get_latest(self, task_types: list[str]) -> Optional[dict[str, Any]]:
-        with self._lock:
-            latest: Optional[dict[str, Any]] = None
-            for task_type in task_types:
-                record = self._records.get(task_type)
-                if record is None:
-                    continue
-                if latest is None or record["_updated_at"] > latest["_updated_at"]:
-                    latest = record
-            if latest is None:
-                return None
-            return self._public(latest)
 
     @staticmethod
     def _public(record: dict[str, Any]) -> dict[str, Any]:

@@ -10,7 +10,7 @@ import { PrimaryButtonComponent } from '../../components/primary-button/primary-
 import { DownloadsListComponent } from '../../components/downloads-list/downloads-list.component';
 import { WaveformPlayerComponent } from '../../components/waveform-player/waveform-player.component';
 import { ApiService, TaskResultResponse } from '../../services/api.service';
-import { StateService, TASK_TYPES } from '../../services/state.service';
+import { StateService, TASK_TYPES, TaskProgress } from '../../services/state.service';
 
 @Component({
   selector: 'app-transcribe',
@@ -25,6 +25,11 @@ import { StateService, TASK_TYPES } from '../../services/state.service';
   styleUrl: './transcribe.component.scss'
 })
 export class TranscribeComponent implements OnInit, OnDestroy {
+  private readonly defaultTaskProgress = {
+    [TASK_TYPES.transcribeLine]: { current: 0, total: 1, status: 'Transcribing the selected audio clip', eta_seconds: 0 },
+    [TASK_TYPES.transcribeFile]: { current: 0, total: 1, status: 'Transcribing the uploaded audio file', eta_seconds: 0 },
+  } as const;
+
   @ViewChild('lineWaveform') lineWaveform!: WaveformPlayerComponent;
   @ViewChild('fileWaveform') fileWaveform!: WaveformPlayerComponent;
 
@@ -179,7 +184,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
         status: 'processing',
         result: null,
         message: null,
-        progress: null,
+        progress: this.defaultProgress(TASK_TYPES.transcribeLine),
         isPolling: true,
       });
 
@@ -265,7 +270,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
             status: response.status,
             result: response.result,
             message: response.message ?? null,
-            progress: response.progress ?? null,
+            progress: response.progress ?? this.getExistingProgress(TASK_TYPES.transcribeLine),
             isPolling: response.status === 'processing',
           });
           if (response.status === 'complete' && response.result) {
@@ -337,7 +342,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
         status: 'processing',
         result: null,
         message: null,
-        progress: null,
+        progress: this.defaultProgress(TASK_TYPES.transcribeFile),
         isPolling: true,
       });
       const filename = this.transcribeFileState.audioFile?.name || 'audio.wav';
@@ -393,7 +398,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
             status: response.status,
             result: response.result,
             message: response.message ?? null,
-            progress: response.progress ?? null,
+            progress: response.progress ?? this.getExistingProgress(TASK_TYPES.transcribeFile),
             isPolling: response.status === 'processing',
           });
           if (response.status === 'complete') {
@@ -598,5 +603,16 @@ export class TranscribeComponent implements OnInit, OnDestroy {
     if (target.isContentEditable) return true;
     const editableAncestor = target.closest?.('[contenteditable="true"]');
     return Boolean(editableAncestor);
+  }
+
+  private defaultProgress(taskType: keyof typeof this.defaultTaskProgress): TaskProgress {
+    return {
+      task_type: taskType,
+      ...this.defaultTaskProgress[taskType],
+    };
+  }
+
+  private getExistingProgress(taskType: string): TaskProgress | null {
+    return this.stateService.getTaskState(taskType).progress;
   }
 }

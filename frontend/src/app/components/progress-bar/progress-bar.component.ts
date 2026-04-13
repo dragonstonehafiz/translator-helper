@@ -9,10 +9,11 @@ import { CommonModule } from '@angular/common';
   styleUrl: './progress-bar.component.scss'
 })
 export class ProgressBarComponent {
+  @Input() taskLabel = 'Task';
   @Input() current = 0;
   @Input() total = 0;
+  @Input() statusText = '';
   @Input() labelColor = '#5568d3';
-  @Input() avgSecondsPerLine = 0;
   @Input() etaSeconds = 0;
 
   get percent(): number {
@@ -20,9 +21,13 @@ export class ProgressBarComponent {
     return Math.min(100, Math.max(0, (this.current / this.total) * 100));
   }
 
-  get formattedAvg(): string {
-    const value = Number.isFinite(this.avgSecondsPerLine) ? this.avgSecondsPerLine : 0;
-    return `${value.toFixed(2)}s/line`;
+  get progressLabel(): string {
+    return this.total > 1 ? `(${this.current}/${this.total})` : '';
+  }
+
+  get fullLabel(): string {
+    const count = this.progressLabel;
+    return count ? `${this.taskLabel} ${count}` : this.taskLabel;
   }
 
   get formattedEta(): string {

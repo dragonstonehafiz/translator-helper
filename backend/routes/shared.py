@@ -80,14 +80,6 @@ def run_single_task(task, data: dict):
         result_handler.set_error(task.task_type, str(exc))
 
 
-def read_latest(task_types: list[str]):
-    record = result_handler.get_latest(task_types)
-    if record is None:
-        return None, None
-    progress = progress_handler.get(record["task_type"])
-    return record, progress
-
-
 def ensure_task_type(task_type: str, allowed_task_types: list[str] | set[str]) -> str:
     if task_type not in allowed_task_types:
         raise HTTPException(status_code=400, detail="Invalid task_type")
