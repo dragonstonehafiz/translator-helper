@@ -12,6 +12,7 @@ import { ContextStatusComponent } from '../../components/context-status/context-
 import { LoadingTextIndicatorComponent } from '../../components/loading-text-indicator/loading-text-indicator.component';
 import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
 import { DownloadsListComponent } from '../../components/downloads-list/downloads-list.component';
+import { ConfirmationService } from '../../services/confirmation.service';
 
 @Component({
   selector: 'app-context',
@@ -99,7 +100,11 @@ export class ContextComponent implements OnInit, OnDestroy {
     { code: 'uk', name: 'Ukrainian' }
   ];
 
-  constructor(private stateService: StateService, private apiService: ApiService) {}
+  constructor(
+    private stateService: StateService,
+    private apiService: ApiService,
+    private confirmationService: ConfirmationService,
+  ) {}
 
   ngOnInit(): void {
     // Load existing values from state
@@ -366,7 +371,15 @@ export class ContextComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteContextFile(filename: string): void {
+  async deleteContextFile(filename: string): Promise<void> {
+    if (!filename || this.deletingContextFile) return;
+    const confirmed = await this.confirmationService.confirm({
+      title: 'Confirm Deletion',
+      message: `Delete ${filename}? This cannot be undone.`,
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+    });
+    if (!confirmed) return;
     this.deletingContextFile = filename;
     this.apiService.deleteFile('context-files', filename).subscribe({
       next: () => {
@@ -380,7 +393,7 @@ export class ContextComponent implements OnInit, OnDestroy {
     });
   }
 
-  onImportFilesSelected(files: File[]): void {
+  async onImportFilesSelected(files: File[]): Promise<void> {
     if (files.length === 0) return;
     const file = files[0];
     if (!file.name.endsWith('.json')) {
@@ -393,7 +406,12 @@ export class ContextComponent implements OnInit, OnDestroy {
     }
     const existingFile = this.availableContextFiles.find(f => f.name === this.currentFilename);
     if (existingFile) {
-      const confirmed = confirm(`This will overwrite the existing context file "${this.currentFilename}". Are you sure?`);
+      const confirmed = await this.confirmationService.confirm({
+        title: 'Overwrite Context File',
+        message: `This will overwrite the existing context file "${this.currentFilename}".`,
+        confirmLabel: 'Overwrite',
+        cancelLabel: 'Cancel',
+      });
       if (!confirmed) return;
     }
     const reader = new FileReader();

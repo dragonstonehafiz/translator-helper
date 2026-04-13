@@ -11,6 +11,7 @@ import { LoadingTextIndicatorComponent } from '../../components/loading-text-ind
 import { DownloadsListComponent } from '../../components/downloads-list/downloads-list.component';
 import { ApiService, TaskResultResponse } from '../../services/api.service';
 import { StateService, TASK_TYPES, TaskProgress } from '../../services/state.service';
+import { ConfirmationService } from '../../services/confirmation.service';
 
 @Component({
   selector: 'app-translate',
@@ -88,7 +89,8 @@ export class TranslateComponent implements OnInit, OnDestroy {
 
   constructor(
     private apiService: ApiService,
-    private stateService: StateService
+    private stateService: StateService,
+    private confirmationService: ConfirmationService,
   ) {}
 
   ngOnInit(): void {
@@ -432,9 +434,14 @@ export class TranslateComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteTranslatedFile(filename: string): void {
+  async deleteTranslatedFile(filename: string): Promise<void> {
     if (!filename || this.deletingDownload) return;
-    const confirmed = window.confirm(`Delete ${filename}? This cannot be undone.`);
+    const confirmed = await this.confirmationService.confirm({
+      title: 'Confirm Deletion',
+      message: `Delete ${filename}? This cannot be undone.`,
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+    });
     if (!confirmed) return;
     this.deletingDownload = filename;
     this.apiService.deleteFile('sub-files', filename).subscribe({

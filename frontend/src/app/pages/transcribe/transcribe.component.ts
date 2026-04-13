@@ -11,6 +11,7 @@ import { DownloadsListComponent } from '../../components/downloads-list/download
 import { WaveformPlayerComponent } from '../../components/waveform-player/waveform-player.component';
 import { ApiService, TaskResultResponse } from '../../services/api.service';
 import { StateService, TASK_TYPES, TaskProgress } from '../../services/state.service';
+import { ConfirmationService } from '../../services/confirmation.service';
 
 @Component({
   selector: 'app-transcribe',
@@ -86,6 +87,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private apiService: ApiService,
     private stateService: StateService,
+    private confirmationService: ConfirmationService,
   ) {}
 
   ngOnInit(): void {
@@ -453,9 +455,15 @@ export class TranscribeComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteTranscribedFile(filename: string): void {
+  async deleteTranscribedFile(filename: string): Promise<void> {
     if (!filename || this.deletingFileDownload) return;
-    if (!window.confirm(`Delete ${filename}? This cannot be undone.`)) return;
+    const confirmed = await this.confirmationService.confirm({
+      title: 'Confirm Deletion',
+      message: `Delete ${filename}? This cannot be undone.`,
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+    });
+    if (!confirmed) return;
     this.deletingFileDownload = filename;
     this.apiService.deleteFile('transcribe-sub-files', filename).subscribe({
       next: () => {

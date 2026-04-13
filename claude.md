@@ -237,6 +237,33 @@ The application uses several reusable standalone components located in `frontend
 
 ---
 
+### app-confirm-dialog
+**Location**: `frontend/src/app/components/confirm-dialog/`
+
+**Purpose**: Shared confirmation modal rendered from the app shell for user-confirmed actions.
+
+**When to use**:
+- Confirming destructive actions like deleting files
+- Confirming overwrite flows or other user decisions that should not use the browser's native `confirm(...)`
+
+**How it works**:
+- Trigger confirmations through `ConfirmationService` in `frontend/src/app/services/confirmation.service.ts`
+- The dialog is rendered centrally by `AppComponent`, not manually inside individual pages
+- Supports configurable title, message, confirm/cancel labels, and tone
+
+**Usage**:
+```ts
+const confirmed = await this.confirmationService.confirm({
+  title: 'Confirm Deletion',
+  message: `Delete ${filename}? This cannot be undone.`,
+  confirmLabel: 'Delete',
+  cancelLabel: 'Cancel',
+});
+if (!confirmed) return;
+```
+
+---
+
 ### app-progress-bar
 **Location**: `frontend/src/app/components/progress-bar/`
 
@@ -523,6 +550,7 @@ For file translations, `/translate/result` can include task result payload (incl
   - Task state persists across Angular route changes within the current app session, but not across a full browser refresh
 - Use component-level state for local UI state
 - Use `ApiService` for all backend API calls
+- Use `ConfirmationService` for confirmation dialogs instead of native browser `confirm(...)`
 
 ### API Integration
 1. Add method to `ApiService` (`frontend/src/app/services/api.service.ts`)
@@ -577,6 +605,11 @@ Use `app-text-field` instead of creating a new textarea:
 2. Add method to `ApiService` in frontend
 3. Call from component using the service method
 
+### Adding a Destructive Action
+1. Use `ConfirmationService` to ask the user to confirm before deleting or overwriting data
+2. Do not use the browser's native `confirm(...)`
+3. Keep the confirmation copy specific about what will happen (for example, deletion or overwrite)
+ 
 ## Quick Reference
 
 When working on this codebase:

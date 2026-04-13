@@ -3,16 +3,25 @@ import { Component, OnInit } from '@angular/core';
 import { RouterOutlet, Router } from '@angular/router';
 import { NavbarComponent } from './components/navbar/navbar.component';
 import { ProgressBarComponent } from './components/progress-bar/progress-bar.component';
+import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dialog.component';
 import { ApiService } from './services/api.service';
 import { StateService, TaskProgress, TASK_TYPES } from './services/state.service';
+import { ConfirmationService } from './services/confirmation.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, NavbarComponent, ProgressBarComponent],
+  imports: [CommonModule, RouterOutlet, NavbarComponent, ProgressBarComponent, ConfirmDialogComponent],
   template: `
     <app-navbar></app-navbar>
     <router-outlet></router-outlet>
+
+    <app-confirm-dialog
+      *ngIf="confirmationService.dialog$ | async as dialog"
+      [dialog]="dialog"
+      (confirmed)="confirmationService.resolve(true)"
+      (cancelled)="confirmationService.resolve(false)">
+    </app-confirm-dialog>
 
     <div class="progress-overlay" *ngIf="activeProgress">
       <div class="progress-overlay-card">
@@ -54,7 +63,8 @@ export class AppComponent implements OnInit {
   constructor(
     private apiService: ApiService,
     private stateService: StateService,
-    private router: Router
+    private router: Router,
+    readonly confirmationService: ConfirmationService,
   ) {}
 
   ngOnInit(): void {
