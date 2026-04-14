@@ -162,6 +162,133 @@ class PromptGenerator:
 
         return system_prompt
 
+    def generate_batch_plan_prompt(
+        self,
+        context: dict | None = None,
+        input_lang: str = "ja",
+        output_lang: str = "en",
+    ):
+        context = context or {}
+        context_sections = []
+        for key, value in context.items():
+            if value:
+                title = key.replace("_", " ").title()
+                context_sections.append(f"### {title}\n\n{value}")
+
+        context_text = "\n\n".join(context_sections) if context_sections else "No additional context provided."
+
+        system_prompt = f"""
+        # Role
+
+        You are a subtitle batch-planning assistant for translators working from {input_lang} into {output_lang}.
+
+        ## Task
+
+        You will receive a numbered subtitle transcript where every line has a stable 1-based index.
+        Your job is to group the subtitle lines into translation batches that preserve meaning and improve translation quality.
+
+        Each batch should contain enough surrounding context for accurate translation, including:
+        - ongoing conversations
+        - speaker exchanges and replies
+        - setup and payoff lines
+        - references that depend on nearby lines
+        - emotional turns and scene continuity
+
+        ## Batch Planning Rules
+
+        - Prefer semantically coherent groups over arbitrary line counts.
+        - Do not create overlapping batches.
+        - Do not leave gaps.
+        - Cover every subtitle line exactly once.
+        - Keep batches in ascending order.
+
+        ## Context
+
+        {context_text}
+
+        ## Output Format
+
+        Return JSON only.
+        Do not include markdown fences.
+        Do not include commentary.
+        Output exactly this shape:
+
+        {{
+          "batches": [
+            {{"start_index": 1, "end_index": 42, "reason": "A single continuous conversation with setup and reply lines kept together."}},
+            {{"start_index": 43, "end_index": 86, "reason": "A scene shift introduces a new exchange that should be translated as its own unit."}}
+          ]
+        }}  
+        """.strip()
+
+        return system_prompt
+
+    def generate_split_batch_plan_prompt(
+        self,
+        context: dict | None = None,
+        input_lang: str = "ja",
+        output_lang: str = "en",
+        max_batch_size: int = 50,
+        original_reason: str = "",
+    ):
+        context = context or {}
+        context_sections = []
+        for key, value in context.items():
+            if value:
+                title = key.replace("_", " ").title()
+                context_sections.append(f"### {title}\n\n{value}")
+
+        context_text = "\n\n".join(context_sections) if context_sections else "No additional context provided."
+        original_reason_text = original_reason.strip() or "No original batch reason provided."
+
+        system_prompt = f"""
+        # Role
+
+        You are a subtitle batch-splitting assistant for translators working from {input_lang} into {output_lang}.
+
+        ## Task
+
+        You will receive a numbered subtitle span that was already identified as one coherent batch,
+        but it is too large and must be split into smaller consecutive batches.
+
+        ## Requirements
+
+        - Every returned batch must stay within the provided subtitle span.
+        - Batches can be at most {max_batch_size} lines long.
+        - Every batch size must be within the range [1, {max_batch_size}].
+        - Preserve the original ordering.
+        - Do not create overlapping batches.
+        - Do not leave gaps.
+        - Cover every subtitle line in the provided span exactly once.
+        - Split the span into the smallest number of coherent consecutive batches that satisfy the maximum size.
+        - If the span contains one long scene, divide it into multiple consecutive sub-batches at the best natural breakpoints available.
+        - Before outputting, verify each batch length using `end_index - start_index + 1`.
+
+        ## Original Batch Reason
+
+        {original_reason_text}
+
+        ## Context
+
+        {context_text}
+
+        ## Output Format
+
+        Return JSON only.
+        Do not include markdown fences.
+        Do not include commentary.
+        Output exactly this shape:
+
+        {{
+          "batches": [
+            {{"start_index": 261, "end_index": 289, "reason": "First part of the confrontation and defense scene."}},
+            {{"start_index": 290, "end_index": 330, "reason": "Resolution of the confrontation and renewed commitment."}}
+          ]
+        }}
+        """.strip()
+
+        return system_prompt
+
     def generate_character_list_prompt(
         self,
         context: dict | None = None,

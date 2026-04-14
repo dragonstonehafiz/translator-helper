@@ -19,6 +19,8 @@ Translator Helper is a full-stack application for transcribing, translating, and
   - `ProgressHandler`: stores progress per task class (`task_type`) for exact-task polling
   - LLM and audio interfaces now expose `get_status()` returning `"loaded" | "not_loaded" | "error"`
   - Local LLM implementation is available via llama.cpp (GGUF)
+- **Backend Tests**: Isolated CLI test harnesses live under `backend/tests/`
+  - `run_plan_translation_batches.py` runs the translation batch planner task directly with CLI args
 
 ## Navigation
 
@@ -457,6 +459,192 @@ The running-status endpoint returns:
 - `GET /file-management/{folder}/{filename}`: Download a file
 - `DELETE /file-management/{folder}/{filename}`: Delete a file
 
+### Backend Tasks
+
+**TaskGenerateCharacterList** (`backend/orchestrator/task_generate_character_list.py`):
+- Purpose: Generate a character reference list from an uploaded subtitle file
+- Inputs:
+  - `file_path`
+  - `context`
+  - `input_lang`
+  - `output_lang`
+- Output payload:
+```json
+{
+  "type": "character_list",
+  "data": "..."
+}
+```
+- Progress: no granular backend progress
+
+**TaskGenerateSynopsis** (`backend/orchestrator/task_generate_synopsis.py`):
+- Purpose: Generate a detailed synopsis from an uploaded subtitle file
+- Inputs:
+  - `file_path`
+  - `context`
+  - `input_lang`
+  - `output_lang`
+- Output payload:
+```json
+{
+  "type": "synopsis",
+  "data": "..."
+}
+```
+- Progress: no granular backend progress
+
+**TaskGenerateSummary** (`backend/orchestrator/task_generate_summary.py`):
+- Purpose: Generate a shorter high-level summary from an uploaded subtitle file
+- Inputs:
+  - `file_path`
+  - `context`
+  - `input_lang`
+  - `output_lang`
+- Output payload:
+```json
+{
+  "type": "summary",
+  "data": "..."
+}
+```
+- Progress: no granular backend progress
+
+**TaskGenerateRecap** (`backend/orchestrator/task_generate_recap.py`):
+- Purpose: Merge multiple context files into a continuity recap for future translation
+- Inputs:
+  - `contexts`
+  - `input_lang`
+  - `output_lang`
+- Output payload:
+```json
+{
+  "type": "recap",
+  "data": "..."
+}
+```
+- Progress: no granular backend progress
+
+**TaskTranscribeLine** (`backend/orchestrator/task_transcribe_line.py`):
+- Purpose: Transcribe a short audio clip or recording to text
+- Inputs:
+  - `file_path`
+  - `language`
+- Output payload:
+```json
+{
+  "type": "transcription",
+  "data": "..."
+}
+```
+- Progress: no granular backend progress
+
+**TaskTranscribeFile** (`backend/orchestrator/task_transcribe_file.py`):
+- Purpose: Transcribe a full audio file and save an `.ass` subtitle output
+- Inputs:
+  - `file_path`
+  - `language`
+  - `original_filename`
+- Output payload:
+```json
+{
+  "type": "file_transcription",
+  "filename": "..."
+}
+```
+- Progress: no granular backend progress
+
+**TaskTranslateLine** (`backend/orchestrator/task_translate_line.py`):
+- Purpose: Translate a single line of text with optional context
+- Inputs:
+  - `text`
+  - `context`
+  - `input_lang`
+  - `output_lang`
+- Output payload:
+```json
+{
+  "type": "line_translation",
+  "data": "..."
+}
+```
+- Progress: no granular backend progress
+
+**TaskTranslateFile** (`backend/orchestrator/task_translate_file.py`):
+- Purpose: Translate a subtitle file in fixed-size batches and save the translated subtitle file
+- Inputs:
+  - `file_path`
+  - `original_filename`
+  - `context`
+  - `input_lang`
+  - `output_lang`
+  - `batch_size`
+- Output payload:
+```json
+{
+  "type": "file_translation",
+  "filename": "..."
+}
+```
+- Progress: writes `current`, `total`, `status`, and `eta_seconds`
+
+**TaskPlanTranslationBatches** (`backend/orchestrator/task_plan_translation_batches.py`):
+- Purpose: Stage 1 semantic planning task for subtitle translation batches
+- Inputs:
+  - `file_path`
+  - `context`
+  - `input_lang`
+  - `output_lang`
+- Output payload:
+```json
+{
+  "batches": [
+    {
+      "start_index": 1,
+      "end_index": 42,
+      "reason": "A single continuous conversation with setup and reply lines kept together."
+    }
+  ],
+  "file_path": "...",
+  "context": {},
+  "input_lang": "ja",
+  "output_lang": "en",
+  "batch_size": 50
+}
+```
+- Progress: writes planning status and completion counts
+- Notes:
+  - does not enforce maximum batch size on semantic output
+  - passes through the minimal chain data needed by `TaskSplitOversizedBatches`
+  - validates contiguous, ordered, gap-free, non-overlapping coverage of the entire subtitle file
+  - currently not wired into API routes; intended for isolated testing and later integration into translation flow
+
+**TaskSplitOversizedBatches** (`backend/orchestrator/task_split_oversized_batches.py`):
+- Purpose: Stage 2 repair task that splits only the oversized semantic batches into smaller consecutive batches within the configured maximum size
+- Inputs:
+  - `file_path`
+  - `batches`
+  - `context`
+  - `input_lang`
+  - `output_lang`
+  - maximum `batch_size`
+- Output payload:
+```json
+{
+  "batches": [
+    {
+      "start_index": 1,
+      "end_index": 42,
+      "reason": "A single continuous conversation with setup and reply lines kept together."
+    }
+  ]
+}
+```
+- Progress: writes split progress while repairing oversized batches
+- Notes:
+  - rereads the subtitle file and independently detects which semantic batches exceed `batch_size`
+  - only oversized semantic batches are reprocessed
+  - final output enforces `batch_size` as a hard maximum allowed batch length
+
 ### Background Tasks
 
 Long-running operations use FastAPI's BackgroundTasks with polling:
@@ -574,6 +762,9 @@ When making changes to:
 - Manual testing in browser required
 - Backend terminal shows FastAPI logs
 - Frontend terminal shows build errors
+- Backend task harnesses can be run directly from the CLI under `backend/tests/` for isolated task validation
+- `backend/tests/run_plan_translation_batches.py` chains `TaskPlanTranslationBatches` and `TaskSplitOversizedBatches` through `TaskOrchestrator.run_tasks(...)`
+- `backend/tests/run_plan_translation_batches.py` prints any oversized semantic batches that required correction before printing the final repaired planner output
 
 ### Current Limitations
 - No user authentication
