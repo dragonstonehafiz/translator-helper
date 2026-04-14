@@ -1,5 +1,4 @@
 import json
-import os
 import re
 import time
 
@@ -13,6 +12,7 @@ from utils.logger import setup_logger
 from utils.prompts import PromptGenerator
 
 logger = setup_logger("task-timings")
+app_logger = setup_logger("translator-helper")
 
 
 class TaskSplitOversizedBatches(BaseTask):
@@ -36,6 +36,7 @@ class TaskSplitOversizedBatches(BaseTask):
         data = self.get_data()
         batches = data.get("batches") or []
         file_path = str(data.get("file_path", ""))
+        original_filename = data.get("original_filename")
         context = data.get("context") or {}
         input_lang = str(data.get("input_lang", "ja"))
         output_lang = str(data.get("output_lang", "en"))
@@ -69,7 +70,15 @@ class TaskSplitOversizedBatches(BaseTask):
                 progress_handler=progress_handler,
             )
             self._validate_final_batches(repaired_batches, total_lines, batch_size)
-            payload = {"batches": repaired_batches}
+            payload = {
+                "batches": repaired_batches,
+                "file_path": file_path,
+                "original_filename": original_filename,
+                "context": context,
+                "input_lang": input_lang,
+                "output_lang": output_lang,
+                "batch_size": batch_size,
+            }
             result_handler.set_complete(self.task_type, payload)
             status = "complete"
             return payload
@@ -79,11 +88,6 @@ class TaskSplitOversizedBatches(BaseTask):
             return {}
         finally:
             llm_client.set_running(False)
-            if file_path:
-                try:
-                    os.remove(file_path)
-                except Exception:
-                    pass
             logger.info("task=%s status=%s elapsed_seconds=%.3f", self.task_type, status, time.perf_counter() - started)
 
     def _load_indexed_lines(self, file_path: str) -> tuple[list[str], int]:
@@ -146,19 +150,45 @@ class TaskSplitOversizedBatches(BaseTask):
                 continue
 
             slice_lines = indexed_lines[start_index - 1:end_index]
-            raw_output = model_manager.llm_infer(
-                prompt=self._build_lines_prompt(slice_lines),
-                system_prompt=PromptGenerator().generate_split_batch_plan_prompt(
-                    context=context if context else None,
-                    input_lang=input_lang,
-                    output_lang=output_lang,
+            raw_output = ""
+            try:
+                raw_output = model_manager.llm_infer(
+                    prompt=self._build_lines_prompt(slice_lines),
+                    system_prompt=PromptGenerator().generate_split_batch_plan_prompt(
+                        context=context if context else None,
+                        input_lang=input_lang,
+                        output_lang=output_lang,
+                        max_batch_size=max_batch_size,
+                        original_reason=str(batch["reason"]),
+                    ),
+                    temperature=0.1,
+                )
+                split_batches = self._parse_and_validate_split_batches(
+                    raw_output=raw_output,
+                    expected_start=start_index,
+                    expected_end=end_index,
+                    max_batch_size=max_batch_size,
+                )
+            except Exception as exc:
+                split_batches = self._build_fallback_batches(
+                    start_index=start_index,
+                    end_index=end_index,
                     max_batch_size=max_batch_size,
                     original_reason=str(batch["reason"]),
-                ),
-                temperature=0.1,
-            )
-            split_batches = self._parse_batches(raw_output, expected_start=start_index, expected_end=end_index)
-            self._validate_final_batches(split_batches, end_index, max_batch_size, expected_start=start_index)
+                )
+                replacement_spans = ",".join(
+                    f"{int(fallback_batch['start_index'])}-{int(fallback_batch['end_index'])}"
+                    for fallback_batch in split_batches
+                )
+                app_logger.warning(
+                    "Oversized batch fallback: original=%s-%s deterministic_split=%s max_batch_size=%s failure=%s",
+                    start_index,
+                    end_index,
+                    replacement_spans,
+                    max_batch_size,
+                    str(exc),
+                )
+
             repaired_batches.extend(split_batches)
             repaired_count += 1
             progress_handler.set(
@@ -208,11 +238,36 @@ class TaskSplitOversizedBatches(BaseTask):
                 f"{details}"
             )
 
-    def _parse_batches(
+    def _build_fallback_batches(
+        self,
+        start_index: int,
+        end_index: int,
+        max_batch_size: int,
+        original_reason: str,
+    ) -> list[dict[str, int | str]]:
+        fallback_batches: list[dict[str, int | str]] = []
+        current_start = start_index
+        total_parts = ((end_index - start_index + 1) + max_batch_size - 1) // max_batch_size
+
+        for part_index in range(total_parts):
+            current_end = min(current_start + max_batch_size - 1, end_index)
+            fallback_batches.append(
+                {
+                    "start_index": current_start,
+                    "end_index": current_end,
+                    "reason": f"{original_reason} (deterministic split {part_index + 1}/{total_parts})".strip(),
+                }
+            )
+            current_start = current_end + 1
+
+        return fallback_batches
+
+    def _parse_and_validate_split_batches(
         self,
         raw_output: str,
         expected_start: int,
         expected_end: int,
+        max_batch_size: int,
     ) -> list[dict[str, int | str]]:
         json_payload = self._extract_json_payload(raw_output)
         parsed = json.loads(json_payload)
@@ -238,6 +293,12 @@ class TaskSplitOversizedBatches(BaseTask):
                 raise ValueError("Batch plan must cover subtitle lines contiguously without gaps or overlap.")
             if end_index > expected_end:
                 raise ValueError("Batch plan references subtitle lines beyond the expected subtitle span.")
+            if end_index - start_index + 1 > max_batch_size:
+                raise ValueError(
+                    "Batch plan contains batches larger than the requested maximum batch size:\n"
+                    f"- {start_index}-{end_index} "
+                    f"(size {end_index - start_index + 1}, max {max_batch_size}): {reason.strip()}"
+                )
             normalized_batches.append(
                 {"start_index": start_index, "end_index": end_index, "reason": reason.strip()}
             )

@@ -124,6 +124,11 @@ def main() -> int:
     except Exception as exc:
         print(json.dumps({"status": "error", "message": str(exc)}))
         return 1
+    finally:
+        try:
+            Path(temp_file_path).unlink(missing_ok=True)
+        except Exception:
+            pass
 
     semantic_record = ResultHandler.get_instance().get(semantic_task.task_type)
     final_record = ResultHandler.get_instance().get(split_task.task_type)
@@ -141,31 +146,6 @@ def main() -> int:
         else:
             print(json.dumps(response, ensure_ascii=False))
         return 1
-
-    if semantic_result and semantic_result.get("batches"):
-        oversized_batches = []
-        for batch in semantic_result["batches"]:
-            start_index = int(batch["start_index"])
-            end_index = int(batch["end_index"])
-            size = end_index - start_index + 1
-            if size > args.batch_size:
-                oversized_batches.append({
-                    "start_index": start_index,
-                    "end_index": end_index,
-                    "size": size,
-                    "max_batch_size": args.batch_size,
-                    "reason": batch["reason"],
-                })
-    else:
-        oversized_batches = []
-
-    if oversized_batches:
-        print("Oversized batches requiring correction:")
-        for batch in oversized_batches:
-            print(
-                f"- {batch['start_index']}-{batch['end_index']} "
-                f"(size {batch['size']}, max {batch['max_batch_size']}): {batch['reason']}"
-            )
 
     response = {
         "status": "complete" if payload else "error",

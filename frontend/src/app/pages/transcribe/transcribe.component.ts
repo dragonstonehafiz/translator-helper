@@ -82,6 +82,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
   private audioChunks: Blob[] = [];
   private pollingInterval?: any;
   private filePollingInterval?: any;
+  private lastShownTaskError: Record<string, string> = {};
 
   constructor(
     private cdr: ChangeDetectorRef,
@@ -213,12 +214,14 @@ export class TranscribeComponent implements OnInit, OnDestroy {
           if (response.status === 'processing') {
             this.startPolling();
           } else {
+            const errorMessage = response.message || 'Failed to start transcription.';
             this.isTranscribing = false;
             this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
               status: 'error',
-              message: response.message || 'Failed to start transcription.',
+              message: errorMessage,
               isPolling: false,
             });
+            this.showTaskError(TASK_TYPES.transcribeLine, errorMessage);
           }
         },
         error: (error) => {
@@ -282,7 +285,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
             this.cdr.detectChanges();
           } else if (response.status === 'error') {
             console.error('Transcription error:', response.message);
-            alert('Transcription failed: ' + (response.message || 'Unknown error'));
+            this.showTaskError(TASK_TYPES.transcribeLine, response.message || 'Transcription failed.');
             this.isTranscribing = false;
             this.stopPolling();
           } else if (response.status === 'idle') {
@@ -358,13 +361,14 @@ export class TranscribeComponent implements OnInit, OnDestroy {
           if (response.status === 'processing') {
             this.startFilePolling();
           } else {
+            const errorMessage = response.message || 'Failed to start transcription.';
             this.isTranscribing = false;
             this.stateService.setTaskState(TASK_TYPES.transcribeFile, {
               status: 'error',
-              message: response.message || 'Failed to start transcription.',
+              message: errorMessage,
               isPolling: false,
             });
-            alert(response.message || 'Failed to start transcription.');
+            this.showTaskError(TASK_TYPES.transcribeFile, errorMessage);
           }
         },
         error: (error) => {
@@ -409,6 +413,9 @@ export class TranscribeComponent implements OnInit, OnDestroy {
             this.refreshFileDownloads();
             this.cdr.detectChanges();
           } else if (response.status === 'error' || response.status === 'idle') {
+            if (response.status === 'error') {
+              this.showTaskError(TASK_TYPES.transcribeFile, response.message || 'Transcription failed.');
+            }
             this.isTranscribing = false;
             this.stopFilePolling();
           }
@@ -622,5 +629,13 @@ export class TranscribeComponent implements OnInit, OnDestroy {
 
   private getExistingProgress(taskType: string): TaskProgress | null {
     return this.stateService.getTaskState(taskType).progress;
+  }
+
+  private showTaskError(taskType: string, message: string): void {
+    if (this.lastShownTaskError[taskType] === message) {
+      return;
+    }
+    this.lastShownTaskError[taskType] = message;
+    alert(message);
   }
 }

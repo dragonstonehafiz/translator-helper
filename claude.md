@@ -398,6 +398,7 @@ if (!confirmed) return;
 - `GET /utils/settings-schema`: Get settings schema for model configuration
 - `GET /utils/server-variables`: Get current server configuration and readiness grouped by provider
 The server loads `.env` via python-dotenv at startup, and models read defaults from environment (e.g., `OPENAI_*`, `WHISPER_*`).
+Frontend note: Settings surfaces `llm_loading_error` and `audio_loading_error` visibly so model load failures are not silent.
 
 ### Settings Schema (Backend -> Frontend)
 Model backends can expose a settings schema so the frontend can render controls dynamically.
@@ -453,6 +454,7 @@ The running-status endpoint returns:
 - `POST /translate/translate-line`: Translate text line with context (FormData: text, context JSON, input_lang, output_lang)
 - `POST /translate/translate-file`: Translate subtitle file with batch size (FormData: file, context JSON, input_lang, output_lang, batch_size)
 - `GET /translate/result?task_type=<TaskType>`: Poll for a specific translation task result
+  - file translation now runs a 3-stage backend chain: `TaskPlanTranslationBatches` -> `TaskSplitOversizedBatches` -> `TaskTranslateFile`
 
 **File Management** (`backend/routes/file_management.py`):
 - `GET /file-management/{folder}`: List files in `backend/outputs/{folder}/`
@@ -570,8 +572,9 @@ The running-status endpoint returns:
 - Progress: no granular backend progress
 
 **TaskTranslateFile** (`backend/orchestrator/task_translate_file.py`):
-- Purpose: Translate a subtitle file in fixed-size batches and save the translated subtitle file
+- Purpose: Translate a subtitle file using upstream planned batches when available, otherwise fixed-size batching, and save the translated subtitle file
 - Inputs:
+  - `batches`
   - `file_path`
   - `original_filename`
   - `context`
@@ -586,11 +589,18 @@ The running-status endpoint returns:
 }
 ```
 - Progress: writes `current`, `total`, `status`, and `eta_seconds`
+- Notes:
+  - when `batches` are provided by upstream tasks, translation uses those planned consecutive spans instead of slicing by fixed `batch_size`
+  - if no `batches` are provided, translation falls back to fixed-size batching
+  - `TaskTranslateFile` owns batch selection and malformed-batch recovery logic instead of pushing planner-chain data into lower-level translation utilities
+  - if a batch translation response is malformed (for example, line-count mismatch or missing delimiters), translation retries once by splitting the failed batch in half; if either half still fails, it falls back to per-line translation for that failed span
+  - malformed batch recovery and per-line fallback events are logged to `backend/outputs/translator-helper.log`
 
 **TaskPlanTranslationBatches** (`backend/orchestrator/task_plan_translation_batches.py`):
 - Purpose: Stage 1 semantic planning task for subtitle translation batches
 - Inputs:
   - `file_path`
+  - `original_filename`
   - `context`
   - `input_lang`
   - `output_lang`
@@ -605,6 +615,7 @@ The running-status endpoint returns:
     }
   ],
   "file_path": "...",
+  "original_filename": "...",
   "context": {},
   "input_lang": "ja",
   "output_lang": "en",
@@ -614,14 +625,15 @@ The running-status endpoint returns:
 - Progress: writes planning status and completion counts
 - Notes:
   - does not enforce maximum batch size on semantic output
-  - passes through the minimal chain data needed by `TaskSplitOversizedBatches`
+  - passes through the chain data needed by downstream translation tasks
   - validates contiguous, ordered, gap-free, non-overlapping coverage of the entire subtitle file
-  - currently not wired into API routes; intended for isolated testing and later integration into translation flow
+  - is wired into the file translation chain before `TaskSplitOversizedBatches` and `TaskTranslateFile`
 
 **TaskSplitOversizedBatches** (`backend/orchestrator/task_split_oversized_batches.py`):
 - Purpose: Stage 2 repair task that splits only the oversized semantic batches into smaller consecutive batches within the configured maximum size
 - Inputs:
   - `file_path`
+  - `original_filename`
   - `batches`
   - `context`
   - `input_lang`
@@ -636,7 +648,13 @@ The running-status endpoint returns:
       "end_index": 42,
       "reason": "A single continuous conversation with setup and reply lines kept together."
     }
-  ]
+  ],
+  "file_path": "...",
+  "original_filename": "...",
+  "context": {},
+  "input_lang": "ja",
+  "output_lang": "en",
+  "batch_size": 50
 }
 ```
 - Progress: writes split progress while repairing oversized batches
@@ -644,6 +662,9 @@ The running-status endpoint returns:
   - rereads the subtitle file and independently detects which semantic batches exceed `batch_size`
   - only oversized semantic batches are reprocessed
   - final output enforces `batch_size` as a hard maximum allowed batch length
+  - if the LLM returns an invalid repair split for an oversized batch, the task falls back to deterministic consecutive chunking for that span only
+  - deterministic fallback events are logged to `backend/outputs/translator-helper.log`
+  - does not delete the working subtitle temp file; downstream tasks or the calling harness own final cleanup
 
 ### Background Tasks
 
@@ -654,6 +675,9 @@ Long-running operations use FastAPI's BackgroundTasks with polling:
 4. Progress-capable tasks write progress to `ProgressHandler` keyed by `task_type`
 5. GET `/result` endpoints require the exact `task_type` being polled and return `"processing"` | `"complete"` | `"error"` | `"idle"` plus any stored `result`/`progress`
 6. Task classes write execution timing entries to a shared `backend/outputs/task-timings.log` file (no per-task log files)
+Additional backend warnings and fallback/audit events are written to `backend/outputs/translator-helper.log`.
+Model load/unload and general backend lifecycle events are also written to `backend/outputs/translator-helper.log`.
+Frontend note: polling-time task errors are surfaced visibly to the user and not only stored in frontend task state.
 
 
 Translation progress (file translation) includes:
@@ -764,7 +788,6 @@ When making changes to:
 - Frontend terminal shows build errors
 - Backend task harnesses can be run directly from the CLI under `backend/tests/` for isolated task validation
 - `backend/tests/run_plan_translation_batches.py` chains `TaskPlanTranslationBatches` and `TaskSplitOversizedBatches` through `TaskOrchestrator.run_tasks(...)`
-- `backend/tests/run_plan_translation_batches.py` prints any oversized semantic batches that required correction before printing the final repaired planner output
 
 ### Current Limitations
 - No user authentication

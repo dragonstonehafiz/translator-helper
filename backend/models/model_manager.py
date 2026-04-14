@@ -3,9 +3,12 @@ from typing import Optional
 
 from models.audio_whisperx import AudioWhisperX
 from models.llm_claude import LLMClaude
+# from models.llm_llamacpp import LLMLlamaCpp
+from interface.llm_interface import LLMInterface
+from interface.audio_model_interface import AudioModelInterface
 from utils.logger import setup_logger
 
-logger = setup_logger("translate-file")
+logger = setup_logger("translator-helper")
 
 
 class ModelManager:
@@ -15,8 +18,8 @@ class ModelManager:
         if ModelManager._instance is not None:
             raise RuntimeError("ModelManager: Please use get_instance()")
 
-        self._llm_client: Optional[LLMClaude] = None
-        self._audio_client: Optional[AudioWhisperX] = None
+        self._llm_client: Optional[LLMInterface] = None
+        self._audio_client: Optional[AudioModelInterface] = None
         self.loading_audio_model = False
         self.loading_llm_model = False
         self.llm_loading_error: Optional[str] = None
@@ -32,10 +35,10 @@ class ModelManager:
             ModelManager._instance = ModelManager()
         return ModelManager._instance
 
-    def get_llm_client(self) -> Optional[LLMClaude]:
+    def get_llm_client(self) -> Optional[LLMInterface]:
         return self._llm_client
 
-    def get_audio_client(self) -> Optional[AudioWhisperX]:
+    def get_audio_client(self) -> Optional[AudioModelInterface]:
         return self._audio_client
 
     def is_llm_running(self) -> bool:

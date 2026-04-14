@@ -45,6 +45,7 @@ export class ContextComponent implements OnInit, OnDestroy {
   private pollingSubscription?: Subscription;
   private taskStateSubscription?: Subscription;
   private activePollingTaskType: string | null = null;
+  private lastShownTaskError: Record<string, string> = {};
   
   // Context checkboxes for character list generation
   characterListUseAdditionalInstructions = true;
@@ -142,6 +143,9 @@ export class ContextComponent implements OnInit, OnDestroy {
             this.saveContext();
             this.stopPolling();
           } else if (response.status === 'error' || response.status === 'idle') {
+            if (response.status === 'error' && response.message) {
+              this.showTaskError(taskType, response.message);
+            }
             this.stopPolling();
           }
         },
@@ -624,6 +628,14 @@ export class ContextComponent implements OnInit, OnDestroy {
       task_type: taskType,
       ...this.defaultTaskProgress[taskType],
     };
+  }
+
+  private showTaskError(taskType: string, message: string): void {
+    if (this.lastShownTaskError[taskType] === message) {
+      return;
+    }
+    this.lastShownTaskError[taskType] = message;
+    alert(message);
   }
 
   private applyContextResult(type: string, data: string): void {

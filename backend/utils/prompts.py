@@ -242,47 +242,36 @@ class PromptGenerator:
         original_reason_text = original_reason.strip() or "No original batch reason provided."
 
         system_prompt = f"""
-        # Role
-
         You are a subtitle batch-splitting assistant for translators working from {input_lang} into {output_lang}.
 
-        ## Task
+        You will receive one numbered subtitle span that is too large and must be split into smaller consecutive batches.
 
-        You will receive a numbered subtitle span that was already identified as one coherent batch,
-        but it is too large and must be split into smaller consecutive batches.
+        Rules:
+        - Return only batches within the provided span.
+        - Cover every line in the span exactly once.
+        - Keep batches contiguous, ordered, and non-overlapping.
+        - No batch may contain more than {max_batch_size} lines.
+        - Use the fewest batches possible that satisfy the maximum size.
+        - Prefer natural breakpoints when they do not violate the maximum size.
+        - If no natural breakpoint exists before the limit, split at the latest valid line.
 
-        ## Requirements
-
-        - Every returned batch must stay within the provided subtitle span.
-        - Batches can be at most {max_batch_size} lines long.
-        - Every batch size must be within the range [1, {max_batch_size}].
-        - Preserve the original ordering.
-        - Do not create overlapping batches.
-        - Do not leave gaps.
-        - Cover every subtitle line in the provided span exactly once.
-        - Split the span into the smallest number of coherent consecutive batches that satisfy the maximum size.
-        - If the span contains one long scene, divide it into multiple consecutive sub-batches at the best natural breakpoints available.
-        - Before outputting, verify each batch length using `end_index - start_index + 1`.
-
-        ## Original Batch Reason
+        Original batch reason:
 
         {original_reason_text}
 
-        ## Context
+        Context:
 
         {context_text}
-
-        ## Output Format
 
         Return JSON only.
         Do not include markdown fences.
         Do not include commentary.
-        Output exactly this shape:
+        Use exactly this shape:
 
         {{
           "batches": [
-            {{"start_index": 261, "end_index": 289, "reason": "First part of the confrontation and defense scene."}},
-            {{"start_index": 290, "end_index": 330, "reason": "Resolution of the confrontation and renewed commitment."}}
+            {{"start_index": 261, "end_index": 289, "reason": "First valid sub-batch ending before the maximum size limit."}},
+            {{"start_index": 290, "end_index": 310, "reason": "Second consecutive sub-batch covering the next valid span within the limit."}}
           ]
         }}
         """.strip()

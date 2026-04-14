@@ -34,6 +34,7 @@ class TaskPlanTranslationBatches(BaseTask):
 
         data = self.get_data()
         file_path = str(data.get("file_path", ""))
+        original_filename = data.get("original_filename")
         context = data.get("context") or {}
         input_lang = str(data.get("input_lang", "ja"))
         output_lang = str(data.get("output_lang", "en"))
@@ -66,6 +67,7 @@ class TaskPlanTranslationBatches(BaseTask):
             payload = {
                 "batches": batches,
                 "file_path": file_path,
+                "original_filename": original_filename,
                 "context": context,
                 "input_lang": input_lang,
                 "output_lang": output_lang,

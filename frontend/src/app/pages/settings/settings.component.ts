@@ -45,6 +45,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
   };
 
   private statusPollSub: Subscription | null = null;
+  private lastShownLlmError: string | null = null;
+  private lastShownAudioError: string | null = null;
 
   constructor(
     private apiService: ApiService,
@@ -122,6 +124,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.audioReady = response.audio_ready;
         this.llmLoadingError = response.llm_loading_error ?? null;
         this.audioLoadingError = response.audio_loading_error ?? null;
+        this.showLoadErrorIfNeeded('llm', this.llmLoadingError);
+        this.showLoadErrorIfNeeded('audio', this.audioLoadingError);
         if (response.llm_ready) {
           this.stateService.setLoadingLlm(false);
         }
@@ -282,6 +286,27 @@ export class SettingsComponent implements OnInit, OnDestroy {
         alert('Failed to load LLM');
       }
     });
+  }
+
+  private showLoadErrorIfNeeded(scope: 'llm' | 'audio', message: string | null): void {
+    if (!message) {
+      if (scope === 'llm') {
+        this.lastShownLlmError = null;
+      } else {
+        this.lastShownAudioError = null;
+      }
+      return;
+    }
+
+    if (scope === 'llm') {
+      if (this.lastShownLlmError === message) return;
+      this.lastShownLlmError = message;
+    } else {
+      if (this.lastShownAudioError === message) return;
+      this.lastShownAudioError = message;
+    }
+
+    alert(message);
   }
 
 }

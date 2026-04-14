@@ -13,6 +13,7 @@ from .shared import (
     ensure_task_type,
     model_manager,
     parse_json_form,
+    run_translation_file_chain,
     run_single_task,
     save_upload_to_temp,
     task_orchestrator,
@@ -69,8 +70,7 @@ async def api_translate_file(
         context_dict = parse_json_form(context)
         tmp_file_path = await save_upload_to_temp(file)
         background_tasks.add_task(
-            run_single_task,
-            TaskTranslateFile(),
+            run_translation_file_chain,
             {
                 "file_path": tmp_file_path,
                 "original_filename": file.filename,

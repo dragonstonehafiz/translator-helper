@@ -1,13 +1,13 @@
 # Translator Helper
 
-A full-stack web application for transcribing, and translating subtitle files. Built with Angular 17 (frontend) and FastAPI (backend), featuring WhisperX transcription and Claude translation.
+A full-stack web application for transcribing and translating subtitle files. Built with Angular 17 (frontend) and FastAPI (backend), featuring WhisperX transcription and Claude/OpenAI or local llama.cpp-based translation.
 
 ## Features
 
 ### Settings Page
-- **Status**: Monitor API readiness (Claude, WhisperX)
+- **Status**: Monitor model readiness (LLM, WhisperX)
 - **WhisperX Settings**: Select model size, compute device (CPU/CUDA), compute type, and batch size; load model into memory
-- **Claude Settings**: Configure Claude model, set temperature, input API key
+- **LLM Settings**: Configure the active LLM backend, including Claude/OpenAI API settings or llama.cpp GGUF settings for local inference
 
 ### Context Page
 - **File Download/Upload**: Import/export context as JSON files, upload subtitle files for processing
@@ -36,6 +36,8 @@ A full-stack web application for transcribing, and translating subtitle files. B
 - [PyTorch](https://pytorch.org/get-started/locally/) for GPU acceleration (I used CUDA 12.8)
 - [WhisperX](https://github.com/m-bain/whisperX) for audio transcription with accurate word-level timestamps
 - [Anthropic Claude API](https://www.anthropic.com/) for translation and context generation
+- [OpenAI API](https://platform.openai.com/) for translation and context generation
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) via `llama-cpp-python` for local GGUF inference
 - `pysubs2` for subtitle file parsing (.ass/.srt)
 
 ### Frontend
@@ -62,7 +64,7 @@ uv pip install -r requirements.txt
 
 ### 3. Installing PyTorch with CUDA (Optional/For Hardware Acceleration)
 
-You can skip this section if you have no intention of using **hardware acceleration during transcription**. Translation uses online APIs, so translation speed will be unaffected. Before doing anything, you will need to install the [CUDA toolkit](https://developer.nvidia.com/cuda-downloads). If you are on windows, you will need to install [Microsoft Visual Studio 2022](https://aka.ms/vs/17/release/vs_community.exe) before doing that.
+You can skip this section if you have no intention of using **hardware acceleration during transcription or local llama.cpp inference**. Before doing anything, you will need to install the [CUDA toolkit](https://developer.nvidia.com/cuda-downloads). If you are on windows, you will need to install [Microsoft Visual Studio 2022](https://aka.ms/vs/17/release/vs_community.exe) before doing that.
 
 If you intend on using hardware acceleration please take note of which PyTorch versions works with your GPU. For example, 50 Series GPUs do not work with older PyTorch versions.
 
@@ -96,7 +98,7 @@ Settings (API keys, model names, temperatures, etc.) are stored as JSON files in
 
 ### 6. Using llama.cpp (Local LLM)
 
-If you want to use a local GGUF model instead of an API-based LLM, you need to install the llama.cpp dependency and place your model file:
+If you want to use a local GGUF model instead of an API-based LLM, install the llama.cpp dependency and place your model file:
 
 1. **Install llama.cpp dependency**
    ```bash
@@ -106,19 +108,24 @@ If you want to use a local GGUF model instead of an API-based LLM, you need to i
 2. **Place your GGUF model file**
    - Put the model in `backend/model-files/`
 
-3. **Update the model manager**
-   - In `backend/utils/model_manager.py`, swap the import and the instantiation line inside `load_llm_model`:
+3. **Start the backend**
+   - The backend reads local llama.cpp settings from `backend/data/llm_llamacpp.json`
+   - If the file does not exist yet, it will be created automatically
 
-```python
-# Change the import at the top of the file:
-from models.llm_llamacpp import LLMLlamaCpp  # instead of LLMClaude
+4. **Configure the model through the Settings page**
+   - Select the GGUF file from `backend/model-files/`
+   - Adjust:
+     - `model_file`
+     - `n_ctx`
+     - `n_gpu_layers`
+     - `n_threads`
+     - `temperature`
 
-# Change the instantiation inside load_llm_model:
-if self.llm_client is None:
-    self.llm_client = LLMLlamaCpp()  # instead of LLMClaude()
-```
-
-Once started, configure the model file and other settings through the **Settings page** in the app.
+Notes:
+- The local llama.cpp implementation lives in `backend/models/llm_llamacpp.py`
+- The current backend `ModelManager` already supports `LLMLlamaCpp`; no manual code edits are required just to use the local backend
+- API-based backends remain available through their own JSON config files in `backend/data/`
+- `n_gpu_layers = -1` lets llama.cpp auto-select GPU offload depth
 
 ### 7. Setting up the Frontend
 

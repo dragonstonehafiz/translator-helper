@@ -20,6 +20,8 @@ from orchestrator.task_generate_recap import TaskGenerateRecap
 from orchestrator.task_generate_summary import TaskGenerateSummary
 from orchestrator.task_generate_synopsis import TaskGenerateSynopsis
 from orchestrator.task_orchestrator import TaskOrchestrator
+from orchestrator.task_plan_translation_batches import TaskPlanTranslationBatches
+from orchestrator.task_split_oversized_batches import TaskSplitOversizedBatches
 from orchestrator.task_transcribe_file import TaskTranscribeFile
 from orchestrator.task_transcribe_line import TaskTranscribeLine
 from orchestrator.task_translate_file import TaskTranslateFile
@@ -40,6 +42,8 @@ LLM_TASK_TYPES = {
     TaskGenerateSynopsis.TASK_TYPE,
     TaskGenerateSummary.TASK_TYPE,
     TaskGenerateRecap.TASK_TYPE,
+    TaskPlanTranslationBatches.TASK_TYPE,
+    TaskSplitOversizedBatches.TASK_TYPE,
 }
 AUDIO_TASK_TYPES = {
     TaskTranscribeLine.TASK_TYPE,
@@ -80,6 +84,29 @@ def run_single_task(task, data: dict):
         result_handler.set_error(task.task_type, str(exc))
 
 
+def run_translation_file_chain(data: dict):
+    final_task_type = TaskTranslateFile.TASK_TYPE
+    try:
+        result_handler.set_processing(final_task_type)
+        progress_handler.set(
+            final_task_type,
+            {
+                "current": 0,
+                "total": 1,
+                "status": "Planning translation batches",
+                "eta_seconds": 0.0,
+            },
+        )
+        task_orchestrator.clear_tasks()
+        task_orchestrator.add_task(TaskPlanTranslationBatches())
+        task_orchestrator.add_task(TaskSplitOversizedBatches())
+        task_orchestrator.add_task(TaskTranslateFile())
+        task_orchestrator.run_tasks(initial_data=data)
+    except Exception as exc:
+        logger.error("Task execution failed (%s): %s", final_task_type, exc, exc_info=True)
+        result_handler.set_error(final_task_type, str(exc))
+
+
 def ensure_task_type(task_type: str, allowed_task_types: list[str] | set[str]) -> str:
     if task_type not in allowed_task_types:
         raise HTTPException(status_code=400, detail="Invalid task_type")
@@ -90,10 +117,26 @@ def build_task_response(task_type: str) -> dict[str, Any]:
     record = result_handler.get(task_type)
     progress = progress_handler.get(task_type)
     active_task_type = task_orchestrator.get_active_task_type()
+    translate_chain_task_types = {
+        TaskPlanTranslationBatches.TASK_TYPE,
+        TaskSplitOversizedBatches.TASK_TYPE,
+        TaskTranslateFile.TASK_TYPE,
+    }
 
     response: dict[str, Any] = {"task_type": task_type, "result": None}
     if progress:
         response["progress"] = progress
+
+    if (
+        task_type == TaskTranslateFile.TASK_TYPE
+        and task_orchestrator.is_running()
+        and active_task_type in translate_chain_task_types
+    ):
+        active_progress = progress_handler.get(active_task_type) if active_task_type else None
+        if active_progress:
+            response["progress"] = active_progress
+        response["status"] = "processing"
+        return response
 
     if task_orchestrator.is_running() and active_task_type == task_type:
         response["status"] = "processing"

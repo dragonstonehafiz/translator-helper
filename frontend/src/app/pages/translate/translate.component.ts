@@ -65,6 +65,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
   downloadError = '';
   deletingDownload = '';
   private filePollingInterval?: any;
+  private lastShownTaskError: Record<string, string> = {};
 
   languageOptions = [
     { code: 'en', name: 'English' },
@@ -189,12 +190,13 @@ export class TranslateComponent implements OnInit, OnDestroy {
         if (response.status === 'processing') {
           this.startLinePolling();
         } else {
+          const errorMessage = response.message || 'Failed to start translation.';
           this.stateService.setTaskState(TASK_TYPES.translateLine, {
             status: 'error',
-            message: response.message || 'Failed to start translation.',
+            message: errorMessage,
             isPolling: false,
           });
-          alert('Failed to start translation. Please try again.');
+          this.showTaskError(TASK_TYPES.translateLine, errorMessage);
           this.isTranslatingLine = false;
         }
       },
@@ -231,7 +233,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
             this.stopLinePolling();
           } else if (response.status === 'error') {
             console.error('Translation error:', response.message);
-            alert('Translation failed: ' + (response.message || 'Unknown error'));
+            this.showTaskError(TASK_TYPES.translateLine, response.message || 'Translation failed.');
             this.isTranslatingLine = false;
             this.stopLinePolling();
           } else if (response.status === 'idle') {
@@ -323,11 +325,13 @@ export class TranslateComponent implements OnInit, OnDestroy {
         if (response.status === 'processing') {
           this.startFilePolling();
         } else {
+          const errorMessage = response.message || 'Failed to start file translation.';
           this.stateService.setTaskState(TASK_TYPES.translateFile, {
             status: 'error',
-            message: response.message || 'Failed to start file translation.',
+            message: errorMessage,
             isPolling: false,
           });
+          this.showTaskError(TASK_TYPES.translateFile, errorMessage);
           this.isTranslatingFile = false;
         }
       },
@@ -364,7 +368,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
             this.refreshDownloads();
           } else if (response.status === 'error') {
             console.error('File translation error:', response.message);
-            alert('File translation failed: ' + (response.message || 'Unknown error'));
+            this.showTaskError(TASK_TYPES.translateFile, response.message || 'File translation failed.');
             this.isTranslatingFile = false;
             this.stopFilePolling();
           } else if (response.status === 'idle') {
@@ -466,6 +470,14 @@ export class TranslateComponent implements OnInit, OnDestroy {
 
   private getExistingProgress(taskType: string): TaskProgress | null {
     return this.stateService.getTaskState(taskType).progress;
+  }
+
+  private showTaskError(taskType: string, message: string): void {
+    if (this.lastShownTaskError[taskType] === message) {
+      return;
+    }
+    this.lastShownTaskError[taskType] = message;
+    alert(message);
   }
 
 }
