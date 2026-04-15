@@ -177,3 +177,12 @@ Watch mode enabled. Watching for file changes...
 ### 3. Access the App
 
 Once the two previous steps are completed, you can access the app by going to http://localhost:4200/.
+
+## TODO
+
+- Normalize backend error formats everywhere so the frontend can rely on one consistent error shape when rendering failures.
+- Add a translation review task where users upload an original subtitle file and a translated subtitle file, and the app reports issues and unnatural-sounding sections.
+- Add shared subtitle file state for translation/context workflows so users do not need to upload the same file separately on each page.
+- Re-evaluate recap generation usefulness and quality, since the current flow exists but has not been validated much in real use.
+- Fix the Context page download action so it actually downloads the selected context file instead of only loading it into the page.
+- Add a way to choose a specific model per translate/context task instead of forcing all tasks to use the same globally loaded LLM.
