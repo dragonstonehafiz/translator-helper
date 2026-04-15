@@ -13,6 +13,7 @@ import { LoadingTextIndicatorComponent } from '../../components/loading-text-ind
 import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
 import { DownloadsListComponent } from '../../components/downloads-list/downloads-list.component';
 import { ConfirmationService } from '../../services/confirmation.service';
+import { ErrorDialogService } from '../../services/error-dialog.service';
 
 @Component({
   selector: 'app-context',
@@ -105,6 +106,7 @@ export class ContextComponent implements OnInit, OnDestroy {
     private stateService: StateService,
     private apiService: ApiService,
     private confirmationService: ConfirmationService,
+    private errorDialogService: ErrorDialogService,
   ) {}
 
   ngOnInit(): void {
@@ -170,7 +172,7 @@ export class ContextComponent implements OnInit, OnDestroy {
         this.refreshContextFiles();
         this.loadContextFromFile(this.currentFilename);
       } else {
-        alert('Please select an .ass or .srt file.');
+        this.errorDialogService.show('Please select an .ass or .srt file.');
       }
     }
   }
@@ -217,7 +219,7 @@ export class ContextComponent implements OnInit, OnDestroy {
 
   generateCharacterList(): void {
     if (!this.selectedFile) {
-      alert('Please upload a subtitle file first');
+      this.errorDialogService.show('Please upload a subtitle file first');
       return;
     }
 
@@ -243,7 +245,7 @@ export class ContextComponent implements OnInit, OnDestroy {
 
   generateSynopsis(): void {
     if (!this.selectedFile) {
-      alert('Please upload a subtitle file first');
+      this.errorDialogService.show('Please upload a subtitle file first');
       return;
     }
 
@@ -272,7 +274,7 @@ export class ContextComponent implements OnInit, OnDestroy {
 
   generateSummary(): void {
     if (!this.selectedFile) {
-      alert('Please upload a subtitle file first');
+      this.errorDialogService.show('Please upload a subtitle file first');
       return;
     }
 
@@ -361,7 +363,7 @@ export class ContextComponent implements OnInit, OnDestroy {
             }
           } catch (error) {
             console.error('Error parsing context file:', error);
-            alert('Failed to load context file.');
+            this.errorDialogService.show('Failed to load context file.');
           }
         };
         reader.readAsText(blob);
@@ -369,7 +371,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       error: (err) => {
         if (err.status !== 404) {
           console.error('Error loading context file:', err);
-          alert('Failed to load context file.');
+          this.errorDialogService.show('Failed to load context file.');
         }
       }
     });
@@ -401,11 +403,11 @@ export class ContextComponent implements OnInit, OnDestroy {
     if (files.length === 0) return;
     const file = files[0];
     if (!file.name.endsWith('.json')) {
-      alert('Please select a JSON file.');
+      this.errorDialogService.show('Please select a JSON file.');
       return;
     }
     if (!this.currentFilename) {
-      alert('Please upload a subtitle file first before importing context.');
+      this.errorDialogService.show('Please upload a subtitle file first before importing context.');
       return;
     }
     const existingFile = this.availableContextFiles.find(f => f.name === this.currentFilename);
@@ -447,7 +449,7 @@ export class ContextComponent implements OnInit, OnDestroy {
         this.saveContext();
       } catch (error) {
         console.error('Error parsing import file:', error);
-        alert('Failed to import context. Invalid JSON file.');
+        this.errorDialogService.show('Failed to import context. Invalid JSON file.');
       }
     };
     reader.readAsText(file);
@@ -459,7 +461,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       this.recapContextFiles = jsonFiles;
       this.loadRecapContextFiles();
     } else if (files.length > 0) {
-      alert('Please select JSON files.');
+      this.errorDialogService.show('Please select JSON files.');
     }
   }
 
@@ -491,7 +493,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       })
       .catch(error => {
         console.error('Error loading context files:', error);
-        alert('Failed to load some context files.');
+        this.errorDialogService.show('Failed to load some context files.');
       });
   }
 
@@ -530,7 +532,7 @@ export class ContextComponent implements OnInit, OnDestroy {
 
   generateRecap(): void {
     if (this.recapContexts.length === 0) {
-      alert('Please upload at least one context file');
+      this.errorDialogService.show('Please upload at least one context file');
       return;
     }
 
@@ -569,7 +571,10 @@ export class ContextComponent implements OnInit, OnDestroy {
             message: response.message || 'Failed to start task.',
             isPolling: false,
           });
-          alert(`Error: ${response.message}`);
+          this.errorDialogService.show({
+            title: 'Error',
+            message: response.message || 'Failed to start task.',
+          });
           this.stopPolling();
         }
       },
@@ -580,7 +585,7 @@ export class ContextComponent implements OnInit, OnDestroy {
           message: 'Failed to start context task. Please try again.',
           isPolling: false,
         });
-        alert('Failed to start context task. Please try again.');
+        this.errorDialogService.show('Failed to start context task. Please try again.');
         this.stopPolling();
       }
     });
@@ -635,7 +640,7 @@ export class ContextComponent implements OnInit, OnDestroy {
       return;
     }
     this.lastShownTaskError[taskType] = message;
-    alert(message);
+    this.errorDialogService.show(message);
   }
 
   private applyContextResult(type: string, data: string): void {

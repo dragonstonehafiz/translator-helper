@@ -12,6 +12,7 @@ import { WaveformPlayerComponent } from '../../components/waveform-player/wavefo
 import { ApiService, TaskResultResponse } from '../../services/api.service';
 import { StateService, TASK_TYPES, TaskProgress } from '../../services/state.service';
 import { ConfirmationService } from '../../services/confirmation.service';
+import { ErrorDialogService } from '../../services/error-dialog.service';
 
 @Component({
   selector: 'app-transcribe',
@@ -89,6 +90,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
     private apiService: ApiService,
     private stateService: StateService,
     private confirmationService: ConfirmationService,
+    private errorDialogService: ErrorDialogService,
   ) {}
 
   ngOnInit(): void {
@@ -149,7 +151,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
 
     } catch (error) {
       console.error('Error accessing microphone:', error);
-      alert('Could not access microphone. Please ensure you have granted microphone permissions.');
+      this.errorDialogService.show('Could not access microphone. Please ensure you have granted microphone permissions.');
     }
   }
 
@@ -173,7 +175,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
       this.cdr.detectChanges();
     } catch (error) {
       console.error('Error loading audio file:', error);
-      alert('Failed to load audio file. Please ensure it is a valid audio file.');
+      this.errorDialogService.show('Failed to load audio file. Please ensure it is a valid audio file.');
       this.transcribeLineState.audioBlob = null;
     }
   }
@@ -199,7 +201,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
           message: 'Failed to get audio blob. Please try again.',
           isPolling: false,
         });
-        alert('Failed to get audio blob. Please try again.');
+        this.errorDialogService.show('Failed to get audio blob. Please try again.');
         return;
       }
 
@@ -226,7 +228,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
         },
         error: (error) => {
           console.error('Transcription request failed:', error);
-          alert('Failed to start transcription. Please try again.');
+          this.errorDialogService.show('Failed to start transcription. Please try again.');
           this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
             status: 'error',
             message: 'Failed to start transcription. Please try again.',
@@ -237,7 +239,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
       });
     } catch (error) {
       console.error('Error starting transcription:', error);
-      alert('Failed to start transcription. Please try again.');
+      this.errorDialogService.show('Failed to start transcription. Please try again.');
       this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
         status: 'error',
         message: 'Failed to start transcription. Please try again.',
@@ -256,11 +258,14 @@ export class TranscribeComponent implements OnInit, OnDestroy {
       const mp3Result = await this.encodeMp3IfSupported(clippedBlob);
       this.triggerDownload(mp3Result.blob, `recording.${mp3Result.extension}`);
       if (mp3Result.extension !== 'mp3') {
-        alert('MP3 encoding is not supported in this browser. Downloading WAV instead.');
+        this.errorDialogService.show({
+          title: 'Notice',
+          message: 'MP3 encoding is not supported in this browser. Downloading WAV instead.'
+        });
       }
     } catch (error) {
       console.error('Failed to download clipped audio:', error);
-      alert('Failed to download clipped audio. Please try again.');
+      this.errorDialogService.show('Failed to download clipped audio. Please try again.');
     }
   }
 
@@ -334,7 +339,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
       this.cdr.detectChanges();
     } catch (error) {
       console.error('Error loading audio file for transcription:', error);
-      alert('Failed to load audio file. Please ensure it is a valid audio file.');
+      this.errorDialogService.show('Failed to load audio file. Please ensure it is a valid audio file.');
     }
   }
 
@@ -373,7 +378,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
         },
         error: (error) => {
           console.error('Transcribe file request failed:', error);
-          alert('Failed to start transcription. Please try again.');
+          this.errorDialogService.show('Failed to start transcription. Please try again.');
           this.stateService.setTaskState(TASK_TYPES.transcribeFile, {
             status: 'error',
             message: 'Failed to start transcription. Please try again.',
@@ -458,7 +463,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
       next: (blob) => {
         this.triggerDownload(blob, filename);
       },
-      error: () => alert('Failed to download file. Please try again.')
+      error: () => this.errorDialogService.show('Failed to download file. Please try again.')
     });
   }
 
@@ -478,7 +483,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
         this.deletingFileDownload = '';
       },
       error: () => {
-        alert('Failed to delete file. Please try again.');
+        this.errorDialogService.show('Failed to delete file. Please try again.');
         this.deletingFileDownload = '';
       }
     });
@@ -636,6 +641,6 @@ export class TranscribeComponent implements OnInit, OnDestroy {
       return;
     }
     this.lastShownTaskError[taskType] = message;
-    alert(message);
+    this.errorDialogService.show(message);
   }
 }

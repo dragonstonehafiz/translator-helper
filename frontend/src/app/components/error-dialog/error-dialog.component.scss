@@ -1,0 +1,74 @@
+.error-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1450;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top, rgba(224, 77, 77, 0.16), transparent 42%),
+    rgba(31, 28, 35, 0.52);
+  backdrop-filter: blur(8px);
+}
+
+.error-dialog {
+  width: min(100%, 500px);
+  overflow: hidden;
+  border: 1px solid rgba(191, 61, 61, 0.18);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.985) 0%, rgba(255, 246, 246, 0.985) 100%);
+  box-shadow: 0 24px 52px rgba(46, 18, 18, 0.32);
+}
+
+.dialog-body {
+  padding: 24px 24px 18px;
+
+  h2 {
+    margin: 0;
+    color: #4f1f1f;
+    font-size: 1.55rem;
+    line-height: 1.2;
+  }
+}
+
+.dialog-kicker {
+  margin-bottom: 10px;
+  color: #bf3d3d;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.dialog-message {
+  margin: 14px 0 0;
+  color: #6b3c3c;
+  font-size: 1rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 24px 24px;
+}
+
+@media (max-width: 640px) {
+  .error-dialog-backdrop {
+    align-items: flex-end;
+    padding: 16px;
+  }
+
+  .error-dialog {
+    width: 100%;
+  }
+
+  .dialog-actions,
+  app-primary-button {
+    width: 100%;
+  }
+}

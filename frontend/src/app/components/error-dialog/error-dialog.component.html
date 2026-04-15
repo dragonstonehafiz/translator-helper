@@ -1,0 +1,20 @@
+<div class="error-dialog-backdrop" (click)="onBackdropClick()">
+  <div
+    class="error-dialog"
+    role="alertdialog"
+    aria-modal="true"
+    [attr.aria-label]="dialog.title"
+    (click)="onPanelClick($event)">
+    <div class="dialog-body">
+      <div class="dialog-kicker">Issue</div>
+      <h2>{{ dialog.title }}</h2>
+      <p class="dialog-message">{{ dialog.message }}</p>
+    </div>
+
+    <div class="dialog-actions">
+      <app-primary-button (click)="dismissed.emit()">
+        {{ dialog.acknowledgeLabel }}
+      </app-primary-button>
+    </div>
+  </div>
+</div>
