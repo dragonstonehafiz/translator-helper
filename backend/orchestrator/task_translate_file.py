@@ -3,16 +3,19 @@ import os
 import time
 
 import pysubs2
+from anthropic import RateLimitError as AnthropicRateLimitError
+from openai import RateLimitError as OpenAIRateLimitError
 
 from interface.base_task import BaseTask
 from models.model_manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from utils.logger import setup_logger
-from utils.translate_subs import _is_rate_limit_error, translate_single_line, translate_sub, translate_file_logger
+from utils.translate_subs import translate_single_line, translate_sub
 
 logger = setup_logger("task-timings")
 app_logger = setup_logger("translator-helper")
+translate_file_logger = setup_logger("translate-file")
 
 
 class TaskTranslateFile(BaseTask):
@@ -191,7 +194,7 @@ class TaskTranslateFile(BaseTask):
                         malformed_output = None
                         break
                     except Exception as exc:
-                        if _is_rate_limit_error(exc):
+                        if self._is_rate_limit_error(exc):
                             time.sleep(1.5)
                             continue
                         malformed_error = exc
@@ -259,3 +262,6 @@ class TaskTranslateFile(BaseTask):
             length_label = f"{length_seconds:.2f}s" if length_seconds is not None else "0.00s"
             batch_lines.append(f"{i}. {speaker} ({length_label}): {line.text}")
         return batch_lines
+
+    def _is_rate_limit_error(self, exc: Exception) -> bool:
+        return isinstance(exc, (OpenAIRateLimitError, AnthropicRateLimitError))

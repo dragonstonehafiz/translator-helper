@@ -1,9 +1,7 @@
 from typing import Optional
 from interface import LLMInterface
-from utils.prompts import PromptGenerator
-from utils.logger import setup_logger
-
-translate_file_logger = setup_logger(name="translate-file")
+from prompts.translate import generate_translate_sub_prompt
+from prompts.translate_file import generate_translate_batch_prompt
 
 
 def translate_sub(
@@ -15,8 +13,7 @@ def translate_sub(
     temperature: float | None = None,
     max_tokens: int | None = None
 ):
-    prompt_generator = PromptGenerator()
-    system_prompt = prompt_generator.generate_translate_batch_prompt(
+    system_prompt = generate_translate_batch_prompt(
         context=context,
         input_lang=input_lang,
         target_lang=target_lang
@@ -40,8 +37,7 @@ def translate_single_line(
     temperature: float | None = None,
     max_tokens: int | None = None
 ):
-    prompt_generator = PromptGenerator()
-    system_prompt = prompt_generator.generate_translate_sub_prompt(
+    system_prompt = generate_translate_sub_prompt(
         context=context,
         input_lang=input_lang,
         target_lang=target_lang

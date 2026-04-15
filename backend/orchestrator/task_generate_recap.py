@@ -4,7 +4,7 @@ from interface.base_task import BaseTask
 from models.model_manager import ModelManager
 from orchestrator.result_handler import ResultHandler
 from utils.logger import setup_logger
-from utils.prompts import PromptGenerator
+from prompts.recap import generate_recap_prompt
 
 logger = setup_logger("task-timings")
 
@@ -60,7 +60,7 @@ class TaskGenerateRecap(BaseTask):
         result_handler.set_processing(self.task_type)
         try:
             llm_client.set_running(True)
-            system_prompt = PromptGenerator().generate_recap_prompt(
+            system_prompt = generate_recap_prompt(
                 all_context=all_context,
                 input_lang=input_lang,
                 output_lang=output_lang,

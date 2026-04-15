@@ -3,7 +3,7 @@ import time
 from interface.base_task import BaseTask
 from models.model_manager import ModelManager
 from orchestrator.result_handler import ResultHandler
-from utils.prompts import PromptGenerator
+from prompts.translate import generate_translate_sub_prompt
 from utils.logger import setup_logger
 
 logger = setup_logger("task-timings")
@@ -34,8 +34,7 @@ class TaskTranslateLine(BaseTask):
             result_handler.set_error(self.task_type, "LLM model not initialized")
             return {}
 
-        prompt_generator = PromptGenerator()
-        system_prompt = prompt_generator.generate_translate_sub_prompt(
+        system_prompt = generate_translate_sub_prompt(
             context=context,
             input_lang=input_lang,
             target_lang=output_lang,

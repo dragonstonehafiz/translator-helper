@@ -5,7 +5,7 @@ from interface.base_task import BaseTask
 from models.model_manager import ModelManager
 from orchestrator.result_handler import ResultHandler
 from utils.logger import setup_logger
-from utils.prompts import PromptGenerator
+from prompts.context import generate_synopsis_prompt
 from utils.utils import load_sub_data
 
 logger = setup_logger("task-timings")
@@ -38,7 +38,7 @@ class TaskGenerateSynopsis(BaseTask):
         try:
             llm_client.set_running(True)
             transcript = "\n".join(load_sub_data(file_path, include_speaker=True))
-            system_prompt = PromptGenerator().generate_synopsis_prompt(
+            system_prompt = generate_synopsis_prompt(
                 context=context if context else None,
                 input_lang=input_lang,
                 output_lang=output_lang,

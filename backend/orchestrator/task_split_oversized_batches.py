@@ -9,7 +9,7 @@ from models.model_manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from utils.logger import setup_logger
-from utils.prompts import PromptGenerator
+from prompts.translate_file import generate_split_batch_plan_prompt
 
 logger = setup_logger("task-timings")
 app_logger = setup_logger("translator-helper")
@@ -154,7 +154,7 @@ class TaskSplitOversizedBatches(BaseTask):
             try:
                 raw_output = model_manager.llm_infer(
                     prompt=self._build_lines_prompt(slice_lines),
-                    system_prompt=PromptGenerator().generate_split_batch_plan_prompt(
+                    system_prompt=generate_split_batch_plan_prompt(
                         context=context if context else None,
                         input_lang=input_lang,
                         output_lang=output_lang,

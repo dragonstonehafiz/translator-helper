@@ -21,6 +21,11 @@ Translator Helper is a full-stack application for transcribing, translating, and
   - Local LLM implementation is available via llama.cpp (GGUF)
 - **Backend Tests**: Isolated CLI test harnesses live under `backend/tests/`
   - `run_plan_translation_batches.py` runs the translation batch planner task directly with CLI args
+- **Backend Prompts**: Prompt-generation helpers now live under `backend/prompts/`
+  - Prompt functions are imported and called directly rather than through a wrapper class
+  - `translate.py` contains single-line translation prompts
+  - `translate_file.py` contains full-file translation prompts and translation-batch planning/splitting prompts
+  - `context.py` and `recap.py` contain context-generation prompts
 
 ## Navigation
 
