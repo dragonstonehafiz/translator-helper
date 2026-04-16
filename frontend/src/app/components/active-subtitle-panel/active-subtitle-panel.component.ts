@@ -102,4 +102,5 @@ export class ActiveSubtitlePanelComponent implements OnInit, OnDestroy {
       }
     });
   }
+
 }

@@ -48,6 +48,7 @@ export class FileUploadComponent {
     if (input.files && input.files.length > 0) {
       const fileArray = Array.from(input.files);
       this.filesSelected.emit(fileArray);
+      input.value = '';
     }
   }
 

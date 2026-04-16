@@ -108,6 +108,7 @@ The application uses several reusable standalone components located in `frontend
 - Any file upload functionality
 - Supporting drag-and-drop or click-to-browse
 - Showing selected files with removal capability
+- Re-selecting the same file after a state clear should still emit `filesSelected`
 
 **Usage**:
 ```html
@@ -212,6 +213,8 @@ The application uses several reusable standalone components located in `frontend
 - Stores the selected subtitle `File` in `StateService`
 - Calls `ApiService.getSubtitleFileInfo()` once after selection
 - Stores subtitle stats in `StateService` so the file and stats persist across route changes in the current app session
+- Derives the matching saved context filename from the subtitle basename and auto-loads it from backend `context-files` when it exists
+- Writes loaded context fields into global `StateService` context state so Context and Translate update from the same source
 
 **Layout**:
 - Rendered in a sticky left sidebar on Context and Translate pages

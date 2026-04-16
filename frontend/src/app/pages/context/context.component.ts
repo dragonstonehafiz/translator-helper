@@ -46,6 +46,7 @@ export class ContextComponent implements OnInit, OnDestroy {
   private pollingSubscription?: Subscription;
   private taskStateSubscription?: Subscription;
   private subtitleFileSubscription?: Subscription;
+  private contentStateSubscription?: Subscription;
   private activePollingTaskType: string | null = null;
   private lastShownTaskError: Record<string, string> = {};
   
@@ -110,12 +111,13 @@ export class ContextComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    // Load existing values from state
-    this.characterList = this.stateService.getCharacterList();
-    this.synopsis = this.stateService.getSynopsis();
-    this.summary = this.stateService.getSummary();
-    this.recap = this.stateService.getRecap();
-    this.additionalInstructions = this.stateService.getAdditionalInstructions();
+    this.contentStateSubscription = this.stateService.contentState$.subscribe(state => {
+      this.characterList = state.characterList;
+      this.synopsis = state.synopsis;
+      this.summary = state.summary;
+      this.recap = state.recap;
+      this.additionalInstructions = state.additionalInstructions;
+    });
     this.taskStateSubscription = this.stateService.taskStates$.subscribe(() => {
       this.syncGenerationFlags();
     });
@@ -133,6 +135,7 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.stopPolling();
     this.taskStateSubscription?.unsubscribe();
     this.subtitleFileSubscription?.unsubscribe();
+    this.contentStateSubscription?.unsubscribe();
   }
 
   startPolling(taskType: string): void {
@@ -318,51 +321,6 @@ export class ContextComponent implements OnInit, OnDestroy {
       error: (err) => {
         console.error('Error fetching context files:', err);
         this.isFetchingContextFiles = false;
-      }
-    });
-  }
-
-  loadContextFromFile(filename: string): void {
-    this.apiService.getFileBlob('context-files', filename).subscribe({
-      next: (blob) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const data = JSON.parse(e.target?.result as string);
-            if (data.inputLanguage !== undefined) this.inputLanguage = data.inputLanguage;
-            if (data.outputLanguage !== undefined) this.outputLanguage = data.outputLanguage;
-            if (data.characterList !== undefined) {
-              this.characterList = data.characterList;
-              this.stateService.setCharacterList(data.characterList);
-            }
-            if (data.synopsis !== undefined) {
-              this.synopsis = data.synopsis;
-              this.stateService.setSynopsis(data.synopsis);
-            }
-            if (data.summary !== undefined) {
-              this.summary = data.summary;
-              this.stateService.setSummary(data.summary);
-            }
-            if (data.recap !== undefined) {
-              this.recap = data.recap;
-              this.stateService.setRecap(data.recap);
-            }
-            if (data.additionalInstructions !== undefined) {
-              this.additionalInstructions = data.additionalInstructions;
-              this.stateService.setAdditionalInstructions(data.additionalInstructions);
-            }
-          } catch (error) {
-            console.error('Error parsing context file:', error);
-            alert('Failed to load context file.');
-          }
-        };
-        reader.readAsText(blob);
-      },
-      error: (err) => {
-        if (err.status !== 404) {
-          console.error('Error loading context file:', err);
-          alert('Failed to load context file.');
-        }
       }
     });
   }
@@ -657,7 +615,6 @@ export class ContextComponent implements OnInit, OnDestroy {
     const baseName = file.name.replace(/\.(ass|srt)$/i, '');
     this.currentFilename = `${baseName}.json`;
     this.refreshContextFiles();
-    this.loadContextFromFile(this.currentFilename);
   }
 
   private applyContextResult(type: string, data: string): void {

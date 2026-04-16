@@ -65,6 +65,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
   private filePollingInterval?: any;
   private lastShownTaskError: Record<string, string> = {};
   private subtitleFileSubscription?: Subscription;
+  private contentStateSubscription?: Subscription;
 
   languageOptions = [
     { code: 'en', name: 'English' },
@@ -94,7 +95,13 @@ export class TranslateComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.loadContextFromState();
+    this.contentStateSubscription = this.stateService.contentState$.subscribe(state => {
+      this.characterList = state.characterList;
+      this.synopsis = state.synopsis;
+      this.summary = state.summary;
+      this.recap = state.recap;
+      this.additionalInstructions = state.additionalInstructions;
+    });
     this.fileToTranslate = this.stateService.getActiveSubtitleFile();
     this.subtitleFileSubscription = this.stateService.activeSubtitleFile$.subscribe(file => {
       this.fileToTranslate = file;
@@ -107,22 +114,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
     this.stopLinePolling();
     this.stopFilePolling();
     this.subtitleFileSubscription?.unsubscribe();
-  }
-
-  loadContextFromState(): void {
-    this.stateService.getState().subscribe((state: {
-      characterList: string;
-      synopsis: string;
-      summary: string;
-      recap: string;
-      additionalInstructions: string;
-    }) => {
-      if (state.characterList) this.characterList = state.characterList;
-      if (state.synopsis) this.synopsis = state.synopsis;
-      if (state.summary) this.summary = state.summary;
-      if (state.recap) this.recap = state.recap;
-      if (state.additionalInstructions) this.additionalInstructions = state.additionalInstructions;
-    });
+    this.contentStateSubscription?.unsubscribe();
   }
 
   private restoreTaskState(): void {
