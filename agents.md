@@ -108,6 +108,7 @@ The application uses several reusable standalone components located in `frontend
 - Any file upload functionality
 - Supporting drag-and-drop or click-to-browse
 - Showing selected files with removal capability
+- Re-selecting the same file after a state clear should still emit `filesSelected`
 
 **Usage**:
 ```html
@@ -194,6 +195,31 @@ The application uses several reusable standalone components located in `frontend
 - `synopsis` (optional): string
 - `summary` (optional): string
 - `recap` (optional): string
+
+---
+
+### app-active-subtitle-panel
+**Location**: `frontend/src/app/components/active-subtitle-panel/`
+
+**Purpose**: Sticky workspace-side panel for the single active subtitle file shared by Context and Translate workflows.
+
+**When to use**:
+- Pages that operate on the current subtitle file
+- Replacing per-page subtitle upload controls
+- Showing subtitle file details while users scroll through long workflow sections
+
+**How it works**:
+- Uses `app-file-upload` for `.ass` / `.srt` selection
+- Stores the selected subtitle `File` in `StateService`
+- Calls `ApiService.getSubtitleFileInfo()` once after selection
+- Stores subtitle stats in `StateService` so the file and stats persist across route changes in the current app session
+- Derives the matching saved context filename from the subtitle basename and auto-loads it from backend `context-files` when it exists
+- Writes loaded context fields into global `StateService` context state so Context and Translate update from the same source
+
+**Layout**:
+- Rendered in a sticky left sidebar on Context and Translate pages
+- The right column contains the page-specific workflow sections
+- The panel only owns active subtitle upload and file details; context file download/delete remains in the Context page's saved context list
 
 ---
 
@@ -454,6 +480,7 @@ The running-status endpoint returns:
 
 **Utils** (`backend/routes/utils.py`):
 - `POST /utils/get-subtitle-file-info`: Upload an ASS or SRT file to get dialogue count, total characters (Speaker: dialogue), and average characters per line
+  - Frontend uses `ApiService.getSubtitleFileInfo(file)` for this endpoint
 
 **Translation** (`backend/routes/translate.py`):
 - `POST /translate/translate-line`: Translate text line with context (FormData: text, context JSON, input_lang, output_lang)
@@ -764,10 +791,13 @@ For file translations, `/translate/result` can include task result payload (incl
   - Individual setters: `setCharacterList()`, `setSynopsis()`, `setSummary()`, `setRecap()`
   - Task state is also tracked per backend task type using `getTaskState()`, `setTaskState()`, `clearTaskState()`, and `hasActiveTask()`
   - Task state shape is `taskType`, `status`, `result`, `message`, `progress`, `isPolling`
+  - Active subtitle state is shared across Context and Translate via `activeSubtitleFile$`, `setActiveSubtitleFile()`, `getActiveSubtitleFile()`
+  - Subtitle file details are shared through `subtitleFileInfo$`, `subtitleFileInfoLoading$`, and `subtitleFileInfoError$`
   - Task state persists across Angular route changes within the current app session, but not across a full browser refresh
 - Use component-level state for local UI state
 - Use `ApiService` for all backend API calls
 - Use `ConfirmationService` for confirmation dialogs instead of native browser `confirm(...)`
+- Use shared `LANGUAGE_OPTIONS` from `frontend/src/app/shared/language-options.ts` for page language dropdowns instead of duplicating language arrays
 
 ### API Integration
 1. Add method to `ApiService` (`frontend/src/app/services/api.service.ts`)

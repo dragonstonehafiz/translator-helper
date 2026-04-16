@@ -454,7 +454,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
   }
 
   downloadTranscribedFile(filename: string): void {
-    this.apiService.downloadFile('transcribe-sub-files', filename).subscribe({
+    this.apiService.getFileBlob('transcribe-sub-files', filename).subscribe({
       next: (blob) => {
         this.triggerDownload(blob, filename);
       },

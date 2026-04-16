@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
 
 export type SettingsFieldType = 'select' | 'text' | 'password' | 'number' | 'boolean';
@@ -60,6 +61,22 @@ export interface AppContentState {
   additionalInstructions: string;
 }
 
+export interface ContextFileData {
+  characterList?: string;
+  synopsis?: string;
+  summary?: string;
+  recap?: string;
+  additionalInstructions?: string;
+  inputLanguage?: string;
+  outputLanguage?: string;
+}
+
+export interface SubtitleFileInfo {
+  totalLines: string;
+  characterCount: string;
+  averageCharacterCount: string;
+}
+
 export const TASK_TYPES = {
   generateCharacterList: 'TaskGenerateCharacterList',
   generateSynopsis: 'TaskGenerateSynopsis',
@@ -75,6 +92,7 @@ export const TASK_TYPES = {
   providedIn: 'root'
 })
 export class StateService {
+  private readonly baseUrl = 'http://localhost:8000';
   private isReadySubject = new BehaviorSubject<boolean>(false);
   public isReady$: Observable<boolean> = this.isReadySubject.asObservable();
   private llmReadySubject = new BehaviorSubject<boolean | null>(null);
@@ -117,6 +135,18 @@ export class StateService {
   private additionalInstructionsSubject = new BehaviorSubject<string>('');
   public additionalInstructions$: Observable<string> = this.additionalInstructionsSubject.asObservable();
 
+  private activeSubtitleFileSubject = new BehaviorSubject<File | null>(null);
+  public activeSubtitleFile$: Observable<File | null> = this.activeSubtitleFileSubject.asObservable();
+
+  private subtitleFileInfoSubject = new BehaviorSubject<SubtitleFileInfo | null>(null);
+  public subtitleFileInfo$: Observable<SubtitleFileInfo | null> = this.subtitleFileInfoSubject.asObservable();
+
+  private subtitleFileInfoLoadingSubject = new BehaviorSubject<boolean>(false);
+  public subtitleFileInfoLoading$: Observable<boolean> = this.subtitleFileInfoLoadingSubject.asObservable();
+
+  private subtitleFileInfoErrorSubject = new BehaviorSubject<string>('');
+  public subtitleFileInfoError$: Observable<string> = this.subtitleFileInfoErrorSubject.asObservable();
+
   private taskStatesSubject = new BehaviorSubject<Record<string, StoredTaskState>>({});
   public taskStates$: Observable<Record<string, StoredTaskState>> = this.taskStatesSubject.asObservable();
 
@@ -126,7 +156,9 @@ export class StateService {
   });
   public settingsSchema$: Observable<SettingsSchemaBundle> = this.settingsSchemaSubject.asObservable();
 
-  constructor() { }
+  constructor(
+    private http: HttpClient,
+  ) { }
 
   setReady(ready: boolean): void {
     this.isReadySubject.next(ready);
@@ -218,6 +250,45 @@ export class StateService {
     return this.additionalInstructionsSubject.value;
   }
 
+  setContextState(context: Partial<AppContentState>): void {
+    this.patchContentState(context);
+  }
+
+  setActiveSubtitleFile(file: File | null): void {
+    this.activeSubtitleFileSubject.next(file);
+    this.setSubtitleFileInfo(null);
+    this.setSubtitleFileInfoError('');
+    this.loadMatchingContextForSubtitle(file);
+  }
+
+  getActiveSubtitleFile(): File | null {
+    return this.activeSubtitleFileSubject.value;
+  }
+
+  setSubtitleFileInfo(info: SubtitleFileInfo | null): void {
+    this.subtitleFileInfoSubject.next(info);
+  }
+
+  getSubtitleFileInfo(): SubtitleFileInfo | null {
+    return this.subtitleFileInfoSubject.value;
+  }
+
+  setSubtitleFileInfoLoading(isLoading: boolean): void {
+    this.subtitleFileInfoLoadingSubject.next(isLoading);
+  }
+
+  getSubtitleFileInfoLoading(): boolean {
+    return this.subtitleFileInfoLoadingSubject.value;
+  }
+
+  setSubtitleFileInfoError(error: string): void {
+    this.subtitleFileInfoErrorSubject.next(error);
+  }
+
+  getSubtitleFileInfoError(): string {
+    return this.subtitleFileInfoErrorSubject.value;
+  }
+
   setTaskState(taskType: string, patch: Partial<StoredTaskState>): StoredTaskState {
     const current = this.getTaskState(taskType);
     const next: StoredTaskState = {
@@ -278,6 +349,31 @@ export class StateService {
     this.summarySubject.next(next.summary);
     this.recapSubject.next(next.recap);
     this.additionalInstructionsSubject.next(next.additionalInstructions);
+  }
+
+  private loadMatchingContextForSubtitle(file: File | null): void {
+    if (!file) return;
+    const baseName = file.name.replace(/\.(ass|srt)$/i, '');
+    const contextFilename = `${baseName}.json`;
+    this.http.get<ContextFileData>(
+      `${this.baseUrl}/file-management/context-files/${encodeURIComponent(contextFilename)}`
+    ).subscribe({
+      next: (data) => {
+        const patch: Partial<AppContentState> = {};
+        if (data.additionalInstructions !== undefined) patch.additionalInstructions = data.additionalInstructions;
+        if (data.characterList !== undefined) patch.characterList = data.characterList;
+        if (data.synopsis !== undefined) patch.synopsis = data.synopsis;
+        if (data.summary !== undefined) patch.summary = data.summary;
+        if (data.recap !== undefined) patch.recap = data.recap;
+        this.setContextState(patch);
+      },
+      error: (error) => {
+        if (error.status !== 404) {
+          console.error('Error loading context file:', error);
+          alert('Failed to load context file.');
+        }
+      }
+    });
   }
 
   private createIdleTaskState(taskType: string): StoredTaskState {
