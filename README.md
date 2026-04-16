@@ -2,6 +2,12 @@
 
 A full-stack web application for transcribing and translating subtitle files. Built with Angular 17 (frontend) and FastAPI (backend), featuring WhisperX transcription and Claude/OpenAI or local llama.cpp-based translation.
 
+## Screenshots
+
+| Translate | Transcribe |
+|---|---|
+| <img src="screenshots/translatorHelperVer5_3.png" alt="Translate page" width="420"> | <img src="screenshots/translatorHelperVer5_4.png" alt="Transcribe page" width="420"> |
+
 ## Features
 
 ### Settings Page
