@@ -1,0 +1,51 @@
+<div class="active-subtitle-panel">
+  <app-subsection title="Subtitle File">
+    <div class="file-info-panel">
+      <div class="file-details-heading">File Details</div>
+      <div *ngIf="isFetchingFileInfo" class="file-info-status">Analyzing file...</div>
+
+      <ng-container *ngIf="!isFetchingFileInfo">
+        <div *ngIf="fileInfo; else fileInfoStatus" class="file-info-grid">
+          <div>
+            <span class="info-label">Lines</span>
+            <span class="info-value">{{ fileInfo.totalLines }}</span>
+          </div>
+          <div>
+            <span class="info-label">Characters</span>
+            <span class="info-value">{{ fileInfo.characterCount }}</span>
+          </div>
+          <div>
+            <span class="info-label">Average Characters per Line</span>
+            <span class="info-value">{{ fileInfo.averageCharacterCount }}</span>
+          </div>
+        </div>
+
+        <ng-template #fileInfoStatus>
+          <div class="file-info-status" *ngIf="fileInfoError">
+            {{ fileInfoError }}
+          </div>
+          <div class="file-info-status" *ngIf="!fileInfoError && !activeSubtitleFile">
+            Upload a file to view stats.
+          </div>
+        </ng-template>
+      </ng-container>
+    </div>
+
+    <div class="upload-section">
+      <app-file-upload
+        accept=".ass,.srt"
+        placeholder="Upload Subtitle File"
+        subtext=".ass / .srt"
+        [selectedFiles]="activeSubtitleFile ? [activeSubtitleFile] : []"
+        (filesSelected)="onSubtitleFilesSelected($event)">
+      </app-file-upload>
+      <button
+        type="button"
+        class="clear-file-button"
+        [disabled]="!activeSubtitleFile"
+        (click)="clearSubtitleFile()">
+        Clear File
+      </button>
+    </div>
+  </app-subsection>
+</div>

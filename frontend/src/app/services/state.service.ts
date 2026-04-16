@@ -60,6 +60,12 @@ export interface AppContentState {
   additionalInstructions: string;
 }
 
+export interface SubtitleFileInfo {
+  totalLines: string;
+  characterCount: string;
+  averageCharacterCount: string;
+}
+
 export const TASK_TYPES = {
   generateCharacterList: 'TaskGenerateCharacterList',
   generateSynopsis: 'TaskGenerateSynopsis',
@@ -116,6 +122,18 @@ export class StateService {
 
   private additionalInstructionsSubject = new BehaviorSubject<string>('');
   public additionalInstructions$: Observable<string> = this.additionalInstructionsSubject.asObservable();
+
+  private activeSubtitleFileSubject = new BehaviorSubject<File | null>(null);
+  public activeSubtitleFile$: Observable<File | null> = this.activeSubtitleFileSubject.asObservable();
+
+  private subtitleFileInfoSubject = new BehaviorSubject<SubtitleFileInfo | null>(null);
+  public subtitleFileInfo$: Observable<SubtitleFileInfo | null> = this.subtitleFileInfoSubject.asObservable();
+
+  private subtitleFileInfoLoadingSubject = new BehaviorSubject<boolean>(false);
+  public subtitleFileInfoLoading$: Observable<boolean> = this.subtitleFileInfoLoadingSubject.asObservable();
+
+  private subtitleFileInfoErrorSubject = new BehaviorSubject<string>('');
+  public subtitleFileInfoError$: Observable<string> = this.subtitleFileInfoErrorSubject.asObservable();
 
   private taskStatesSubject = new BehaviorSubject<Record<string, StoredTaskState>>({});
   public taskStates$: Observable<Record<string, StoredTaskState>> = this.taskStatesSubject.asObservable();
@@ -216,6 +234,40 @@ export class StateService {
 
   getAdditionalInstructions(): string {
     return this.additionalInstructionsSubject.value;
+  }
+
+  setActiveSubtitleFile(file: File | null): void {
+    this.activeSubtitleFileSubject.next(file);
+    this.setSubtitleFileInfo(null);
+    this.setSubtitleFileInfoError('');
+  }
+
+  getActiveSubtitleFile(): File | null {
+    return this.activeSubtitleFileSubject.value;
+  }
+
+  setSubtitleFileInfo(info: SubtitleFileInfo | null): void {
+    this.subtitleFileInfoSubject.next(info);
+  }
+
+  getSubtitleFileInfo(): SubtitleFileInfo | null {
+    return this.subtitleFileInfoSubject.value;
+  }
+
+  setSubtitleFileInfoLoading(isLoading: boolean): void {
+    this.subtitleFileInfoLoadingSubject.next(isLoading);
+  }
+
+  getSubtitleFileInfoLoading(): boolean {
+    return this.subtitleFileInfoLoadingSubject.value;
+  }
+
+  setSubtitleFileInfoError(error: string): void {
+    this.subtitleFileInfoErrorSubject.next(error);
+  }
+
+  getSubtitleFileInfoError(): string {
+    return this.subtitleFileInfoErrorSubject.value;
   }
 
   setTaskState(taskType: string, patch: Partial<StoredTaskState>): StoredTaskState {

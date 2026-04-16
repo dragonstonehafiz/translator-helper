@@ -4,7 +4,12 @@
     <app-tooltip-icon tooltip="Upload a subtitle file (.ass or .srt) and the app will automatically use the selected OpenAI API to generate context for translations"></app-tooltip-icon>
   </div>
 
-  <div class="form-section">
+  <div class="workspace-layout">
+    <aside class="workspace-sidebar">
+      <app-active-subtitle-panel></app-active-subtitle-panel>
+    </aside>
+
+    <main class="form-section workspace-main">
     <app-subsection
       title="Context Files"
       tooltip="Saved context files. Load a previous context or import an external JSON to override the current file's context.">
@@ -14,7 +19,7 @@
         [isLoading]="isFetchingContextFiles"
         [deletingFilename]="deletingContextFile"
         (refresh)="refreshContextFiles()"
-        (download)="loadContextFromFile($event)"
+        (download)="downloadContextFile($event)"
         (delete)="deleteContextFile($event)">
       </app-downloads-list>
       <div class="import-context-section">
@@ -54,13 +59,13 @@
         </div>
       </div>
 
-      <app-file-upload
-        accept=".ass,.srt"
-        placeholder="Upload Subtitle File"
-        subtext=".ass / .srt"
-        [selectedFiles]="selectedFile ? [selectedFile] : []"
-        (filesSelected)="onSubtitleFilesSelected($event)">
-      </app-file-upload>
+      <app-context-status
+        [additionalInstructions]="additionalInstructions"
+        [characterList]="characterList"
+        [synopsis]="synopsis"
+        [summary]="summary"
+        [recap]="recap">
+      </app-context-status>
 
       <hr class="context-divider">
 
@@ -272,5 +277,6 @@
         </div>
       </div>
     </app-subsection>
+    </main>
   </div>
 </div>

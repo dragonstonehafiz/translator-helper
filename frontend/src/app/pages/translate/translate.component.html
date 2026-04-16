@@ -4,7 +4,12 @@
     <app-tooltip-icon tooltip="Translate text and subtitle files"></app-tooltip-icon>
   </div>
 
-  <div class="form-section">
+  <div class="workspace-layout">
+    <aside class="workspace-sidebar">
+      <app-active-subtitle-panel></app-active-subtitle-panel>
+    </aside>
+
+    <main class="form-section workspace-main">
     <app-subsection
       title="Context"
       tooltip="Saved context from the Context page">
@@ -198,43 +203,6 @@
         </div>
       </div>
 
-      <div class="file-info-panel">
-        <div class="file-info-heading">File Details</div>
-        <div *ngIf="isFetchingFileInfo" class="file-info-status">Analyzing file...</div>
-        <ng-container *ngIf="!isFetchingFileInfo">
-          <div *ngIf="fileInfo; else fileInfoStatus" class="file-info-grid">
-            <div>
-              <span class="info-label">Lines</span>
-              <span class="info-value">{{ fileInfo.totalLines }}</span>
-            </div>
-            <div>
-              <span class="info-label">Characters</span>
-              <span class="info-value">{{ fileInfo.characterCount }}</span>
-            </div>
-            <div>
-              <span class="info-label">Average Characters per Line</span>
-              <span class="info-value">{{ fileInfo.averageCharacterCount }}</span>
-            </div>
-          </div>
-          <ng-template #fileInfoStatus>
-            <div class="file-info-status" *ngIf="fileInfoError; else fileInfoPrompt">
-              {{ fileInfoError }}
-            </div>
-            <ng-template #fileInfoPrompt>
-              <div class="file-info-status">Upload a file to view stats.</div>
-            </ng-template>
-          </ng-template>
-        </ng-container>
-      </div>
-
-      <app-file-upload
-        accept=".ass,.srt"
-        placeholder="Upload Subtitle File"
-        subtext=".ass / .srt"
-        [selectedFiles]="fileToTranslate ? [fileToTranslate] : []"
-        (filesSelected)="onFileSelected($event)">
-      </app-file-upload>
-
       <app-primary-button [fullWidth]="true" (click)="translateFile()" [disabled]="!fileToTranslate || isAnyTaskRunning()">
         {{ isTranslatingFile ? 'Translating...' : 'Translate File' }}
       </app-primary-button>
@@ -249,6 +217,6 @@
         (delete)="deleteTranslatedFile($event)">
       </app-downloads-list>
     </app-subsection>
-
+    </main>
   </div>
 </div>

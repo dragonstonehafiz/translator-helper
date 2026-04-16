@@ -97,7 +97,7 @@ export class ApiService {
     return this.http.post<{status: string, message?: string}>(`${this.baseUrl}/transcribe/transcribe-line`, formData);
   }
 
-  getTranscribeFileInfo(file: File): Observable<{status: string, result?: {total_lines: string, character_count: string, average_character_count: string}, message?: string}> {
+  getSubtitleFileInfo(file: File): Observable<{status: string, result?: {total_lines: string, character_count: string, average_character_count: string}, message?: string}> {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post<{status: string, result?: {total_lines: string, character_count: string, average_character_count: string}, message?: string}>(`${this.baseUrl}/utils/get-subtitle-file-info`, formData);
@@ -138,7 +138,7 @@ export class ApiService {
     return this.http.get<{status: string, files: {name: string, size: number, modified: string}[]}>(`${this.baseUrl}/file-management/${encodeURIComponent(folder)}`);
   }
 
-  downloadFile(folder: string, filename: string): Observable<Blob> {
+  getFileBlob(folder: string, filename: string): Observable<Blob> {
     return this.http.get(`${this.baseUrl}/file-management/${encodeURIComponent(folder)}/${encodeURIComponent(filename)}`, { responseType: 'blob' });
   }
 

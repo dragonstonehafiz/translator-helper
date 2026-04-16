@@ -13,11 +13,12 @@ import { LoadingTextIndicatorComponent } from '../../components/loading-text-ind
 import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
 import { DownloadsListComponent } from '../../components/downloads-list/downloads-list.component';
 import { ConfirmationService } from '../../services/confirmation.service';
+import { ActiveSubtitlePanelComponent } from '../../components/active-subtitle-panel/active-subtitle-panel.component';
 
 @Component({
   selector: 'app-context',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent, TooltipIconComponent, ContextStatusComponent, LoadingTextIndicatorComponent, PrimaryButtonComponent, DownloadsListComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent, TooltipIconComponent, ContextStatusComponent, LoadingTextIndicatorComponent, PrimaryButtonComponent, DownloadsListComponent, ActiveSubtitlePanelComponent],
   templateUrl: './context.component.html',
   styleUrl: './context.component.scss'
 })
@@ -44,6 +45,7 @@ export class ContextComponent implements OnInit, OnDestroy {
   deletingContextFile = '';
   private pollingSubscription?: Subscription;
   private taskStateSubscription?: Subscription;
+  private subtitleFileSubscription?: Subscription;
   private activePollingTaskType: string | null = null;
   private lastShownTaskError: Record<string, string> = {};
   
@@ -119,6 +121,10 @@ export class ContextComponent implements OnInit, OnDestroy {
     });
     this.syncGenerationFlags();
     this.resumePollingIfNeeded();
+    this.syncActiveSubtitleFile(this.stateService.getActiveSubtitleFile());
+    this.subtitleFileSubscription = this.stateService.activeSubtitleFile$.subscribe(file => {
+      this.syncActiveSubtitleFile(file);
+    });
 
     this.refreshContextFiles();
   }
@@ -126,6 +132,7 @@ export class ContextComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.stopPolling();
     this.taskStateSubscription?.unsubscribe();
+    this.subtitleFileSubscription?.unsubscribe();
   }
 
   startPolling(taskType: string): void {
@@ -158,21 +165,6 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.pollingSubscription?.unsubscribe();
     this.pollingSubscription = undefined;
     this.activePollingTaskType = null;
-  }
-
-  onSubtitleFilesSelected(files: File[]): void {
-    if (files.length > 0) {
-      const file = files[0];
-      if (file.name.endsWith('.ass') || file.name.endsWith('.srt')) {
-        this.selectedFile = file;
-        const baseName = file.name.replace(/\.(ass|srt)$/i, '');
-        this.currentFilename = `${baseName}.json`;
-        this.refreshContextFiles();
-        this.loadContextFromFile(this.currentFilename);
-      } else {
-        alert('Please select an .ass or .srt file.');
-      }
-    }
   }
 
   updateCharacterList(): void {
@@ -331,7 +323,7 @@ export class ContextComponent implements OnInit, OnDestroy {
   }
 
   loadContextFromFile(filename: string): void {
-    this.apiService.downloadFile('context-files', filename).subscribe({
+    this.apiService.getFileBlob('context-files', filename).subscribe({
       next: (blob) => {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -371,6 +363,19 @@ export class ContextComponent implements OnInit, OnDestroy {
           console.error('Error loading context file:', err);
           alert('Failed to load context file.');
         }
+      }
+    });
+  }
+
+  downloadContextFile(filename: string): void {
+    if (!filename) return;
+    this.apiService.getFileBlob('context-files', filename).subscribe({
+      next: (blob) => {
+        this.triggerDownload(blob, filename);
+      },
+      error: (err) => {
+        console.error('Error downloading context file:', err);
+        alert('Failed to download context file. Please try again.');
       }
     });
   }
@@ -638,6 +643,23 @@ export class ContextComponent implements OnInit, OnDestroy {
     alert(message);
   }
 
+  private syncActiveSubtitleFile(file: File | null): void {
+    if (this.selectedFile === file) {
+      return;
+    }
+
+    this.selectedFile = file;
+    if (!file) {
+      this.currentFilename = null;
+      return;
+    }
+
+    const baseName = file.name.replace(/\.(ass|srt)$/i, '');
+    this.currentFilename = `${baseName}.json`;
+    this.refreshContextFiles();
+    this.loadContextFromFile(this.currentFilename);
+  }
+
   private applyContextResult(type: string, data: string): void {
     if (type === 'character_list') {
       this.characterList = data;
@@ -652,6 +674,15 @@ export class ContextComponent implements OnInit, OnDestroy {
       this.recap = data;
       this.stateService.setRecap(data);
     }
+  }
+
+  private triggerDownload(blob: Blob, filename: string): void {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.URL.revokeObjectURL(url);
   }
 
 }

@@ -1,9 +1,9 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
 import { TextFieldComponent } from '../../components/text-field/text-field.component';
-import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon.component';
 import { ContextStatusComponent } from '../../components/context-status/context-status.component';
 import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
@@ -12,11 +12,12 @@ import { DownloadsListComponent } from '../../components/downloads-list/download
 import { ApiService, TaskResultResponse } from '../../services/api.service';
 import { StateService, TASK_TYPES, TaskProgress } from '../../services/state.service';
 import { ConfirmationService } from '../../services/confirmation.service';
+import { ActiveSubtitlePanelComponent } from '../../components/active-subtitle-panel/active-subtitle-panel.component';
 
 @Component({
   selector: 'app-translate',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, FileUploadComponent, TooltipIconComponent, ContextStatusComponent, PrimaryButtonComponent, LoadingTextIndicatorComponent, DownloadsListComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, TooltipIconComponent, ContextStatusComponent, PrimaryButtonComponent, LoadingTextIndicatorComponent, DownloadsListComponent, ActiveSubtitlePanelComponent],
   templateUrl: './translate.component.html',
   styleUrl: './translate.component.scss'
 })
@@ -57,15 +58,13 @@ export class TranslateComponent implements OnInit, OnDestroy {
   batchSize = 50;
   fileToTranslate: File | null = null;
   isTranslatingFile = false;
-  isFetchingFileInfo = false;
-  fileInfoError = '';
-  fileInfo: { totalLines: string; characterCount: string; averageCharacterCount: string } | null = null;
   availableDownloads: { name: string; size: number; modified: string }[] = [];
   isFetchingDownloads = false;
   downloadError = '';
   deletingDownload = '';
   private filePollingInterval?: any;
   private lastShownTaskError: Record<string, string> = {};
+  private subtitleFileSubscription?: Subscription;
 
   languageOptions = [
     { code: 'en', name: 'English' },
@@ -96,6 +95,10 @@ export class TranslateComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadContextFromState();
+    this.fileToTranslate = this.stateService.getActiveSubtitleFile();
+    this.subtitleFileSubscription = this.stateService.activeSubtitleFile$.subscribe(file => {
+      this.fileToTranslate = file;
+    });
     this.restoreTaskState();
     this.refreshDownloads();
   }
@@ -103,6 +106,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.stopLinePolling();
     this.stopFilePolling();
+    this.subtitleFileSubscription?.unsubscribe();
   }
 
   loadContextFromState(): void {
@@ -257,43 +261,6 @@ export class TranslateComponent implements OnInit, OnDestroy {
     }
   }
 
-  onFileSelected(files: File[]): void {
-    this.fileToTranslate = files.length > 0 ? files[0] : null;
-    this.fileInfo = null;
-    this.fileInfoError = '';
-
-    if (this.fileToTranslate) {
-      this.fetchFileInfo(this.fileToTranslate);
-    }
-  }
-
-
-  private fetchFileInfo(file: File): void {
-    this.isFetchingFileInfo = true;
-    this.apiService.getTranscribeFileInfo(file).subscribe({
-      next: (response: {status: string, result?: {total_lines: string, character_count: string, average_character_count: string}, message?: string}) => {
-        if (response.status === 'success' && response.result) {
-          this.fileInfo = {
-            totalLines: response.result.total_lines,
-            characterCount: response.result.character_count,
-            averageCharacterCount: response.result.average_character_count
-          };
-          this.fileInfoError = '';
-        } else {
-          this.fileInfoError = response.message || 'Unable to analyze file.';
-          this.fileInfo = null;
-        }
-        this.isFetchingFileInfo = false;
-      },
-      error: (error: any) => {
-        console.error('Failed to get file info:', error);
-        this.fileInfoError = 'Failed to fetch file info. Please try again.';
-        this.fileInfo = null;
-        this.isFetchingFileInfo = false;
-      }
-    });
-  }
-
   translateFile(): void {
     if (!this.fileToTranslate || this.isTranslatingFile || this.stateService.hasActiveTask()) return;
 
@@ -420,7 +387,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
 
   downloadTranslatedFile(filename: string): void {
     if (!filename) return;
-    this.apiService.downloadFile('sub-files', filename).subscribe({
+    this.apiService.getFileBlob('sub-files', filename).subscribe({
       next: (blob: Blob) => {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
