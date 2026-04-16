@@ -4,14 +4,16 @@ import { RouterOutlet, Router } from '@angular/router';
 import { NavbarComponent } from './components/navbar/navbar.component';
 import { ProgressBarComponent } from './components/progress-bar/progress-bar.component';
 import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dialog.component';
+import { ErrorDialogComponent } from './components/error-dialog/error-dialog.component';
 import { ApiService } from './services/api.service';
 import { StateService, TaskProgress, TASK_TYPES } from './services/state.service';
 import { ConfirmationService } from './services/confirmation.service';
+import { ErrorDialogService } from './services/error-dialog.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, NavbarComponent, ProgressBarComponent, ConfirmDialogComponent],
+  imports: [CommonModule, RouterOutlet, NavbarComponent, ProgressBarComponent, ConfirmDialogComponent, ErrorDialogComponent],
   template: `
     <app-navbar></app-navbar>
     <router-outlet></router-outlet>
@@ -22,6 +24,12 @@ import { ConfirmationService } from './services/confirmation.service';
       (confirmed)="confirmationService.resolve(true)"
       (cancelled)="confirmationService.resolve(false)">
     </app-confirm-dialog>
+
+    <app-error-dialog
+      *ngIf="errorDialogService.dialog$ | async as dialog"
+      [dialog]="dialog"
+      (dismissed)="errorDialogService.dismiss()">
+    </app-error-dialog>
 
     <div class="progress-overlay" *ngIf="activeProgress">
       <div class="progress-overlay-card">
@@ -65,6 +73,7 @@ export class AppComponent implements OnInit {
     private stateService: StateService,
     private router: Router,
     readonly confirmationService: ConfirmationService,
+    readonly errorDialogService: ErrorDialogService,
   ) {}
 
   ngOnInit(): void {

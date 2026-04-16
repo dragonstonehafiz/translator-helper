@@ -11,6 +11,7 @@ import {
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
 import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon.component';
 import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
+import { ErrorDialogService } from '../../services/error-dialog.service';
 
 @Component({
   selector: 'app-settings',
@@ -50,7 +51,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
   constructor(
     private apiService: ApiService,
-    private stateService: StateService
+    private stateService: StateService,
+    private errorDialogService: ErrorDialogService,
   ) {}
 
   ngOnInit(): void {
@@ -233,7 +235,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
     const device = this.settingsValues.audio['device'] as string | undefined;
 
     if (!modelName || !device) {
-      alert('Please select a model and device');
+      this.errorDialogService.show('Please select a model and device');
       return;
     }
 
@@ -246,7 +248,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Failed to load audio model:', error);
-        alert('Failed to load audio model');
+        this.errorDialogService.show('Failed to load audio model');
       }
     });
   }
@@ -261,13 +263,13 @@ export class SettingsComponent implements OnInit, OnDestroy {
     for (const field of requiredFields) {
       const value = this.settingsValues.llm[field.key];
       if (value === undefined || value === null || (typeof value === 'string' && !value.trim())) {
-        alert(`Please enter ${field.label}`);
+        this.errorDialogService.show(`Please enter ${field.label}`);
         return;
       }
     }
 
     if (this.llmApiKeyRequired && !apiKey && this.llmReady === false) {
-      alert('Please enter OpenAI API key');
+      this.errorDialogService.show('Please enter OpenAI API key');
       return;
     }
 
@@ -283,7 +285,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Failed to load LLM:', error);
-        alert('Failed to load LLM');
+        this.errorDialogService.show('Failed to load LLM');
       }
     });
   }
@@ -306,7 +308,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       this.lastShownAudioError = message;
     }
 
-    alert(message);
+    this.errorDialogService.show(message);
   }
 
 }

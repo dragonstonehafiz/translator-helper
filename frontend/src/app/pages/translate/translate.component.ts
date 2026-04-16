@@ -14,6 +14,7 @@ import { StateService, TASK_TYPES, TaskProgress } from '../../services/state.ser
 import { ConfirmationService } from '../../services/confirmation.service';
 import { ActiveSubtitlePanelComponent } from '../../components/active-subtitle-panel/active-subtitle-panel.component';
 import { LANGUAGE_OPTIONS } from '../../shared/language-options';
+import { ErrorDialogService } from '../../services/error-dialog.service';
 
 @Component({
   selector: 'app-translate',
@@ -74,6 +75,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
     private apiService: ApiService,
     private stateService: StateService,
     private confirmationService: ConfirmationService,
+    private errorDialogService: ErrorDialogService,
   ) {}
 
   ngOnInit(): void {
@@ -200,7 +202,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
       },
       error: (error: any) => {
         console.error('Translation request failed:', error);
-        alert('Failed to start translation. Please try again.');
+        this.errorDialogService.show('Failed to start translation. Please try again.');
         this.stateService.setTaskState(TASK_TYPES.translateLine, {
           status: 'error',
           message: 'Failed to start translation. Please try again.',
@@ -298,7 +300,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
       },
       error: (error: any) => {
         console.error('File translation request failed:', error);
-        alert('Failed to start file translation. Please try again.');
+        this.errorDialogService.show('Failed to start file translation. Please try again.');
         this.stateService.setTaskState(TASK_TYPES.translateFile, {
           status: 'error',
           message: 'Failed to start file translation. Please try again.',
@@ -394,7 +396,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
       },
       error: (error: any) => {
         console.error('Failed to download file:', error);
-        alert('Failed to download file. Please try again.');
+        this.errorDialogService.show('Failed to download file. Please try again.');
       }
     });
   }
@@ -416,7 +418,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
       },
       error: (error: any) => {
         console.error('Failed to delete file:', error);
-        alert('Failed to delete file. Please try again.');
+        this.errorDialogService.show('Failed to delete file. Please try again.');
         this.deletingDownload = '';
       }
     });
@@ -438,7 +440,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
       return;
     }
     this.lastShownTaskError[taskType] = message;
-    alert(message);
+    this.errorDialogService.show(message);
   }
 
 }

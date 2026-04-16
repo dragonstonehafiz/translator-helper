@@ -297,6 +297,31 @@ if (!confirmed) return;
 
 ---
 
+### app-error-dialog
+**Location**: `frontend/src/app/components/error-dialog/`
+
+**Purpose**: Shared app-level error modal rendered from the app shell for validation failures, task-start failures, and other user-visible errors that should not use the browser's native `alert(...)`.
+
+**When to use**:
+- Showing blocking error or notice messages through app UI instead of `alert(...)`
+- Surfacing shared page-level failures from services or page components
+
+**How it works**:
+- Trigger errors through `ErrorDialogService` in `frontend/src/app/services/error-dialog.service.ts`
+- The dialog is rendered centrally by `AppComponent`, not manually inside individual pages
+- Supports configurable title, message, and acknowledge label
+
+**Usage**:
+```ts
+this.errorDialogService.show({
+  title: 'Import Failed',
+  message: 'Failed to import context. Invalid JSON file.',
+  acknowledgeLabel: 'OK',
+});
+```
+
+---
+
 ### app-progress-bar
 **Location**: `frontend/src/app/components/progress-bar/`
 
@@ -858,6 +883,11 @@ Use `app-text-field` instead of creating a new textarea:
 1. Use `ConfirmationService` to ask the user to confirm before deleting or overwriting data
 2. Do not use the browser's native `confirm(...)`
 3. Keep the confirmation copy specific about what will happen (for example, deletion or overwrite)
+
+### Showing an Error
+1. Use `ErrorDialogService` to show user-visible errors or notices
+2. Do not use the browser's native `alert(...)`
+3. Keep the message specific about what failed and what the user should check when relevant
  
 ## Quick Reference
 
