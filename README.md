@@ -4,7 +4,9 @@ A full-stack web application for transcribing and translating subtitle files. Bu
 
 ## Screenshots
 
-<img src="screenshots/translatorHelperVer5_3.png" alt="Translate page" width="420"> <img src="screenshots/translatorHelperVer5_4.png" alt="Transcribe page" width="420">
+|  |  |
+|---|---|
+| <img src="screenshots/translatorHelperVer5_3.png" alt="Translate page" width="420"> | <img src="screenshots/translatorHelperVer5_4.png" alt="Transcribe page" width="420"> |
 
 ## Features
 
