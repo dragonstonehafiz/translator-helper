@@ -62,6 +62,14 @@
         (filesSelected)="onSubtitleFilesSelected($event)">
       </app-file-upload>
 
+      <app-context-status
+        [additionalInstructions]="additionalInstructions"
+        [characterList]="characterList"
+        [synopsis]="synopsis"
+        [summary]="summary"
+        [recap]="recap">
+      </app-context-status>
+
       <hr class="context-divider">
 
       <div class="context-tabs">
