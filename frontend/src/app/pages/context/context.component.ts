@@ -288,51 +288,6 @@ export class ContextComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadContextFromFile(filename: string): void {
-    this.apiService.getFileBlob('context-files', filename).subscribe({
-      next: (blob) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const data = JSON.parse(e.target?.result as string);
-            if (data.inputLanguage !== undefined) this.inputLanguage = data.inputLanguage;
-            if (data.outputLanguage !== undefined) this.outputLanguage = data.outputLanguage;
-            if (data.characterList !== undefined) {
-              this.characterList = data.characterList;
-              this.stateService.setCharacterList(data.characterList);
-            }
-            if (data.synopsis !== undefined) {
-              this.synopsis = data.synopsis;
-              this.stateService.setSynopsis(data.synopsis);
-            }
-            if (data.summary !== undefined) {
-              this.summary = data.summary;
-              this.stateService.setSummary(data.summary);
-            }
-            if (data.recap !== undefined) {
-              this.recap = data.recap;
-              this.stateService.setRecap(data.recap);
-            }
-            if (data.additionalInstructions !== undefined) {
-              this.additionalInstructions = data.additionalInstructions;
-              this.stateService.setAdditionalInstructions(data.additionalInstructions);
-            }
-          } catch (error) {
-            console.error('Error parsing context file:', error);
-            this.errorDialogService.show('Failed to load context file.');
-          }
-        };
-        reader.readAsText(blob);
-      },
-      error: (err) => {
-        if (err.status !== 404) {
-          console.error('Error loading context file:', err);
-          this.errorDialogService.show('Failed to load context file.');
-        }
-      }
-    });
-  }
-
   downloadContextFile(filename: string): void {
     if (!filename) return;
     this.apiService.getFileBlob('context-files', filename).subscribe({
@@ -626,7 +581,6 @@ export class ContextComponent implements OnInit, OnDestroy {
     const baseName = file.name.replace(/\.(ass|srt)$/i, '');
     this.currentFilename = `${baseName}.json`;
     this.refreshContextFiles();
-    this.loadContextFromFile(this.currentFilename);
   }
 
   private applyContextResult(type: string, data: string): void {

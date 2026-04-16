@@ -6,6 +6,7 @@ import { SubsectionComponent } from '../subsection/subsection.component';
 import { ApiService } from '../../services/api.service';
 import { StateService, SubtitleFileInfo } from '../../services/state.service';
 import { ConfirmationService } from '../../services/confirmation.service';
+import { ErrorDialogService } from '../../services/error-dialog.service';
 
 @Component({
   selector: 'app-active-subtitle-panel',
@@ -26,6 +27,7 @@ export class ActiveSubtitlePanelComponent implements OnInit, OnDestroy {
     private apiService: ApiService,
     private stateService: StateService,
     private confirmationService: ConfirmationService,
+    private errorDialogService: ErrorDialogService,
   ) {}
 
   ngOnInit(): void {
@@ -56,7 +58,7 @@ export class ActiveSubtitlePanelComponent implements OnInit, OnDestroy {
     if (files.length === 0) return;
     const file = files[0];
     if (!file.name.match(/\.(ass|srt)$/i)) {
-      alert('Please select an .ass or .srt file.');
+      this.errorDialogService.show('Please select an .ass or .srt file.');
       return;
     }
 

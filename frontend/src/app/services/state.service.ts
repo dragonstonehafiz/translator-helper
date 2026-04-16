@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
+import { ErrorDialogService } from './error-dialog.service';
 
 export type SettingsFieldType = 'select' | 'text' | 'password' | 'number' | 'boolean';
 export type TaskStatus = 'idle' | 'processing' | 'complete' | 'error';
@@ -158,6 +159,7 @@ export class StateService {
 
   constructor(
     private http: HttpClient,
+    private errorDialogService: ErrorDialogService,
   ) { }
 
   setReady(ready: boolean): void {
@@ -370,7 +372,7 @@ export class StateService {
       error: (error) => {
         if (error.status !== 404) {
           console.error('Error loading context file:', error);
-          alert('Failed to load context file.');
+          this.errorDialogService.show('Failed to load context file.');
         }
       }
     });
