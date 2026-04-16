@@ -14,7 +14,7 @@
         [isLoading]="isFetchingContextFiles"
         [deletingFilename]="deletingContextFile"
         (refresh)="refreshContextFiles()"
-        (download)="loadContextFromFile($event)"
+        (download)="downloadContextFile($event)"
         (delete)="deleteContextFile($event)">
       </app-downloads-list>
       <div class="import-context-section">

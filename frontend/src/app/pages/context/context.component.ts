@@ -333,7 +333,7 @@ export class ContextComponent implements OnInit, OnDestroy {
   }
 
   loadContextFromFile(filename: string): void {
-    this.apiService.downloadFile('context-files', filename).subscribe({
+    this.apiService.getFileBlob('context-files', filename).subscribe({
       next: (blob) => {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -373,6 +373,19 @@ export class ContextComponent implements OnInit, OnDestroy {
           console.error('Error loading context file:', err);
           this.errorDialogService.show('Failed to load context file.');
         }
+      }
+    });
+  }
+
+  downloadContextFile(filename: string): void {
+    if (!filename) return;
+    this.apiService.getFileBlob('context-files', filename).subscribe({
+      next: (blob) => {
+        this.triggerDownload(blob, filename);
+      },
+      error: (err) => {
+        console.error('Error downloading context file:', err);
+        this.errorDialogService.show('Failed to download context file. Please try again.');
       }
     });
   }
@@ -657,6 +670,15 @@ export class ContextComponent implements OnInit, OnDestroy {
       this.recap = data;
       this.stateService.setRecap(data);
     }
+  }
+
+  private triggerDownload(blob: Blob, filename: string): void {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.URL.revokeObjectURL(url);
   }
 
 }

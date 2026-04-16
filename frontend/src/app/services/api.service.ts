@@ -138,7 +138,7 @@ export class ApiService {
     return this.http.get<{status: string, files: {name: string, size: number, modified: string}[]}>(`${this.baseUrl}/file-management/${encodeURIComponent(folder)}`);
   }
 
-  downloadFile(folder: string, filename: string): Observable<Blob> {
+  getFileBlob(folder: string, filename: string): Observable<Blob> {
     return this.http.get(`${this.baseUrl}/file-management/${encodeURIComponent(folder)}/${encodeURIComponent(filename)}`, { responseType: 'blob' });
   }
 

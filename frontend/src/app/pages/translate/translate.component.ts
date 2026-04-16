@@ -422,7 +422,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
 
   downloadTranslatedFile(filename: string): void {
     if (!filename) return;
-    this.apiService.downloadFile('sub-files', filename).subscribe({
+    this.apiService.getFileBlob('sub-files', filename).subscribe({
       next: (blob: Blob) => {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
