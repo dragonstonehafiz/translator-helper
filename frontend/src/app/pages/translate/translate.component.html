@@ -50,7 +50,8 @@
           label="Additional Instructions" 
           placeholder="No additional instructions available..."
           [rows]="6"
-          [(ngModel)]="additionalInstructions">
+          [(ngModel)]="additionalInstructions"
+          (ngModelChange)="updateAdditionalInstructions()">
         </app-text-field>
       </div>
 
@@ -59,7 +60,8 @@
           label="Character List" 
           placeholder="No character list available..."
           [rows]="6"
-          [(ngModel)]="characterList">
+          [(ngModel)]="characterList"
+          (ngModelChange)="updateCharacterList()">
         </app-text-field>
       </div>
 
@@ -68,7 +70,8 @@
           label="Synopsis" 
           placeholder="No synopsis available..."
           [rows]="6"
-          [(ngModel)]="synopsis">
+          [(ngModel)]="synopsis"
+          (ngModelChange)="updateSynopsis()">
         </app-text-field>
       </div>
 
@@ -77,7 +80,8 @@
           label="Summary" 
           placeholder="No summary available..."
           [rows]="6"
-          [(ngModel)]="summary">
+          [(ngModel)]="summary"
+          (ngModelChange)="updateSummary()">
         </app-text-field>
       </div>
 
@@ -86,7 +90,8 @@
           label="Recap" 
           placeholder="No recap available..."
           [rows]="6"
-          [(ngModel)]="recap">
+          [(ngModel)]="recap"
+          (ngModelChange)="updateRecap()">
         </app-text-field>
       </div>
     </app-subsection>

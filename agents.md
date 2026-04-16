@@ -797,6 +797,7 @@ For file translations, `/translate/result` can include task result payload (incl
 - Use component-level state for local UI state
 - Use `ApiService` for all backend API calls
 - Use `ConfirmationService` for confirmation dialogs instead of native browser `confirm(...)`
+- Use shared `LANGUAGE_OPTIONS` from `frontend/src/app/shared/language-options.ts` for page language dropdowns instead of duplicating language arrays
 
 ### API Integration
 1. Add method to `ApiService` (`frontend/src/app/services/api.service.ts`)

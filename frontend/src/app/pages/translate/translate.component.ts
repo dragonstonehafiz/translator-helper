@@ -13,6 +13,7 @@ import { ApiService, TaskResultResponse } from '../../services/api.service';
 import { StateService, TASK_TYPES, TaskProgress } from '../../services/state.service';
 import { ConfirmationService } from '../../services/confirmation.service';
 import { ActiveSubtitlePanelComponent } from '../../components/active-subtitle-panel/active-subtitle-panel.component';
+import { LANGUAGE_OPTIONS } from '../../shared/language-options';
 
 @Component({
   selector: 'app-translate',
@@ -67,26 +68,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
   private subtitleFileSubscription?: Subscription;
   private contentStateSubscription?: Subscription;
 
-  languageOptions = [
-    { code: 'en', name: 'English' },
-    { code: 'ja', name: 'Japanese' },
-    { code: 'zh', name: 'Chinese' },
-    { code: 'ko', name: 'Korean' },
-    { code: 'es', name: 'Spanish' },
-    { code: 'fr', name: 'French' },
-    { code: 'de', name: 'German' },
-    { code: 'it', name: 'Italian' },
-    { code: 'pt', name: 'Portuguese' },
-    { code: 'ru', name: 'Russian' },
-    { code: 'ar', name: 'Arabic' },
-    { code: 'hi', name: 'Hindi' },
-    { code: 'th', name: 'Thai' },
-    { code: 'vi', name: 'Vietnamese' },
-    { code: 'id', name: 'Indonesian' },
-    { code: 'nl', name: 'Dutch' },
-    { code: 'pl', name: 'Polish' },
-    { code: 'tr', name: 'Turkish' },
-  ];
+  languageOptions = LANGUAGE_OPTIONS;
 
   constructor(
     private apiService: ApiService,
@@ -136,6 +118,26 @@ export class TranslateComponent implements OnInit, OnDestroy {
 
   setContextTab(tab: 'additional' | 'character' | 'synopsis' | 'summary' | 'recap'): void {
     this.activeContextTab = tab;
+  }
+
+  updateAdditionalInstructions(): void {
+    this.stateService.setAdditionalInstructions(this.additionalInstructions);
+  }
+
+  updateCharacterList(): void {
+    this.stateService.setCharacterList(this.characterList);
+  }
+
+  updateSynopsis(): void {
+    this.stateService.setSynopsis(this.synopsis);
+  }
+
+  updateSummary(): void {
+    this.stateService.setSummary(this.summary);
+  }
+
+  updateRecap(): void {
+    this.stateService.setRecap(this.recap);
   }
 
   buildContext(
