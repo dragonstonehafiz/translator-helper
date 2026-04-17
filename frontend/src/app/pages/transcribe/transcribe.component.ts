@@ -580,14 +580,6 @@ export class TranscribeComponent implements OnInit, OnDestroy {
     }
   }
 
-  formatDuration(seconds: number): string {
-    const totalSeconds = Math.max(0, seconds || 0);
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = Math.floor(totalSeconds % 60);
-    const ms = Math.floor((totalSeconds - Math.floor(totalSeconds)) * 1000);
-    return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
-  }
-
   ngOnDestroy(): void {
     this.stopPolling();
     this.stopFilePolling();

@@ -223,11 +223,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  private setSettingsValue(scope: 'audio' | 'llm', key: string, value: string | number | boolean): void {
-    this.settingsValues[scope][key] = value;
-  }
-
-
   loadAudioModel(): void {
     if (this.loadingAudio) return;
 
