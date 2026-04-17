@@ -87,94 +87,6 @@
     pointer-events: none;
   }
 
-  .transcript-container {
-    width: 100%;
-
-    .textarea-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-
-      label {
-        font-weight: 600;
-        color: #333;
-        font-size: 1rem;
-      }
-
-      .font-size-controls {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-
-        .mode-toggle-btn {
-          padding: 4px 12px;
-          background: #667eea;
-          color: white;
-          border: none;
-          border-radius: 6px;
-          font-size: 0.85rem;
-          cursor: pointer;
-          transition: background 0.3s ease;
-
-          &:hover {
-            background: #5568d3;
-          }
-        }
-
-        .font-size-btn {
-          width: 28px;
-          height: 28px;
-          padding: 0;
-          background: #f0f0f0;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          cursor: pointer;
-          font-weight: bold;
-          transition: all 0.3s ease;
-
-          &:hover {
-            background: #e0e0e0;
-            border-color: #667eea;
-          }
-        }
-
-        .font-size-display {
-          font-size: 0.9rem;
-          color: #666;
-          min-width: 40px;
-          text-align: center;
-        }
-      }
-    }
-
-    textarea {
-      width: 100%;
-      padding: 12px;
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      font-size: 16px;
-      font-family: inherit;
-      resize: vertical;
-      transition: border-color 0.3s ease;
-
-      &:focus {
-        outline: none;
-        border-color: #667eea;
-      }
-    }
-
-    .markdown-view {
-      width: 100%;
-      padding: 12px;
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      background: #f8f9fa;
-      min-height: 240px;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
-  }
 }
 
 .transcript-wrapper {
@@ -310,12 +222,4 @@
   clip: rect(0, 0, 0, 0);
   border: 0;
 }
-
-.transcribe-file-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px 0;
-}
-
 
