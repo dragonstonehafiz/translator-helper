@@ -2,15 +2,13 @@
 Translation routes.
 """
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, UploadFile
 
 from orchestrator.task_translate_file import TaskTranslateFile
 from orchestrator.task_translate_line import TaskTranslateLine
+from utils.api_response import error_response, processing_response
 
 from .shared import (
-    TRANSLATE_TASK_TYPES,
-    build_task_response,
-    ensure_task_type,
     model_manager,
     parse_json_form,
     run_translation_file_chain,
@@ -31,9 +29,9 @@ async def api_translate_line(
     output_lang: str = Form("en"),
 ):
     if task_orchestrator.is_running():
-        return {"status": "error", "message": "Translation is already running"}
+        return error_response("Translation is already running")
     if not model_manager.is_llm_ready():
-        return {"status": "error", "message": "LLM not loaded"}
+        return error_response("LLM not loaded")
 
     try:
         context_dict = parse_json_form(context)
@@ -47,9 +45,9 @@ async def api_translate_line(
                 "output_lang": output_lang,
             },
         )
-        return {"status": "processing", "message": "Translation started"}
+        return processing_response({"task_type": TaskTranslateLine.TASK_TYPE}, "Translation started")
     except Exception as exc:
-        return {"status": "error", "message": str(exc)}
+        return error_response(str(exc))
 
 
 @router.post("/translate-file")
@@ -62,9 +60,9 @@ async def api_translate_file(
     batch_size: int = Form(3),
 ):
     if task_orchestrator.is_running():
-        return {"status": "error", "message": "Translation is already running"}
+        return error_response("Translation is already running")
     if not model_manager.is_llm_ready():
-        return {"status": "error", "message": "LLM not loaded"}
+        return error_response("LLM not loaded")
 
     try:
         context_dict = parse_json_form(context)
@@ -80,12 +78,6 @@ async def api_translate_file(
                 "batch_size": batch_size,
             },
         )
-        return {"status": "processing", "message": "Translation started"}
+        return processing_response({"task_type": TaskTranslateFile.TASK_TYPE}, "Translation started")
     except Exception as exc:
-        return {"status": "error", "message": str(exc)}
-
-
-@router.get("/result")
-async def get_translation_result(task_type: str = Query(...)):
-    ensure_task_type(task_type, TRANSLATE_TASK_TYPES)
-    return build_task_response(task_type)
+        return error_response(str(exc))

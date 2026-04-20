@@ -104,8 +104,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
     this.apiService.getSettingsSchema().subscribe({
       next: (schema) => {
-        this.stateService.setSettingsSchema(schema);
-        this.applySchema(schema);
+        if (!schema.data) return;
+        this.stateService.setSettingsSchema(schema.data);
+        this.applySchema(schema.data);
       },
       error: (error) => {
         console.error('Failed to load settings schema:', error);
@@ -116,22 +117,23 @@ export class SettingsComponent implements OnInit, OnDestroy {
   loadServerVariables(): void {
     this.apiService.getServerVariables().subscribe({
       next: (response) => {
-        const audioVars = Array.isArray(response.audio) ? response.audio : [];
-        const llmVars = Array.isArray(response.llm) ? response.llm : [];
+        if (!response.data) return;
+        const audioVars = Array.isArray(response.data.audio) ? response.data.audio : [];
+        const llmVars = Array.isArray(response.data.llm) ? response.data.llm : [];
 
-        this.stateService.setLlmReady(response.llm_ready);
-        this.stateService.setAudioReady(response.audio_ready);
-        this.stateService.setReady(response.llm_ready && response.audio_ready);
-        this.llmReady = response.llm_ready;
-        this.audioReady = response.audio_ready;
-        this.llmLoadingError = response.llm_loading_error ?? null;
-        this.audioLoadingError = response.audio_loading_error ?? null;
+        this.stateService.setLlmReady(response.data.llm_ready);
+        this.stateService.setAudioReady(response.data.audio_ready);
+        this.stateService.setReady(response.data.llm_ready && response.data.audio_ready);
+        this.llmReady = response.data.llm_ready;
+        this.audioReady = response.data.audio_ready;
+        this.llmLoadingError = response.data.llm_loading_error ?? null;
+        this.audioLoadingError = response.data.audio_loading_error ?? null;
         this.showLoadErrorIfNeeded('llm', this.llmLoadingError);
         this.showLoadErrorIfNeeded('audio', this.audioLoadingError);
-        if (response.llm_ready) {
+        if (response.data.llm_ready) {
           this.stateService.setLoadingLlm(false);
         }
-        if (response.audio_ready) {
+        if (response.data.audio_ready) {
           this.stateService.setLoadingAudio(false);
         }
 
@@ -162,8 +164,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
   private loadRunningStatus(): void {
     this.apiService.checkRunning().subscribe({
       next: (status) => {
-        this.stateService.setLoadingLlm(status.loading_llm_model);
-        this.stateService.setLoadingAudio(status.loading_audio_model);
+        if (!status.data) return;
+        this.stateService.setLoadingLlm(status.data.loading_llm_model);
+        this.stateService.setLoadingAudio(status.data.loading_audio_model);
       },
       error: (error) => {
         console.error('Failed to load running status:', error);
@@ -235,14 +238,20 @@ export class SettingsComponent implements OnInit, OnDestroy {
     }
 
     const settings = { ...this.settingsValues.audio };
+    this.stateService.setLoadingAudio(true);
 
     this.apiService.loadAudioModel(settings).subscribe({
       next: (response) => {
-        console.log(response.message);
-        this.stateService.setLoadingAudio(true);
+        this.stateService.setLoadingAudio(false);
+        if (response.status === 'error') {
+          this.errorDialogService.show(response.message || 'Failed to load audio model');
+          return;
+        }
+        this.loadServerVariables();
       },
       error: (error) => {
         console.error('Failed to load audio model:', error);
+        this.stateService.setLoadingAudio(false);
         this.errorDialogService.show('Failed to load audio model');
       }
     });
@@ -272,14 +281,20 @@ export class SettingsComponent implements OnInit, OnDestroy {
     if (typeof settings['api_key'] === 'string' && !settings['api_key'].trim()) {
       delete settings['api_key'];
     }
+    this.stateService.setLoadingLlm(true);
 
     this.apiService.loadLlmModel(settings).subscribe({
       next: (response) => {
-        console.log(response.message);
-        this.stateService.setLoadingLlm(true);
+        this.stateService.setLoadingLlm(false);
+        if (response.status === 'error') {
+          this.errorDialogService.show(response.message || 'Failed to load LLM');
+          return;
+        }
+        this.loadServerVariables();
       },
       error: (error) => {
         console.error('Failed to load LLM:', error);
+        this.stateService.setLoadingLlm(false);
         this.errorDialogService.show('Failed to load LLM');
       }
     });

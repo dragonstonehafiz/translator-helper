@@ -444,9 +444,19 @@ this.errorDialogService.show({
 
 ### Endpoints
 
+All JSON endpoints return the shared response envelope from `backend/utils/api_response.py`:
+```json
+{
+  "status": "success | processing | complete | idle | error | loading",
+  "message": "Optional backend-authored user-facing text, or null",
+  "data": {}
+}
+```
+Use `message` for display text and `data` for structured payloads. Do not add route-specific root payload fields such as `files`, `result`, or `audio`; place those under `data`. File download endpoints still return file blobs.
+
 **Health & Status**:
 - `GET /utils/running`: Check running operations status
-  - Returns `running_llm`, `running_audio`, `loading_llm_model`, and `loading_audio_model`
+  - Returns `running_llm`, `running_audio`, `loading_llm_model`, and `loading_audio_model` under `data`
 
 **Settings**:
 - `POST /utils/load-audio-model`: Load audio transcription model
@@ -472,10 +482,16 @@ The server variables endpoint returns provider-grouped data so the frontend can 
 status cards correctly. Values are returned as display-ready objects:
 ```json
 {
-  "audio": [{ "key": "whisper_model", "label": "Model", "value": "..." }],
-  "llm": [{ "key": "openai_model", "label": "Model", "value": "..." }],
-  "llm_ready": true,
-  "audio_ready": true
+  "status": "success",
+  "message": null,
+  "data": {
+    "audio": [{ "key": "whisper_model", "label": "Model", "value": "..." }],
+    "llm": [{ "key": "openai_model", "label": "Model", "value": "..." }],
+    "llm_ready": true,
+    "audio_ready": true,
+    "llm_loading_error": null,
+    "audio_loading_error": null
+  }
 }
 ```
 When no client is loaded yet, `audio` and `llm` are empty arrays (`[]`).
@@ -483,10 +499,14 @@ When no client is loaded yet, `audio` and `llm` are empty arrays (`[]`).
 The running-status endpoint returns:
 ```json
 {
-  "running_llm": false,
-  "running_audio": false,
-  "loading_llm_model": false,
-  "loading_audio_model": false
+  "status": "success",
+  "message": null,
+  "data": {
+    "running_llm": false,
+    "running_audio": false,
+    "loading_llm_model": false,
+    "loading_audio_model": false
+  }
 }
 ```
 
@@ -496,21 +516,20 @@ The running-status endpoint returns:
 - `POST /context/generate-high-level-summary`: Generate summary from subtitle file
 - `POST /context/generate-recap`: Generate recap from multiple contexts
 - `POST /context/save`: Save a context JSON file
-- `GET /context/result?task_type=<TaskType>`: Poll for a specific context task result
 
 **Transcription** (`backend/routes/transcribe.py`):
 - `POST /transcribe/transcribe-line`: Transcribe audio file or recording to text
 - `POST /transcribe/transcribe-file`: Transcribe a full audio file and generate .ass subtitle file (FormData: file, language)
-- `GET /transcribe/result?task_type=<TaskType>`: Poll for a specific transcription task result
 
 **Utils** (`backend/routes/utils.py`):
 - `POST /utils/get-subtitle-file-info`: Upload an ASS or SRT file to get dialogue count, total characters (Speaker: dialogue), and average characters per line
   - Frontend uses `ApiService.getSubtitleFileInfo(file)` for this endpoint
+- `GET /task-results/{task_type}`: Poll the latest result/progress for a specific backend task type
+  - Replaces the old domain-specific `/context/result`, `/translate/result`, and `/transcribe/result` routes
 
 **Translation** (`backend/routes/translate.py`):
 - `POST /translate/translate-line`: Translate text line with context (FormData: text, context JSON, input_lang, output_lang)
 - `POST /translate/translate-file`: Translate subtitle file with batch size (FormData: file, context JSON, input_lang, output_lang, batch_size)
-- `GET /translate/result?task_type=<TaskType>`: Poll for a specific translation task result
   - file translation now runs a 3-stage backend chain: `TaskPlanTranslationBatches` -> `TaskSplitOversizedBatches` -> `TaskTranslateFile`
 
 **File Management** (`backend/routes/file_management.py`):
@@ -726,12 +745,25 @@ The running-status endpoint returns:
 ### Background Tasks
 
 Long-running operations use FastAPI's BackgroundTasks with polling:
-1. POST endpoint starts background task, returns `{"status": "processing"}`
+1. POST endpoint starts background task, returns the shared envelope with `status: "processing"` and `data.task_type`
 2. Background function executes a task class through `TaskOrchestrator`
 3. Each task writes final output/error to `ResultHandler` keyed by `task_type`
 4. Progress-capable tasks write progress to `ProgressHandler` keyed by `task_type`
-5. GET `/result` endpoints require the exact `task_type` being polled and return `"processing"` | `"complete"` | `"error"` | `"idle"` plus any stored `result`/`progress`
+5. `GET /task-results/{task_type}` requires the exact `task_type` being polled and returns the shared envelope with `"processing"` | `"complete"` | `"error"` | `"idle"` plus task `result`/`progress` under `data`
 6. Task classes write execution timing entries to a shared `backend/outputs/task-timings.log` file (no per-task log files)
+Task result API payload shape:
+```json
+{
+  "status": "complete",
+  "message": null,
+  "data": {
+    "task_type": "TaskTranslateFile",
+    "result": { "filename": "..." },
+    "progress": null
+  }
+}
+```
+Text-producing task results expose generated text as `data.result.text`; file-producing task results expose output filename as `data.result.filename`.
 Additional backend warnings and fallback/audit events are written to `backend/outputs/translator-helper.log`.
 Model load/unload and general backend lifecycle events are also written to `backend/outputs/translator-helper.log`.
 Frontend note: polling-time task errors are surfaced visibly to the user and not only stored in frontend task state.
@@ -749,7 +781,7 @@ Tasks without backend-provided granular progress use a frontend-created single-s
 - task-specific `status`
 - `eta_seconds: 0`
 
-For file translations, `/translate/result` can include task result payload (including output filename). The translated files are saved in `backend/outputs/sub-files/` and retrieved via `/file-management/sub-files`.
+For file translations, `/task-results/TaskTranslateFile` can include task result payload (including output filename). The translated files are saved in `backend/outputs/sub-files/` and retrieved via `/file-management/sub-files`.
 
 ## Styling Guidelines
 

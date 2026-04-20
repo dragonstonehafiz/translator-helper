@@ -26,6 +26,7 @@ from orchestrator.task_transcribe_file import TaskTranscribeFile
 from orchestrator.task_transcribe_line import TaskTranscribeLine
 from orchestrator.task_translate_file import TaskTranslateFile
 from orchestrator.task_translate_line import TaskTranslateLine
+from utils.api_response import complete_response, error_response, idle_response, processing_response, task_result_data
 from utils.logger import setup_logger
 
 logger = setup_logger()
@@ -123,41 +124,27 @@ def build_task_response(task_type: str) -> dict[str, Any]:
         TaskTranslateFile.TASK_TYPE,
     }
 
-    response: dict[str, Any] = {"task_type": task_type, "result": None}
-    if progress:
-        response["progress"] = progress
-
     if (
         task_type == TaskTranslateFile.TASK_TYPE
         and task_orchestrator.is_running()
         and active_task_type in translate_chain_task_types
     ):
         active_progress = progress_handler.get(active_task_type) if active_task_type else None
-        if active_progress:
-            response["progress"] = active_progress
-        response["status"] = "processing"
-        return response
+        return processing_response(task_result_data(task_type, progress=active_progress or progress))
 
     if task_orchestrator.is_running() and active_task_type == task_type:
-        response["status"] = "processing"
-        return response
+        return processing_response(task_result_data(task_type, progress=progress))
 
     if record is None:
-        response["status"] = "idle"
-        return response
+        return idle_response(task_result_data(task_type, progress=progress))
 
     if record["status"] == "error":
-        response["status"] = "error"
-        response["message"] = record["error"]
-        return response
+        return error_response(record["error"], task_result_data(task_type, progress=progress))
 
     if record["status"] == "complete":
-        response["status"] = "complete"
-        response["result"] = record["result"]
-        return response
+        return complete_response(task_result_data(task_type, result=record["result"], progress=progress))
 
-    response["status"] = "processing"
-    return response
+    return processing_response(task_result_data(task_type, progress=progress))
 
 
 async def save_upload_to_temp(file: UploadFile, default_suffix: str = "") -> str:

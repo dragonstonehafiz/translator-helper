@@ -274,17 +274,18 @@ export class TranscribeComponent implements OnInit, OnDestroy {
       return;
     }
     this.pollingInterval = setInterval(() => {
-      this.apiService.getTranscriptionResult(TASK_TYPES.transcribeLine).subscribe({
+      this.apiService.getTaskResult(TASK_TYPES.transcribeLine).subscribe({
         next: (response: TaskResultResponse) => {
+          const taskData = response.data;
           this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
             status: response.status,
-            result: response.result,
+            result: taskData?.result ?? null,
             message: response.message ?? null,
-            progress: response.progress ?? this.getExistingProgress(TASK_TYPES.transcribeLine),
+            progress: taskData?.progress ?? this.getExistingProgress(TASK_TYPES.transcribeLine),
             isPolling: response.status === 'processing',
           });
-          if (response.status === 'complete' && response.result) {
-            this.transcript = response.result.data ?? '';
+          if (response.status === 'complete' && taskData?.result) {
+            this.transcript = taskData.result.text ?? '';
             this.isTranscribing = false;
             this.stopPolling();
             this.cdr.detectChanges();
@@ -403,13 +404,14 @@ export class TranscribeComponent implements OnInit, OnDestroy {
       return;
     }
     this.filePollingInterval = setInterval(() => {
-      this.apiService.getTranscriptionResult(TASK_TYPES.transcribeFile).subscribe({
+      this.apiService.getTaskResult(TASK_TYPES.transcribeFile).subscribe({
         next: (response: TaskResultResponse) => {
+          const taskData = response.data;
           this.stateService.setTaskState(TASK_TYPES.transcribeFile, {
             status: response.status,
-            result: response.result,
+            result: taskData?.result ?? null,
             message: response.message ?? null,
-            progress: response.progress ?? this.getExistingProgress(TASK_TYPES.transcribeFile),
+            progress: taskData?.progress ?? this.getExistingProgress(TASK_TYPES.transcribeFile),
             isPolling: response.status === 'processing',
           });
           if (response.status === 'complete') {
@@ -446,7 +448,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
     this.fileDownloadError = '';
     this.apiService.listFiles('transcribe-sub-files').subscribe({
       next: (response) => {
-        this.fileAvailableDownloads = response.status === 'success' ? (response.files || []) : [];
+        this.fileAvailableDownloads = response.status === 'success' ? (response.data?.files || []) : [];
         if (response.status !== 'success') this.fileDownloadError = 'Unable to load downloads.';
         this.isFetchingFileDownloads = false;
       },
@@ -593,7 +595,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
     const lineTask = this.stateService.getTaskState(TASK_TYPES.transcribeLine);
     const fileTask = this.stateService.getTaskState(TASK_TYPES.transcribeFile);
 
-    this.transcript = lineTask.result?.data ?? '';
+    this.transcript = lineTask.result?.text ?? '';
     this.isTranscribing = lineTask.status === 'processing' || fileTask.status === 'processing';
 
     if (lineTask.status === 'processing' || lineTask.isPolling) {

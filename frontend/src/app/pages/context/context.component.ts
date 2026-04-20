@@ -119,11 +119,12 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.stopPolling();
     this.activePollingTaskType = taskType;
     this.pollingSubscription = interval(1000).subscribe(() => {
-      this.apiService.getContextResult(taskType).subscribe({
+      this.apiService.getTaskResult(taskType).subscribe({
         next: (response) => {
-          this.updateTaskStateFromResponse(taskType, response.status, response.result, response.message);
-          if (response.status === 'complete' && response.result) {
-            this.applyContextResult(response.result.type, response.result.data ?? '');
+          const taskData = response.data;
+          this.updateTaskStateFromResponse(taskType, response.status, taskData?.result ?? null, response.message, taskData?.progress ?? null);
+          if (response.status === 'complete' && taskData?.result) {
+            this.applyContextResult(taskType, taskData.result.text ?? '');
             this.saveContext();
             this.stopPolling();
           } else if (response.status === 'error' || response.status === 'idle') {
@@ -278,7 +279,7 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.isFetchingContextFiles = true;
     this.apiService.listFiles('context-files').subscribe({
       next: (response) => {
-        this.availableContextFiles = response.files;
+        this.availableContextFiles = response.data?.files ?? [];
         this.isFetchingContextFiles = false;
       },
       error: (err) => {
@@ -476,7 +477,7 @@ export class ContextComponent implements OnInit, OnDestroy {
     return this.stateService.hasActiveTask();
   }
 
-  private startContextTask(taskType: string, request$: Observable<{status: string, message?: string}>): void {
+  private startContextTask(taskType: string, request$: Observable<{status: string, message: string | null}>): void {
     this.stateService.setTaskState(taskType, {
       status: 'processing',
       result: null,
@@ -542,12 +543,18 @@ export class ContextComponent implements OnInit, OnDestroy {
     }
   }
 
-  private updateTaskStateFromResponse(taskType: string, status: string, result?: {type: string, data?: string} | null, message?: string): void {
+  private updateTaskStateFromResponse(
+    taskType: string,
+    status: string,
+    result?: {text?: string; filename?: string} | null,
+    message?: string | null,
+    progress?: TaskProgress | null,
+  ): void {
     this.stateService.setTaskState(taskType, {
       status: (status === 'idle' ? 'idle' : status) as StoredTaskState['status'],
       result: result ?? null,
       message: message ?? null,
-      progress: this.stateService.getTaskState(taskType).progress,
+      progress: progress ?? this.stateService.getTaskState(taskType).progress,
       isPolling: status === 'processing',
     });
   }
@@ -583,17 +590,17 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.refreshContextFiles();
   }
 
-  private applyContextResult(type: string, data: string): void {
-    if (type === 'character_list') {
+  private applyContextResult(taskType: string, data: string): void {
+    if (taskType === TASK_TYPES.generateCharacterList) {
       this.characterList = data;
       this.stateService.setCharacterList(data);
-    } else if (type === 'synopsis') {
+    } else if (taskType === TASK_TYPES.generateSynopsis) {
       this.synopsis = data;
       this.stateService.setSynopsis(data);
-    } else if (type === 'summary') {
+    } else if (taskType === TASK_TYPES.generateSummary) {
       this.summary = data;
       this.stateService.setSummary(data);
-    } else if (type === 'recap') {
+    } else if (taskType === TASK_TYPES.generateRecap) {
       this.recap = data;
       this.stateService.setRecap(data);
     }

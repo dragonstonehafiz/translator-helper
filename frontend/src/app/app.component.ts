@@ -109,10 +109,16 @@ export class AppComponent implements OnInit {
   private checkBackendReady(): void {
     this.apiService.getServerVariables().subscribe({
       next: (response) => {
-        this.stateService.setLlmReady(response.llm_ready);
-        this.stateService.setAudioReady(response.audio_ready);
-        this.stateService.setReady(response.llm_ready && response.audio_ready);
-        if (!(response.llm_ready && response.audio_ready)) {
+        const data = response.data;
+        if (!data) {
+          this.stateService.setReady(false);
+          this.router.navigate(['/settings']);
+          return;
+        }
+        this.stateService.setLlmReady(data.llm_ready);
+        this.stateService.setAudioReady(data.audio_ready);
+        this.stateService.setReady(data.llm_ready && data.audio_ready);
+        if (!(data.llm_ready && data.audio_ready)) {
           this.router.navigate(['/settings']);
         }
       },

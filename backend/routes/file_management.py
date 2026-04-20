@@ -7,6 +7,8 @@ import os
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
+from utils.api_response import success_response
+
 from .shared import build_file_list, get_files_dir
 
 router = APIRouter(prefix="/file-management")
@@ -15,7 +17,7 @@ router = APIRouter(prefix="/file-management")
 @router.get("/{folder}")
 async def list_files(folder: str):
     output_dir = get_files_dir(folder)
-    return {"status": "success", "files": build_file_list(output_dir)}
+    return success_response({"files": build_file_list(output_dir)})
 
 
 @router.get("/{folder}/{filename}")
@@ -39,4 +41,4 @@ async def delete_file(folder: str, filename: str):
         file_path.unlink()
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to delete file: {exc}")
-    return {"status": "success"}
+    return success_response()

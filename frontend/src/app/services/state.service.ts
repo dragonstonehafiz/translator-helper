@@ -40,8 +40,7 @@ export interface TaskProgress {
 }
 
 export interface TaskResultPayload {
-  type: string;
-  data?: string;
+  text?: string;
   filename?: string;
 }
 

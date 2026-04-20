@@ -83,11 +83,11 @@ export class ActiveSubtitlePanelComponent implements OnInit, OnDestroy {
     this.stateService.setSubtitleFileInfoLoading(true);
     this.apiService.getSubtitleFileInfo(file).subscribe({
       next: (response) => {
-        if (response.status === 'success' && response.result) {
+        if (response.status === 'success' && response.data) {
           this.stateService.setSubtitleFileInfo({
-            totalLines: response.result.total_lines,
-            characterCount: response.result.character_count,
-            averageCharacterCount: response.result.average_character_count,
+            totalLines: response.data.total_lines,
+            characterCount: response.data.character_count,
+            averageCharacterCount: response.data.average_character_count,
           });
           this.stateService.setSubtitleFileInfoError('');
         } else {

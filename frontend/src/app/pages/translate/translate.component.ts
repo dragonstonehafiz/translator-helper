@@ -106,7 +106,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
     const fileTask = this.stateService.getTaskState(TASK_TYPES.translateFile);
 
     this.isTranslatingLine = lineTask.status === 'processing';
-    this.lineTranslationResult = lineTask.result?.data ?? '';
+    this.lineTranslationResult = lineTask.result?.text ?? '';
 
     this.isTranslatingFile = fileTask.status === 'processing';
 
@@ -186,7 +186,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
       this.lineInputLanguage,
       this.lineOutputLanguage
     ).subscribe({
-      next: (response: {status: string, message?: string}) => {
+      next: (response) => {
         if (response.status === 'processing') {
           this.startLinePolling();
         } else {
@@ -218,17 +218,18 @@ export class TranslateComponent implements OnInit, OnDestroy {
       return;
     }
     this.linePollingInterval = setInterval(() => {
-      this.apiService.getTranslationResult(TASK_TYPES.translateLine).subscribe({
+      this.apiService.getTaskResult(TASK_TYPES.translateLine).subscribe({
         next: (response: TaskResultResponse) => {
+          const taskData = response.data;
           this.stateService.setTaskState(TASK_TYPES.translateLine, {
             status: response.status,
-            result: response.result,
+            result: taskData?.result ?? null,
             message: response.message ?? null,
-            progress: response.progress ?? this.getExistingProgress(TASK_TYPES.translateLine),
+            progress: taskData?.progress ?? this.getExistingProgress(TASK_TYPES.translateLine),
             isPolling: response.status === 'processing',
           });
-          if (response.status === 'complete' && response.result) {
-            this.lineTranslationResult = response.result.data ?? '';
+          if (response.status === 'complete' && taskData?.result) {
+            this.lineTranslationResult = taskData.result.text ?? '';
             this.isTranslatingLine = false;
             this.stopLinePolling();
           } else if (response.status === 'error') {
@@ -284,7 +285,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
       this.fileOutputLanguage,
       this.batchSize
     ).subscribe({
-      next: (response: {status: string, message?: string}) => {
+      next: (response) => {
         if (response.status === 'processing') {
           this.startFilePolling();
         } else {
@@ -316,13 +317,14 @@ export class TranslateComponent implements OnInit, OnDestroy {
       return;
     }
     this.filePollingInterval = setInterval(() => {
-      this.apiService.getTranslationResult(TASK_TYPES.translateFile).subscribe({
+      this.apiService.getTaskResult(TASK_TYPES.translateFile).subscribe({
         next: (response: TaskResultResponse) => {
+          const taskData = response.data;
           this.stateService.setTaskState(TASK_TYPES.translateFile, {
             status: response.status,
-            result: response.result,
+            result: taskData?.result ?? null,
             message: response.message ?? null,
-            progress: response.progress ?? this.getExistingProgress(TASK_TYPES.translateFile),
+            progress: taskData?.progress ?? this.getExistingProgress(TASK_TYPES.translateFile),
             isPolling: response.status === 'processing',
           });
           if (response.status === 'complete') {
@@ -363,9 +365,9 @@ export class TranslateComponent implements OnInit, OnDestroy {
     this.isFetchingDownloads = true;
     this.downloadError = '';
     this.apiService.listFiles('sub-files').subscribe({
-      next: (response: {status: string, files: {name: string, size: number, modified: string}[]}) => {
+      next: (response) => {
         if (response.status === 'success') {
-          this.availableDownloads = response.files || [];
+          this.availableDownloads = response.data?.files || [];
         } else {
           this.availableDownloads = [];
           this.downloadError = 'Unable to load downloads.';
