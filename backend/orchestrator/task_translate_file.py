@@ -180,11 +180,8 @@ class TaskTranslateFile(BaseTask):
                             raise ValueError("Batch translation output line count mismatch.")
 
                         for line, translated in zip(batch, translated_lines):
-                            if ":" not in translated:
-                                raise ValueError("Missing ':' delimiter in batch translation output.")
-                            _, translated_text = translated.split(":", 1)
                             original_line = f"{line.text}"
-                            line.text = translated_text.replace("\\N", " ").strip()
+                            line.text = translated.replace("\\N", " ").strip()
                             translate_file_logger.info("Original: %s | Translated: %s", original_line, line.text)
                             processed += 1
                             if progress_callback:
