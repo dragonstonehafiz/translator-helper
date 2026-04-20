@@ -1,6 +1,7 @@
 import json
 import re
 import time
+from pathlib import Path
 
 import pysubs2
 
@@ -41,6 +42,7 @@ class TaskSplitOversizedBatches(BaseTask):
         input_lang = str(data.get("input_lang", "ja"))
         output_lang = str(data.get("output_lang", "en"))
         batch_size = max(1, int(data.get("batch_size", 50)))
+        translate_file_log_dir = str(data.get("translate_file_log_dir", ""))
 
         result_handler.set_processing(self.task_type)
         try:
@@ -78,7 +80,19 @@ class TaskSplitOversizedBatches(BaseTask):
                 "input_lang": input_lang,
                 "output_lang": output_lang,
                 "batch_size": batch_size,
+                "translate_file_log_dir": translate_file_log_dir,
             }
+            self._write_split_log(
+                log_dir=translate_file_log_dir,
+                original_filename=str(original_filename or ""),
+                input_lang=input_lang,
+                output_lang=output_lang,
+                batch_size=batch_size,
+                total_lines=total_lines,
+                input_batch_count=len(batches),
+                oversized_batches=oversized_batches,
+                repaired_batches=repaired_batches,
+            )
             result_handler.set_complete(self.task_type)
             status = "complete"
             return payload
@@ -100,6 +114,39 @@ class TaskSplitOversizedBatches(BaseTask):
         if not indexed_lines:
             raise ValueError("Subtitle file does not contain any subtitle lines.")
         return indexed_lines, len(indexed_lines)
+
+    def _write_split_log(
+        self,
+        log_dir: str,
+        original_filename: str,
+        input_lang: str,
+        output_lang: str,
+        batch_size: int,
+        total_lines: int,
+        input_batch_count: int,
+        oversized_batches: list[dict[str, int | str]],
+        repaired_batches: list[dict[str, int | str]],
+    ):
+        if not log_dir:
+            return
+
+        output_dir = Path(log_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        log_payload = {
+            "task_type": self.task_type,
+            "original_filename": original_filename,
+            "input_lang": input_lang,
+            "output_lang": output_lang,
+            "batch_size": batch_size,
+            "total_lines": total_lines,
+            "input_batch_count": input_batch_count,
+            "oversized_batch_count": len(oversized_batches),
+            "final_batch_count": len(repaired_batches),
+            "oversized_batches": oversized_batches,
+            "batches": repaired_batches,
+        }
+        with open(output_dir / "02-split-oversized-batches.json", "w", encoding="utf-8") as file_handle:
+            json.dump(log_payload, file_handle, ensure_ascii=False, indent=2)
 
     def _find_oversized_batches(
         self,

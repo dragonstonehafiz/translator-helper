@@ -2,22 +2,62 @@
 Translation routes.
 """
 
+from datetime import datetime
+import os
+
 from fastapi import APIRouter, BackgroundTasks, File, Form, UploadFile
 
+from orchestrator.task_plan_translation_batches import TaskPlanTranslationBatches
+from orchestrator.task_split_oversized_batches import TaskSplitOversizedBatches
 from orchestrator.task_translate_file import TaskTranslateFile
 from orchestrator.task_translate_line import TaskTranslateLine
+from utils.logger import setup_logger
 from utils.api_response import error_response, processing_response
 
 from .shared import (
+    OUTPUTS_DIR,
     model_manager,
     parse_json_form,
-    run_translation_file_chain,
+    progress_handler,
+    result_handler,
     run_single_task,
     save_upload_to_temp,
     task_orchestrator,
 )
 
 router = APIRouter(prefix="/translate")
+logger = setup_logger()
+
+
+def run_translation_file_chain(data: dict):
+    final_task_type = TaskTranslateFile.TASK_TYPE
+    try:
+        data = dict(data)
+        original_filename = os.path.basename(str(data.get("original_filename", "subtitles"))).strip() or "subtitles"
+        safe_filename = "".join(
+            char if char.isalnum() or char in "._-" else "_" for char in original_filename
+        ).strip("._") or "subtitles"
+        log_dir = OUTPUTS_DIR / "translate-file-logs" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_filename}"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        data["translate_file_log_dir"] = str(log_dir)
+        result_handler.set_processing(final_task_type)
+        progress_handler.set(
+            final_task_type,
+            {
+                "current": 0,
+                "total": 1,
+                "status": "Planning translation batches",
+                "eta_seconds": 0.0,
+            },
+        )
+        task_orchestrator.clear_tasks()
+        task_orchestrator.add_task(TaskPlanTranslationBatches())
+        task_orchestrator.add_task(TaskSplitOversizedBatches())
+        task_orchestrator.add_task(TaskTranslateFile())
+        task_orchestrator.run_tasks(initial_data=data)
+    except Exception as exc:
+        logger.error("Task execution failed (%s): %s", final_task_type, exc, exc_info=True)
+        result_handler.set_error(final_task_type, str(exc))
 
 
 @router.post("/translate-line")

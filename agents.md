@@ -13,6 +13,7 @@ Translator Helper is a full-stack application for transcribing, translating, and
 - **Backend Routes**: Domain-specific route modules under `backend/routes/`
   - `context.py`, `transcribe.py`, `translate.py`, `file_management.py`, and `utils.py`
   - `shared.py` contains shared route helpers and singleton access
+  - `translate.py` owns the translate-file task chain setup and per-run translate-file log folder creation
 - **Backend Orchestrator**: Task execution and in-memory task state (see `backend/orchestrator/`)
   - `TaskOrchestrator`: runs one active task at a time (`is_running`)
   - `ResultHandler`: stores latest task output per task class (`task_type`)
@@ -26,6 +27,8 @@ Translator Helper is a full-stack application for transcribing, translating, and
   - `translate.py` contains single-line translation prompts
   - `translate_file.py` contains full-file translation prompts and translation-batch planning/splitting prompts
   - `context.py` and `recap.py` contain context-generation prompts
+- **Backend Outputs**: Generated files and audit logs live under `backend/outputs/`
+  - `translate-file-logs/<YYYYMMDD-HHMMSS-original_filename>/` stores per-file-translation batch planning JSON logs
 
 ## Navigation
 
@@ -656,6 +659,7 @@ The running-status endpoint returns:
 - Notes:
   - when `batches` are provided by upstream tasks, translation uses those planned consecutive spans instead of slicing by fixed `batch_size`
   - if no `batches` are provided, translation falls back to fixed-size batching
+  - batch and per-line LLM translation helpers live inside `TaskTranslateFile`; do not add translate-file-only helpers to `backend/utils/`
   - `TaskTranslateFile` owns batch selection and malformed-batch recovery logic instead of pushing planner-chain data into lower-level translation utilities
   - if a batch translation response is malformed (for example, line-count mismatch or missing delimiters), translation retries once by splitting the failed batch in half; if either half still fails, it falls back to per-line translation for that failed span
   - malformed batch recovery and per-line fallback events are logged to `backend/outputs/translator-helper.log`
@@ -690,6 +694,7 @@ The running-status endpoint returns:
 - Notes:
   - does not enforce maximum batch size on semantic output
   - passes through the chain data needed by downstream translation tasks
+  - writes `01-plan-translation-batches.json` to the per-run folder under `backend/outputs/translate-file-logs/`
   - validates contiguous, ordered, gap-free, non-overlapping coverage of the entire subtitle file
   - is wired into the file translation chain before `TaskSplitOversizedBatches` and `TaskTranslateFile`
 
@@ -726,6 +731,7 @@ The running-status endpoint returns:
   - rereads the subtitle file and independently detects which semantic batches exceed `batch_size`
   - only oversized semantic batches are reprocessed
   - final output enforces `batch_size` as a hard maximum allowed batch length
+  - writes `02-split-oversized-batches.json` to the per-run folder under `backend/outputs/translate-file-logs/`
   - if the LLM returns an invalid repair split for an oversized batch, the task falls back to deterministic consecutive chunking for that span only
   - deterministic fallback events are logged to `backend/outputs/translator-helper.log`
   - does not delete the working subtitle temp file; downstream tasks or the calling harness own final cleanup

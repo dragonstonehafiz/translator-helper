@@ -2,9 +2,9 @@
 Shared helpers and state for backend route modules.
 """
 
-from datetime import datetime
 from pathlib import Path
 from typing import Any
+from datetime import datetime
 import json
 import os
 import tempfile
@@ -83,29 +83,6 @@ def run_single_task(task, data: dict):
     except Exception as exc:
         logger.error("Task execution failed (%s): %s", task.task_type, exc, exc_info=True)
         result_handler.set_error(task.task_type, str(exc))
-
-
-def run_translation_file_chain(data: dict):
-    final_task_type = TaskTranslateFile.TASK_TYPE
-    try:
-        result_handler.set_processing(final_task_type)
-        progress_handler.set(
-            final_task_type,
-            {
-                "current": 0,
-                "total": 1,
-                "status": "Planning translation batches",
-                "eta_seconds": 0.0,
-            },
-        )
-        task_orchestrator.clear_tasks()
-        task_orchestrator.add_task(TaskPlanTranslationBatches())
-        task_orchestrator.add_task(TaskSplitOversizedBatches())
-        task_orchestrator.add_task(TaskTranslateFile())
-        task_orchestrator.run_tasks(initial_data=data)
-    except Exception as exc:
-        logger.error("Task execution failed (%s): %s", final_task_type, exc, exc_info=True)
-        result_handler.set_error(final_task_type, str(exc))
 
 
 def ensure_task_type(task_type: str, allowed_task_types: list[str] | set[str]) -> str:

@@ -10,8 +10,9 @@ from interface.base_task import BaseTask
 from models.model_manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
+from prompts.translate import generate_translate_sub_prompt
+from prompts.translate_file import generate_translate_batch_prompt
 from utils.logger import setup_logger
-from utils.translate_subs import translate_single_line, translate_sub
 
 logger = setup_logger("task-timings")
 app_logger = setup_logger("translator-helper")
@@ -168,7 +169,7 @@ class TaskTranslateFile(BaseTask):
 
                 for _ in range(3):
                     try:
-                        translated_lines = translate_sub(
+                        translated_lines = self._translate_batch(
                             llm,
                             batch_lines,
                             context=context_dict,
@@ -229,7 +230,7 @@ class TaskTranslateFile(BaseTask):
                     malformed_output or "[]",
                 )
                 for line in batch:
-                    translated_text = translate_single_line(
+                    translated_text = self._translate_single_line(
                         llm=llm,
                         line=line.text,
                         context=context_dict,
@@ -245,6 +246,51 @@ class TaskTranslateFile(BaseTask):
                         progress_callback(processed, total_lines, batch_number, total_batches)
 
         return subs
+
+    def _translate_batch(
+        self,
+        llm,
+        lines: list[str],
+        context: dict | None = None,
+        input_lang: str = "ja",
+        target_lang: str = "en",
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> list[str]:
+        system_prompt = generate_translate_batch_prompt(
+            context=context,
+            input_lang=input_lang,
+            target_lang=target_lang,
+        )
+        response = llm.infer(
+            prompt="\n".join(lines),
+            system_prompt=system_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        ).strip()
+        return [line for line in response.splitlines() if line.strip()]
+
+    def _translate_single_line(
+        self,
+        llm,
+        line: str,
+        context: dict | None = None,
+        input_lang: str = "ja",
+        target_lang: str = "en",
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> str:
+        system_prompt = generate_translate_sub_prompt(
+            context=context,
+            input_lang=input_lang,
+            target_lang=target_lang,
+        )
+        return llm.infer(
+            prompt=line,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        ).strip()
 
     def _build_batch_lines(self, batch) -> list[str]:
         batch_lines: list[str] = []

@@ -1,6 +1,7 @@
 import json
 import re
 import time
+from pathlib import Path
 
 import pysubs2
 
@@ -39,6 +40,7 @@ class TaskPlanTranslationBatches(BaseTask):
         input_lang = str(data.get("input_lang", "ja"))
         output_lang = str(data.get("output_lang", "en"))
         batch_size = max(1, int(data.get("batch_size", 50)))
+        translate_file_log_dir = str(data.get("translate_file_log_dir", ""))
 
         result_handler.set_processing(self.task_type)
         try:
@@ -72,7 +74,17 @@ class TaskPlanTranslationBatches(BaseTask):
                 "input_lang": input_lang,
                 "output_lang": output_lang,
                 "batch_size": batch_size,
+                "translate_file_log_dir": translate_file_log_dir,
             }
+            self._write_plan_log(
+                log_dir=translate_file_log_dir,
+                original_filename=str(original_filename or ""),
+                input_lang=input_lang,
+                output_lang=output_lang,
+                batch_size=batch_size,
+                total_lines=total_lines,
+                batches=batches,
+            )
             progress_handler.set(
                 self.task_type,
                 {
@@ -103,6 +115,34 @@ class TaskPlanTranslationBatches(BaseTask):
         if not indexed_lines:
             raise ValueError("Subtitle file does not contain any subtitle lines.")
         return indexed_lines, len(indexed_lines)
+
+    def _write_plan_log(
+        self,
+        log_dir: str,
+        original_filename: str,
+        input_lang: str,
+        output_lang: str,
+        batch_size: int,
+        total_lines: int,
+        batches: list[dict[str, int | str]],
+    ):
+        if not log_dir:
+            return
+
+        output_dir = Path(log_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        log_payload = {
+            "task_type": self.task_type,
+            "original_filename": original_filename,
+            "input_lang": input_lang,
+            "output_lang": output_lang,
+            "batch_size": batch_size,
+            "total_lines": total_lines,
+            "batch_count": len(batches),
+            "batches": batches,
+        }
+        with open(output_dir / "01-plan-translation-batches.json", "w", encoding="utf-8") as file_handle:
+            json.dump(log_payload, file_handle, ensure_ascii=False, indent=2)
 
     def _parse_batches(
         self,
