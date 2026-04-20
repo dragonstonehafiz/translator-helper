@@ -16,7 +16,6 @@ from utils.logger import setup_logger
 
 logger = setup_logger("task-timings")
 app_logger = setup_logger("translator-helper")
-translate_file_logger = setup_logger("translate-file")
 
 
 class TaskTranslateFile(BaseTask):
@@ -181,9 +180,7 @@ class TaskTranslateFile(BaseTask):
                             raise ValueError("Batch translation output line count mismatch.")
 
                         for line, translated in zip(batch, translated_lines):
-                            original_line = f"{line.text}"
                             line.text = translated.replace("\\N", " ").strip()
-                            translate_file_logger.info("Original: %s | Translated: %s", original_line, line.text)
                             processed += 1
                             if progress_callback:
                                 progress_callback(processed, total_lines, batch_number, total_batches)
@@ -238,9 +235,7 @@ class TaskTranslateFile(BaseTask):
                         target_lang=target_lang,
                         temperature=temperature,
                     )
-                    original_line = f"{line.text}"
                     line.text = translated_text.replace("\\N", " ").strip()
-                    translate_file_logger.info("Original: %s | Translated: %s", original_line, line.text)
                     processed += 1
                     if progress_callback:
                         progress_callback(processed, total_lines, batch_number, total_batches)
