@@ -66,7 +66,7 @@ class TaskGenerateRecap(BaseTask):
                 output_lang=output_lang,
             )
             output = model_manager.llm_infer(prompt="Generate recap.", system_prompt=system_prompt)
-            payload = {"type": "recap", "data": output}
+            payload = {"text": output}
             result_handler.set_complete(self.task_type, payload)
             status = "complete"
             return payload

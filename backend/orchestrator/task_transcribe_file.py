@@ -1,7 +1,5 @@
 import os
 import time
-from pathlib import Path
-
 from interface.base_task import BaseTask
 from models.model_manager import ModelManager
 from orchestrator.result_handler import ResultHandler
@@ -35,11 +33,10 @@ class TaskTranscribeFile(BaseTask):
         result_handler.set_processing(self.task_type)
         try:
             audio_client.set_running(True)
-            output_path = model_manager.audio_transcribe_file(file_path, language, original_filename)
-            payload = {"type": "file_transcription", "filename": Path(output_path).name}
-            result_handler.set_complete(self.task_type, payload)
+            model_manager.audio_transcribe_file(file_path, language, original_filename)
+            result_handler.set_complete(self.task_type)
             status = "complete"
-            return payload
+            return {}
         except Exception as exc:
             logger.error("Error transcribing audio file: %s", exc, exc_info=True)
             result_handler.set_error(self.task_type, str(exc))

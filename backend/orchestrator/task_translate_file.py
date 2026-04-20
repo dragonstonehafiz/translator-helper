@@ -108,10 +108,9 @@ class TaskTranslateFile(BaseTask):
                 },
             )
 
-            payload = {"type": "file_translation", "filename": translated_filename}
-            result_handler.set_complete(self.task_type, payload)
+            result_handler.set_complete(self.task_type)
             status = "complete"
-            return payload
+            return {}
         except Exception as exc:
             logger.error("Error translating subtitle file: %s", exc, exc_info=True)
             result_handler.set_error(self.task_type, str(exc))

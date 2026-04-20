@@ -79,7 +79,7 @@ class TaskSplitOversizedBatches(BaseTask):
                 "output_lang": output_lang,
                 "batch_size": batch_size,
             }
-            result_handler.set_complete(self.task_type, payload)
+            result_handler.set_complete(self.task_type)
             status = "complete"
             return payload
         except Exception as exc:

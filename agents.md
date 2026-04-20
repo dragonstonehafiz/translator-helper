@@ -622,13 +622,7 @@ The running-status endpoint returns:
   - `file_path`
   - `language`
   - `original_filename`
-- Output payload:
-```json
-{
-  "type": "file_transcription",
-  "filename": "..."
-}
-```
+- Output payload: none. The generated file is discovered through `/file-management/transcribe-sub-files`.
 - Progress: no granular backend progress
 
 **TaskTranslateLine** (`backend/orchestrator/task_translate_line.py`):
@@ -657,13 +651,7 @@ The running-status endpoint returns:
   - `input_lang`
   - `output_lang`
   - `batch_size`
-- Output payload:
-```json
-{
-  "type": "file_translation",
-  "filename": "..."
-}
-```
+- Output payload: none. The generated file is discovered through `/file-management/sub-files`.
 - Progress: writes `current`, `total`, `status`, and `eta_seconds`
 - Notes:
   - when `batches` are provided by upstream tasks, translation uses those planned consecutive spans instead of slicing by fixed `batch_size`
@@ -758,12 +746,12 @@ Task result API payload shape:
   "message": null,
   "data": {
     "task_type": "TaskTranslateFile",
-    "result": { "filename": "..." },
+    "result": null,
     "progress": null
   }
 }
 ```
-Text-producing task results expose generated text as `data.result.text`; file-producing task results expose output filename as `data.result.filename`.
+Text-producing task results expose generated text as `data.result.text`; file-producing task results do not expose filenames or paths.
 Additional backend warnings and fallback/audit events are written to `backend/outputs/translator-helper.log`.
 Model load/unload and general backend lifecycle events are also written to `backend/outputs/translator-helper.log`.
 Frontend note: polling-time task errors are surfaced visibly to the user and not only stored in frontend task state.
@@ -781,7 +769,7 @@ Tasks without backend-provided granular progress use a frontend-created single-s
 - task-specific `status`
 - `eta_seconds: 0`
 
-For file translations, `/task-results/TaskTranslateFile` can include task result payload (including output filename). The translated files are saved in `backend/outputs/sub-files/` and retrieved via `/file-management/sub-files`.
+For file translations, `/task-results/TaskTranslateFile` reports status/progress only. The translated files are saved in `backend/outputs/sub-files/` and retrieved via `/file-management/sub-files`.
 
 ## Styling Guidelines
 

@@ -43,17 +43,6 @@ def error_response(message: str, data: Any = None) -> ApiResponse:
     return api_response("error", message=message, data=data)
 
 
-def normalize_task_result(result: dict[str, Any] | None) -> dict[str, Any] | None:
-    if result is None:
-        return None
-
-    normalized = dict(result)
-    normalized.pop("type", None)
-    if "data" in normalized:
-        normalized["text"] = normalized.pop("data")
-    return normalized
-
-
 def task_result_data(
     task_type: str,
     result: dict[str, Any] | None = None,
@@ -61,7 +50,7 @@ def task_result_data(
 ) -> dict[str, Any]:
     return {
         "task_type": task_type,
-        "result": normalize_task_result(result),
+        "result": result,
         "progress": progress,
     }
 

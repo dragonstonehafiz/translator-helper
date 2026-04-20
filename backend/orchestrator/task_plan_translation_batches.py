@@ -82,7 +82,7 @@ class TaskPlanTranslationBatches(BaseTask):
                     "eta_seconds": 0.0,
                 },
             )
-            result_handler.set_complete(self.task_type, payload)
+            result_handler.set_complete(self.task_type)
             status = "complete"
             return payload
         except Exception as exc:

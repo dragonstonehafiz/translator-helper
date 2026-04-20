@@ -41,7 +41,6 @@ export interface TaskProgress {
 
 export interface TaskResultPayload {
   text?: string;
-  filename?: string;
 }
 
 export interface StoredTaskState {

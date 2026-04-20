@@ -44,7 +44,7 @@ class TaskGenerateCharacterList(BaseTask):
                 output_lang=output_lang,
             )
             output = model_manager.llm_infer(prompt=transcript, system_prompt=system_prompt)
-            payload = {"type": "character_list", "data": output}
+            payload = {"text": output}
             result_handler.set_complete(self.task_type, payload)
             status = "complete"
             return payload

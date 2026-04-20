@@ -546,7 +546,7 @@ export class ContextComponent implements OnInit, OnDestroy {
   private updateTaskStateFromResponse(
     taskType: string,
     status: string,
-    result?: {text?: string; filename?: string} | null,
+    result?: {text?: string} | null,
     message?: string | null,
     progress?: TaskProgress | null,
   ): void {

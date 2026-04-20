@@ -34,7 +34,7 @@ class TaskTranscribeLine(BaseTask):
         try:
             audio_client.set_running(True)
             transcript = model_manager.audio_transcribe_line(file_path, language)
-            payload = {"type": "transcription", "data": transcript}
+            payload = {"text": transcript}
             result_handler.set_complete(self.task_type, payload)
             status = "complete"
             return payload

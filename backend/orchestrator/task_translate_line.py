@@ -46,7 +46,7 @@ class TaskTranslateLine(BaseTask):
                 prompt=text,
                 system_prompt=system_prompt,
             )
-            payload = {"type": "line_translation", "data": translated_text}
+            payload = {"text": translated_text}
             result_handler.set_complete(self.task_type, payload)
             status = "complete"
             return payload
