@@ -110,14 +110,6 @@ export class ApiService {
     return this.http.post<ApiResponse<TaskStartData>>(`${this.baseUrl}/context/generate-high-level-summary`, formData);
   }
 
-  generateRecap(contexts: any[], inputLang: string, outputLang: string): Observable<ApiResponse<TaskStartData>> {
-    return this.http.post<ApiResponse<TaskStartData>>(`${this.baseUrl}/context/generate-recap`, {
-      contexts: contexts,
-      input_lang: inputLang,
-      output_lang: outputLang
-    });
-  }
-
   transcribeAudio(audioFile: File, language: string): Observable<ApiResponse<TaskStartData>> {
     const formData = new FormData();
     formData.append('file', audioFile);

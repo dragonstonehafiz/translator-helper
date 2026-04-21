@@ -12,7 +12,6 @@ export class ContextStatusComponent {
   @Input() characterList = '';
   @Input() synopsis = '';
   @Input() summary = '';
-  @Input() recap = '';
   @Input() additionalInstructions = '';
 
   hasContent(value: string): boolean {

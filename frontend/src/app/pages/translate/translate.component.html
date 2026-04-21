@@ -18,7 +18,6 @@
         [characterList]="characterList"
         [synopsis]="synopsis"
         [summary]="summary"
-        [recap]="recap"
         [additionalInstructions]="additionalInstructions">
       </app-context-status>
 
@@ -39,10 +38,6 @@
                 class="context-tab"
                 [class.active]="activeContextTab === 'summary'"
                 (click)="setContextTab('summary')">Summary</button>
-        <button type="button"
-                class="context-tab"
-                [class.active]="activeContextTab === 'recap'"
-                (click)="setContextTab('recap')">Recap</button>
       </div>
 
       <div class="context-tab-content" *ngIf="activeContextTab === 'additional'">
@@ -82,16 +77,6 @@
           [rows]="6"
           [(ngModel)]="summary"
           (ngModelChange)="updateSummary()">
-        </app-text-field>
-      </div>
-
-      <div class="context-tab-content" *ngIf="activeContextTab === 'recap'">
-        <app-text-field 
-          label="Recap" 
-          placeholder="No recap available..."
-          [rows]="6"
-          [(ngModel)]="recap"
-          (ngModelChange)="updateRecap()">
         </app-text-field>
       </div>
     </app-subsection>
@@ -179,10 +164,6 @@
         <label class="checkbox-label">
           <input type="checkbox" [(ngModel)]="fileUseSummary">
           <span>Summary</span>
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" [(ngModel)]="fileUseRecap">
-          <span>Recap</span>
         </label>
       </div>
 

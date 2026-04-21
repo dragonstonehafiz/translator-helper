@@ -55,7 +55,6 @@ export class AppComponent implements OnInit {
     TASK_TYPES.generateCharacterList,
     TASK_TYPES.generateSynopsis,
     TASK_TYPES.generateSummary,
-    TASK_TYPES.generateRecap,
   ];
   private readonly taskLabels: Record<string, string> = {
     [TASK_TYPES.translateFile]: 'File Translation',
@@ -65,7 +64,6 @@ export class AppComponent implements OnInit {
     [TASK_TYPES.generateCharacterList]: 'Character List',
     [TASK_TYPES.generateSynopsis]: 'Synopsis',
     [TASK_TYPES.generateSummary]: 'Summary',
-    [TASK_TYPES.generateRecap]: 'Recap',
   };
 
   constructor(

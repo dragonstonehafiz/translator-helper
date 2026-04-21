@@ -29,7 +29,6 @@ export class ContextComponent implements OnInit, OnDestroy {
     [TASK_TYPES.generateCharacterList]: { current: 0, total: 1, status: 'Generating character list from the subtitle file', eta_seconds: 0 },
     [TASK_TYPES.generateSynopsis]: { current: 0, total: 1, status: 'Generating synopsis from the subtitle file', eta_seconds: 0 },
     [TASK_TYPES.generateSummary]: { current: 0, total: 1, status: 'Generating summary from the subtitle file', eta_seconds: 0 },
-    [TASK_TYPES.generateRecap]: { current: 0, total: 1, status: 'Generating recap from imported context files', eta_seconds: 0 },
   } as const;
 
   characterList = '';
@@ -66,14 +65,8 @@ export class ContextComponent implements OnInit, OnDestroy {
   isGeneratingCharacterList = false;
   isGeneratingSynopsis = false;
   isGeneratingSummary = false;
-  isGeneratingRecap = false;
 
   activeContextTab: 'additional' | 'character' | 'synopsis' | 'summary' = 'additional';
-  
-  // Recap section
-  recap = '';
-  recapContextFiles: File[] = [];
-  recapContexts: any[] = [];
   
   languageOptions = LANGUAGE_OPTIONS;
 
@@ -89,7 +82,6 @@ export class ContextComponent implements OnInit, OnDestroy {
       this.characterList = state.characterList;
       this.synopsis = state.synopsis;
       this.summary = state.summary;
-      this.recap = state.recap;
       this.additionalInstructions = state.additionalInstructions;
     });
     this.taskStateSubscription = this.stateService.taskStates$.subscribe(() => {
@@ -162,11 +154,6 @@ export class ContextComponent implements OnInit, OnDestroy {
 
   updateAdditionalInstructions(): void {
     this.stateService.setAdditionalInstructions(this.additionalInstructions);
-    this.saveContext();
-  }
-
-  updateRecap(): void {
-    this.stateService.setRecap(this.recap);
     this.saveContext();
   }
 
@@ -266,7 +253,6 @@ export class ContextComponent implements OnInit, OnDestroy {
       characterList: this.characterList,
       synopsis: this.synopsis,
       summary: this.summary,
-      recap: this.recap,
       additionalInstructions: this.additionalInstructions,
     };
     this.apiService.saveContext(this.currentFilename, context).subscribe({
@@ -363,10 +349,6 @@ export class ContextComponent implements OnInit, OnDestroy {
           this.summary = data.summary;
           this.stateService.setSummary(data.summary);
         }
-        if (data.recap !== undefined) {
-          this.recap = data.recap;
-          this.stateService.setRecap(data.recap);
-        }
         if (data.additionalInstructions !== undefined) {
           this.additionalInstructions = data.additionalInstructions;
           this.stateService.setAdditionalInstructions(data.additionalInstructions);
@@ -378,99 +360,6 @@ export class ContextComponent implements OnInit, OnDestroy {
       }
     };
     reader.readAsText(file);
-  }
-
-  onRecapFilesSelected(files: File[]): void {
-    const jsonFiles = files.filter(file => file.name.endsWith('.json'));
-    if (jsonFiles.length > 0) {
-      this.recapContextFiles = jsonFiles;
-      this.loadRecapContextFiles();
-    } else if (files.length > 0) {
-      this.errorDialogService.show('Please select JSON files.');
-    }
-  }
-
-  private loadRecapContextFiles(): void {
-    this.recapContexts = [];
-    const promises: Promise<any>[] = [];
-
-    for (const file of this.recapContextFiles) {
-      const promise = new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const data = JSON.parse(e.target?.result as string);
-            resolve(data);
-          } catch (error) {
-            console.error(`Error parsing ${file.name}:`, error);
-            reject(error);
-          }
-        };
-        reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
-        reader.readAsText(file);
-      });
-      promises.push(promise);
-    }
-
-    Promise.all(promises)
-      .then(contexts => {
-        this.recapContexts = contexts;
-      })
-      .catch(error => {
-        console.error('Error loading context files:', error);
-        this.errorDialogService.show('Failed to load some context files.');
-      });
-  }
-
-  removeRecapFile(index: number): void {
-    this.recapContextFiles.splice(index, 1);
-    this.recapContexts.splice(index, 1);
-  }
-
-  moveRecapFileUp(index: number): void {
-    if (index > 0) {
-      // Swap files
-      [this.recapContextFiles[index], this.recapContextFiles[index - 1]] = 
-        [this.recapContextFiles[index - 1], this.recapContextFiles[index]];
-      
-      // Swap contexts if they exist
-      if (this.recapContexts.length > index) {
-        [this.recapContexts[index], this.recapContexts[index - 1]] = 
-          [this.recapContexts[index - 1], this.recapContexts[index]];
-      }
-    }
-  }
-
-  moveRecapFileDown(index: number): void {
-    if (index < this.recapContextFiles.length - 1) {
-      // Swap files
-      [this.recapContextFiles[index], this.recapContextFiles[index + 1]] = 
-        [this.recapContextFiles[index + 1], this.recapContextFiles[index]];
-      
-      // Swap contexts if they exist
-      if (this.recapContexts.length > index + 1) {
-        [this.recapContexts[index], this.recapContexts[index + 1]] = 
-          [this.recapContexts[index + 1], this.recapContexts[index]];
-      }
-    }
-  }
-
-  generateRecap(): void {
-    if (this.recapContexts.length === 0) {
-      this.errorDialogService.show('Please upload at least one context file');
-      return;
-    }
-
-    if (this.stateService.hasActiveTask()) {
-      return;
-    }
-    this.startContextTask(
-      TASK_TYPES.generateRecap,
-      this.apiService.generateRecap(
-      this.recapContexts,
-      this.inputLanguage,
-      this.outputLanguage
-    ));
   }
 
   isAnyTaskRunning(): boolean {
@@ -520,7 +409,6 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.isGeneratingCharacterList = this.isTaskProcessing(TASK_TYPES.generateCharacterList);
     this.isGeneratingSynopsis = this.isTaskProcessing(TASK_TYPES.generateSynopsis);
     this.isGeneratingSummary = this.isTaskProcessing(TASK_TYPES.generateSummary);
-    this.isGeneratingRecap = this.isTaskProcessing(TASK_TYPES.generateRecap);
   }
 
   private isTaskProcessing(taskType: string): boolean {
@@ -532,7 +420,6 @@ export class ContextComponent implements OnInit, OnDestroy {
       TASK_TYPES.generateCharacterList,
       TASK_TYPES.generateSynopsis,
       TASK_TYPES.generateSummary,
-      TASK_TYPES.generateRecap,
     ];
     const resumableTask = taskTypes.find(taskType => {
       const taskState = this.stateService.getTaskState(taskType);
@@ -600,9 +487,6 @@ export class ContextComponent implements OnInit, OnDestroy {
     } else if (taskType === TASK_TYPES.generateSummary) {
       this.summary = data;
       this.stateService.setSummary(data);
-    } else if (taskType === TASK_TYPES.generateRecap) {
-      this.recap = data;
-      this.stateService.setRecap(data);
     }
   }
 

@@ -63,8 +63,7 @@
         [additionalInstructions]="additionalInstructions"
         [characterList]="characterList"
         [synopsis]="synopsis"
-        [summary]="summary"
-        [recap]="recap">
+        [summary]="summary">
       </app-context-status>
 
       <hr class="context-divider">
@@ -117,8 +116,8 @@
       <div class="context-tab-content" *ngIf="activeContextTab === 'character'">
         <div class="form-group">
           <div class="context-field-wrapper" [class.is-loading]="isGeneratingCharacterList">
-            <app-text-field 
-              label="Character List" 
+            <app-text-field
+              label="Character List"
               tooltip="Generate a list of characters with descriptions from the subtitle file"
               placeholder="Enter character names and descriptions..."
               [(ngModel)]="characterList"
@@ -145,8 +144,8 @@
       <div class="context-tab-content" *ngIf="activeContextTab === 'synopsis'">
         <div class="form-group">
           <div class="context-field-wrapper" [class.is-loading]="isGeneratingSynopsis">
-            <app-text-field 
-              label="Synopsis" 
+            <app-text-field
+              label="Synopsis"
               tooltip="Generate a synopsis of the episode or scene"
               placeholder="Enter synopsis..."
               [(ngModel)]="synopsis"
@@ -176,8 +175,8 @@
       <div class="context-tab-content" *ngIf="activeContextTab === 'summary'">
         <div class="form-group">
           <div class="context-field-wrapper" [class.is-loading]="isGeneratingSummary">
-            <app-text-field 
-              label="Summary" 
+            <app-text-field
+              label="Summary"
               tooltip="Generate a high-level summary of the episode or content"
               placeholder="Enter summary..."
               [(ngModel)]="summary"
@@ -202,79 +201,6 @@
         <app-primary-button [fullWidth]="true" (click)="generateSummary()" [disabled]="isAnyTaskRunning() || !selectedFile">
           Generate Summary
         </app-primary-button>
-      </div>
-
-    </app-subsection>
-
-    <app-subsection
-      title="Recap Generation"
-      tooltip="Generate a comprehensive recap from multiple context files for continuity across episodes">
-
-      <app-file-upload
-        accept=".json"
-        [multiple]="true"
-        placeholder="Upload Context Files"
-        subtext=".json files (select multiple)"
-        [selectedFiles]="recapContextFiles"
-        (filesSelected)="onRecapFilesSelected($event)">
-      </app-file-upload>
-
-      <div class="file-table-container" *ngIf="recapContextFiles.length > 0">
-        <div class="file-table-header">
-          <span>Uploaded Context Files</span>
-          <app-tooltip-icon tooltip="Files are processed in the order shown. Use ↑/↓ buttons to reorder them for proper chronological sequence."></app-tooltip-icon>
-        </div>
-        <table class="file-table">
-          <thead>
-            <tr>
-              <th class="col-reorder"></th>
-              <th class="col-index">#</th>
-              <th class="col-filename">Filename</th>
-              <th class="col-remove"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let file of recapContextFiles; let i = index">
-              <td class="col-reorder">
-                <div class="reorder-buttons">
-                  <button type="button"
-                          class="reorder-btn"
-                          (click)="moveRecapFileUp(i)"
-                          [disabled]="i === 0"
-                          title="Move up">↑</button>
-                  <button type="button"
-                          class="reorder-btn"
-                          (click)="moveRecapFileDown(i)"
-                          [disabled]="i === recapContextFiles.length - 1"
-                          title="Move down">↓</button>
-                </div>
-              </td>
-              <td class="col-index">{{ i + 1 }}</td>
-              <td class="col-filename">{{ file.name }}</td>
-              <td class="col-remove">
-                <button type="button" class="remove-btn" (click)="removeRecapFile(i)" title="Remove file">✕</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <app-primary-button [fullWidth]="true" (click)="generateRecap()" [disabled]="isAnyTaskRunning() || recapContextFiles.length === 0">
-        Generate Recap
-      </app-primary-button>
-
-      <div class="form-group">
-        <div class="context-field-wrapper" [class.is-loading]="isGeneratingRecap">
-          <app-text-field
-            label="Generated Recap"
-            placeholder="Recap will appear here..."
-            [(ngModel)]="recap"
-            (ngModelChange)="updateRecap()">
-          </app-text-field>
-          <div class="context-field-overlay" *ngIf="isGeneratingRecap">
-            <app-loading-text-indicator text="Generating Recap..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
-          </div>
-        </div>
       </div>
     </app-subsection>
     </main>

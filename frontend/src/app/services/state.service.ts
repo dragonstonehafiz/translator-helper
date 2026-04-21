@@ -56,7 +56,6 @@ export interface AppContentState {
   characterList: string;
   synopsis: string;
   summary: string;
-  recap: string;
   additionalInstructions: string;
 }
 
@@ -64,7 +63,6 @@ export interface ContextFileData {
   characterList?: string;
   synopsis?: string;
   summary?: string;
-  recap?: string;
   additionalInstructions?: string;
   inputLanguage?: string;
   outputLanguage?: string;
@@ -80,7 +78,6 @@ export const TASK_TYPES = {
   generateCharacterList: 'TaskGenerateCharacterList',
   generateSynopsis: 'TaskGenerateSynopsis',
   generateSummary: 'TaskGenerateSummary',
-  generateRecap: 'TaskGenerateRecap',
   translateLine: 'TaskTranslateLine',
   translateFile: 'TaskTranslateFile',
   transcribeLine: 'TaskTranscribeLine',
@@ -114,7 +111,6 @@ export class StateService {
     characterList: '',
     synopsis: '',
     summary: '',
-    recap: '',
     additionalInstructions: '',
   });
   public contentState$: Observable<AppContentState> = this.contentStateSubject.asObservable();
@@ -127,9 +123,6 @@ export class StateService {
 
   private synopsisSubject = new BehaviorSubject<string>('');
   public synopsis$: Observable<string> = this.synopsisSubject.asObservable();
-
-  private recapSubject = new BehaviorSubject<string>('');
-  public recap$: Observable<string> = this.recapSubject.asObservable();
 
   private additionalInstructionsSubject = new BehaviorSubject<string>('');
   public additionalInstructions$: Observable<string> = this.additionalInstructionsSubject.asObservable();
@@ -232,14 +225,6 @@ export class StateService {
 
   getSynopsis(): string {
     return this.synopsisSubject.value;
-  }
-
-  setRecap(recap: string): void {
-    this.patchContentState({ recap });
-  }
-
-  getRecap(): string {
-    return this.recapSubject.value;
   }
 
   setAdditionalInstructions(instructions: string): void {
@@ -347,7 +332,6 @@ export class StateService {
     this.characterListSubject.next(next.characterList);
     this.synopsisSubject.next(next.synopsis);
     this.summarySubject.next(next.summary);
-    this.recapSubject.next(next.recap);
     this.additionalInstructionsSubject.next(next.additionalInstructions);
   }
 
@@ -364,7 +348,6 @@ export class StateService {
         if (data.characterList !== undefined) patch.characterList = data.characterList;
         if (data.synopsis !== undefined) patch.synopsis = data.synopsis;
         if (data.summary !== undefined) patch.summary = data.summary;
-        if (data.recap !== undefined) patch.recap = data.recap;
         this.setContextState(patch);
       },
       error: (error) => {
