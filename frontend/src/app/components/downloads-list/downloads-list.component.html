@@ -23,12 +23,34 @@
           [(ngModel)]="search">
       </div>
       <div class="download-sort">
-        <span class="download-sort-label">Sort</span>
-        <button type="button" class="download-sort-btn" [class.active]="sort === 'desc'" (click)="setSort('desc')">
-          Newest
+        <label class="download-sort-label" for="downloadSortField">Sort</label>
+        <select id="downloadSortField" class="download-sort-select" [(ngModel)]="sortField">
+          <option value="modified">Date</option>
+          <option value="name">Name</option>
+        </select>
+      </div>
+      <div class="download-sort-order" aria-label="Sort order">
+        <button
+          type="button"
+          class="download-sort-btn"
+          [class.active]="sort === 'asc'"
+          (click)="setSort('asc')"
+          aria-label="Sort ascending"
+          title="Sort ascending">
+          <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
+            <path d="M12 5l7 7h-5v7h-4v-7H5l7-7z"></path>
+          </svg>
         </button>
-        <button type="button" class="download-sort-btn" [class.active]="sort === 'asc'" (click)="setSort('asc')">
-          Oldest
+        <button
+          type="button"
+          class="download-sort-btn"
+          [class.active]="sort === 'desc'"
+          (click)="setSort('desc')"
+          aria-label="Sort descending"
+          title="Sort descending">
+          <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
+            <path d="M12 19l-7-7h5V5h4v7h5l-7 7z"></path>
+          </svg>
         </button>
       </div>
     </div>

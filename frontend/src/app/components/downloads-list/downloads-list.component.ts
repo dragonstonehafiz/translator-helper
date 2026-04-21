@@ -23,7 +23,8 @@ export class DownloadsListComponent {
   @Output() delete = new EventEmitter<string>();
 
   search = '';
-  sort: 'desc' | 'asc' = 'desc';
+  sortField: 'modified' | 'name' = 'name';
+  sort: 'desc' | 'asc' = 'asc';
 
   toggleCollapsed(): void {
     this.collapsed = !this.collapsed;
@@ -42,6 +43,9 @@ export class DownloadsListComponent {
     }
     const direction = this.sort === 'asc' ? 1 : -1;
     return [...list].sort((a, b) => {
+      if (this.sortField === 'name') {
+        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) * direction;
+      }
       const aTime = Date.parse(a.modified);
       const bTime = Date.parse(b.modified);
       if (!Number.isNaN(aTime) && !Number.isNaN(bTime)) {
