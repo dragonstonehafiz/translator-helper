@@ -16,7 +16,6 @@ from models.model_manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from orchestrator.task_generate_character_list import TaskGenerateCharacterList
-from orchestrator.task_generate_recap import TaskGenerateRecap
 from orchestrator.task_generate_summary import TaskGenerateSummary
 from orchestrator.task_generate_synopsis import TaskGenerateSynopsis
 from orchestrator.task_orchestrator import TaskOrchestrator
@@ -42,7 +41,6 @@ LLM_TASK_TYPES = {
     TaskGenerateCharacterList.TASK_TYPE,
     TaskGenerateSynopsis.TASK_TYPE,
     TaskGenerateSummary.TASK_TYPE,
-    TaskGenerateRecap.TASK_TYPE,
     TaskPlanTranslationBatches.TASK_TYPE,
     TaskSplitOversizedBatches.TASK_TYPE,
 }
@@ -54,7 +52,6 @@ CONTEXT_TASK_TYPES = [
     TaskGenerateCharacterList.TASK_TYPE,
     TaskGenerateSynopsis.TASK_TYPE,
     TaskGenerateSummary.TASK_TYPE,
-    TaskGenerateRecap.TASK_TYPE,
 ]
 TRANSLATE_TASK_TYPES = [TaskTranslateLine.TASK_TYPE, TaskTranslateFile.TASK_TYPE]
 TRANSCRIBE_TASK_TYPES = [TaskTranscribeLine.TASK_TYPE, TaskTranscribeFile.TASK_TYPE]
@@ -64,12 +61,6 @@ OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
 class UpdateSettingsRequest(BaseModel):
     provider: str
     settings: dict
-
-
-class GenerateRecapRequest(BaseModel):
-    contexts: list[dict]
-    input_lang: str = "ja"
-    output_lang: str = "en"
 
 
 class SaveContextRequest(BaseModel):

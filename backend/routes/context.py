@@ -8,13 +8,11 @@ import os
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 
 from orchestrator.task_generate_character_list import TaskGenerateCharacterList
-from orchestrator.task_generate_recap import TaskGenerateRecap
 from orchestrator.task_generate_summary import TaskGenerateSummary
 from orchestrator.task_generate_synopsis import TaskGenerateSynopsis
 from utils.api_response import error_response, processing_response, success_response
 
 from .shared import (
-    GenerateRecapRequest,
     SaveContextRequest,
     get_files_dir,
     model_manager,
@@ -94,21 +92,6 @@ async def api_generate_synopsis(
         {"file_path": tmp_path, "context": context_dict, "input_lang": input_lang, "output_lang": output_lang},
     )
     return processing_response({"task_type": TaskGenerateSynopsis.TASK_TYPE}, "Synopsis generation started")
-
-
-@router.post("/generate-recap")
-async def api_generate_recap(request: GenerateRecapRequest, background_tasks: BackgroundTasks):
-    if not model_manager.is_llm_ready():
-        return error_response("LLM not loaded")
-    if task_orchestrator.is_running():
-        return error_response("Context generation already running")
-
-    background_tasks.add_task(
-        run_single_task,
-        TaskGenerateRecap(),
-        {"contexts": request.contexts, "input_lang": request.input_lang, "output_lang": request.output_lang},
-    )
-    return processing_response({"task_type": TaskGenerateRecap.TASK_TYPE}, "Recap generation started")
 
 
 @router.post("/save")
