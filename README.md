@@ -21,14 +21,13 @@ A full-stack web application for transcribing and translating subtitle files. Bu
 - **Character List**: Auto-generate character names and descriptions from subtitle files
 - **Synopsis**: Generate episode or scene synopsis (optional: include character list)
 - **Summary**: Generate high-level summary (optional: include character list)
-- **Recap**: Generate comprehensive recap from multiple context JSON files for multi-episode continuity
 
 ### Transcribe Page
 - **Transcribe Line**: Record audio from microphone with waveform visualization, transcribe to text using WhisperX
 - **Transcribe File**: Upload an audio file and generate a timed .ass subtitle file using WhisperX (note: timings are not accurate enough to be reliable)
 
 ### Translate Page
-- **Context**: View and edit saved context (character list, synopsis, summary, recap)
+- **Context**: View and edit saved context (character list, synopsis, summary)
 - **Translate Line**: Translate single lines with selectable context sources (character list, synopsis, summary)
 - **Translate File**: Upload subtitle files (.ass/.srt) with batch size support; translated files are saved in `backend/outputs/sub-files/` for download
 
@@ -188,6 +187,5 @@ Once the two previous steps are completed, you can access the app by going to ht
 ## TODO
 
 - Add a translation review task where users upload an original subtitle file and a translated subtitle file, and the app reports issues and unnatural-sounding sections.
-- Re-evaluate recap generation usefulness and quality, since the current flow exists but has not been validated much in real use.
 - Add a way to choose a specific model per translate/context task instead of forcing all tasks to use the same globally loaded LLM.
 - Add some backend library thing to store series information that will automatically be updated when new translation files are read for that series

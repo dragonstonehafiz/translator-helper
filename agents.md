@@ -26,7 +26,7 @@ Translator Helper is a full-stack application for transcribing, translating, and
   - Prompt functions are imported and called directly rather than through a wrapper class
   - `translate.py` contains single-line translation prompts
   - `translate_file.py` contains full-file translation prompts and translation-batch planning/splitting prompts
-  - `context.py` and `recap.py` contain context-generation prompts
+  - `context.py` contains context-generation prompts
 - **Backend Outputs**: Generated files and audit logs live under `backend/outputs/`
   - `translate-file-logs/<YYYYMMDD-HHMMSS-original_filename>/` stores per-file-translation batch planning JSON logs
 
@@ -176,7 +176,7 @@ The application uses several reusable standalone components located in `frontend
 ### app-context-status
 **Location**: `frontend/src/app/components/context-status/`
 
-**Purpose**: Displays status pills for context completeness (Character List, Synopsis, Summary, Recap).
+**Purpose**: Displays status pills for context completeness (Character List, Synopsis, Summary).
 
 **When to use**:
 - Any place you want a quick visual indicator of which context fields are filled
@@ -187,8 +187,7 @@ The application uses several reusable standalone components located in `frontend
   [additionalInstructions]="additionalInstructions"
   [characterList]="characterList"
   [synopsis]="synopsis"
-  [summary]="summary"
-  [recap]="recap">
+  [summary]="summary">
 </app-context-status>
 ```
 
@@ -197,7 +196,6 @@ The application uses several reusable standalone components located in `frontend
 - `characterList` (optional): string
 - `synopsis` (optional): string
 - `summary` (optional): string
-- `recap` (optional): string
 
 ---
 
@@ -517,7 +515,6 @@ The running-status endpoint returns:
 - `POST /context/generate-character-list`: Generate character list from subtitle file
 - `POST /context/generate-synopsis`: Generate synopsis from subtitle file
 - `POST /context/generate-high-level-summary`: Generate summary from subtitle file
-- `POST /context/generate-recap`: Generate recap from multiple contexts
 - `POST /context/save`: Save a context JSON file
 
 **Transcription** (`backend/routes/transcribe.py`):
@@ -585,21 +582,6 @@ The running-status endpoint returns:
 ```json
 {
   "type": "summary",
-  "data": "..."
-}
-```
-- Progress: no granular backend progress
-
-**TaskGenerateRecap** (`backend/orchestrator/task_generate_recap.py`):
-- Purpose: Merge multiple context files into a continuity recap for future translation
-- Inputs:
-  - `contexts`
-  - `input_lang`
-  - `output_lang`
-- Output payload:
-```json
-{
-  "type": "recap",
   "data": "..."
 }
 ```
@@ -837,9 +819,9 @@ For file translations, `/task-results/TaskTranslateFile` reports status/progress
 
 ### State Management
 - Use `StateService` for cross-component state
-  - `getState()`: Returns Observable with all saved context data (characterList, synopsis, summary, recap)
-  - Individual getters: `getCharacterList()`, `getSynopsis()`, `getSummary()`, `getRecap()`
-  - Individual setters: `setCharacterList()`, `setSynopsis()`, `setSummary()`, `setRecap()`
+  - `getState()`: Returns Observable with all saved context data (characterList, synopsis, summary)
+  - Individual getters: `getCharacterList()`, `getSynopsis()`, `getSummary()`
+  - Individual setters: `setCharacterList()`, `setSynopsis()`, `setSummary()`
   - Task state is also tracked per backend task type using `getTaskState()`, `setTaskState()`, `clearTaskState()`, and `hasActiveTask()`
   - Task state shape is `taskType`, `status`, `result`, `message`, `progress`, `isPolling`
   - Active subtitle state is shared across Context and Translate via `activeSubtitleFile$`, `setActiveSubtitleFile()`, `getActiveSubtitleFile()`
