@@ -48,4 +48,54 @@
       </button>
     </div>
   </app-subsection>
+
+  <app-subsection title="Translated Subtitle File">
+    <div class="file-info-panel">
+      <div class="file-details-heading">File Details</div>
+      <div *ngIf="isFetchingTranslatedFileInfo" class="file-info-status">Analyzing file...</div>
+
+      <ng-container *ngIf="!isFetchingTranslatedFileInfo">
+        <div *ngIf="translatedFileInfo; else translatedFileInfoStatus" class="file-info-grid">
+          <div>
+            <span class="info-label">Lines</span>
+            <span class="info-value">{{ translatedFileInfo.totalLines }}</span>
+          </div>
+          <div>
+            <span class="info-label">Characters</span>
+            <span class="info-value">{{ translatedFileInfo.characterCount }}</span>
+          </div>
+          <div>
+            <span class="info-label">Average Characters per Line</span>
+            <span class="info-value">{{ translatedFileInfo.averageCharacterCount }}</span>
+          </div>
+        </div>
+
+        <ng-template #translatedFileInfoStatus>
+          <div class="file-info-status" *ngIf="translatedFileInfoError">
+            {{ translatedFileInfoError }}
+          </div>
+          <div class="file-info-status" *ngIf="!translatedFileInfoError && !activeTranslatedSubtitleFile">
+            Upload a translated file to view stats.
+          </div>
+        </ng-template>
+      </ng-container>
+    </div>
+
+    <div class="upload-section">
+      <app-file-upload
+        accept=".ass,.srt"
+        placeholder="Upload Translated Subtitle File"
+        subtext=".ass / .srt"
+        [selectedFiles]="activeTranslatedSubtitleFile ? [activeTranslatedSubtitleFile] : []"
+        (filesSelected)="onTranslatedSubtitleFilesSelected($event)">
+      </app-file-upload>
+      <button
+        type="button"
+        class="clear-file-button"
+        [disabled]="!activeTranslatedSubtitleFile"
+        (click)="clearTranslatedSubtitleFile()">
+        Clear File
+      </button>
+    </div>
+  </app-subsection>
 </div>

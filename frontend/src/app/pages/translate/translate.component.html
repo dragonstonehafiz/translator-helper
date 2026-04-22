@@ -203,6 +203,49 @@
         (delete)="deleteTranslatedFile($event)">
       </app-downloads-list>
     </app-subsection>
+
+    <app-subsection
+      title="Review Translation"
+      tooltip="Review the active translated subtitle file against the original and correct flagged lines">
+
+      <div class="checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="fileUseAdditionalInstructions">
+          <span>Additional Instructions</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="fileUseCharacterList">
+          <span>Character List</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="fileUseSynopsis">
+          <span>Synopsis</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="fileUseSummary">
+          <span>Summary</span>
+        </label>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="reviewInputLanguage">Input Language</label>
+          <select id="reviewInputLanguage" [(ngModel)]="fileInputLanguage">
+            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="reviewOutputLanguage">Output Language</label>
+          <select id="reviewOutputLanguage" [(ngModel)]="fileOutputLanguage">
+            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+          </select>
+        </div>
+      </div>
+
+      <app-primary-button [fullWidth]="true" (click)="reviewTranslatedFile()" [disabled]="!fileToTranslate || !translatedFileToReview || isAnyTaskRunning()">
+        {{ isReviewingTranslatedFile ? 'Reviewing...' : 'Review Translation' }}
+      </app-primary-button>
+    </app-subsection>
     </main>
   </div>
 </div>

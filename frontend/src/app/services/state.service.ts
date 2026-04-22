@@ -80,6 +80,7 @@ export const TASK_TYPES = {
   generateSummary: 'TaskGenerateSummary',
   translateLine: 'TaskTranslateLine',
   translateFile: 'TaskTranslateFile',
+  reviewTranslatedFile: 'TaskRetranslateReviewedLines',
   transcribeLine: 'TaskTranscribeLine',
   transcribeFile: 'TaskTranscribeFile',
 } as const;
@@ -130,6 +131,9 @@ export class StateService {
   private activeSubtitleFileSubject = new BehaviorSubject<File | null>(null);
   public activeSubtitleFile$: Observable<File | null> = this.activeSubtitleFileSubject.asObservable();
 
+  private activeTranslatedSubtitleFileSubject = new BehaviorSubject<File | null>(null);
+  public activeTranslatedSubtitleFile$: Observable<File | null> = this.activeTranslatedSubtitleFileSubject.asObservable();
+
   private subtitleFileInfoSubject = new BehaviorSubject<SubtitleFileInfo | null>(null);
   public subtitleFileInfo$: Observable<SubtitleFileInfo | null> = this.subtitleFileInfoSubject.asObservable();
 
@@ -138,6 +142,15 @@ export class StateService {
 
   private subtitleFileInfoErrorSubject = new BehaviorSubject<string>('');
   public subtitleFileInfoError$: Observable<string> = this.subtitleFileInfoErrorSubject.asObservable();
+
+  private translatedSubtitleFileInfoSubject = new BehaviorSubject<SubtitleFileInfo | null>(null);
+  public translatedSubtitleFileInfo$: Observable<SubtitleFileInfo | null> = this.translatedSubtitleFileInfoSubject.asObservable();
+
+  private translatedSubtitleFileInfoLoadingSubject = new BehaviorSubject<boolean>(false);
+  public translatedSubtitleFileInfoLoading$: Observable<boolean> = this.translatedSubtitleFileInfoLoadingSubject.asObservable();
+
+  private translatedSubtitleFileInfoErrorSubject = new BehaviorSubject<string>('');
+  public translatedSubtitleFileInfoError$: Observable<string> = this.translatedSubtitleFileInfoErrorSubject.asObservable();
 
   private taskStatesSubject = new BehaviorSubject<Record<string, StoredTaskState>>({});
   public taskStates$: Observable<Record<string, StoredTaskState>> = this.taskStatesSubject.asObservable();
@@ -250,6 +263,16 @@ export class StateService {
     return this.activeSubtitleFileSubject.value;
   }
 
+  setActiveTranslatedSubtitleFile(file: File | null): void {
+    this.activeTranslatedSubtitleFileSubject.next(file);
+    this.setTranslatedSubtitleFileInfo(null);
+    this.setTranslatedSubtitleFileInfoError('');
+  }
+
+  getActiveTranslatedSubtitleFile(): File | null {
+    return this.activeTranslatedSubtitleFileSubject.value;
+  }
+
   setSubtitleFileInfo(info: SubtitleFileInfo | null): void {
     this.subtitleFileInfoSubject.next(info);
   }
@@ -272,6 +295,30 @@ export class StateService {
 
   getSubtitleFileInfoError(): string {
     return this.subtitleFileInfoErrorSubject.value;
+  }
+
+  setTranslatedSubtitleFileInfo(info: SubtitleFileInfo | null): void {
+    this.translatedSubtitleFileInfoSubject.next(info);
+  }
+
+  getTranslatedSubtitleFileInfo(): SubtitleFileInfo | null {
+    return this.translatedSubtitleFileInfoSubject.value;
+  }
+
+  setTranslatedSubtitleFileInfoLoading(isLoading: boolean): void {
+    this.translatedSubtitleFileInfoLoadingSubject.next(isLoading);
+  }
+
+  getTranslatedSubtitleFileInfoLoading(): boolean {
+    return this.translatedSubtitleFileInfoLoadingSubject.value;
+  }
+
+  setTranslatedSubtitleFileInfoError(error: string): void {
+    this.translatedSubtitleFileInfoErrorSubject.next(error);
+  }
+
+  getTranslatedSubtitleFileInfoError(): string {
+    return this.translatedSubtitleFileInfoErrorSubject.value;
   }
 
   setTaskState(taskType: string, patch: Partial<StoredTaskState>): StoredTaskState {

@@ -48,6 +48,7 @@ import { ErrorDialogService } from './services/error-dialog.service';
 export class AppComponent implements OnInit {
   title = 'Translator Helper';
   private readonly taskOrder = [
+    TASK_TYPES.reviewTranslatedFile,
     TASK_TYPES.translateFile,
     TASK_TYPES.translateLine,
     TASK_TYPES.transcribeFile,
@@ -58,6 +59,7 @@ export class AppComponent implements OnInit {
   ];
   private readonly taskLabels: Record<string, string> = {
     [TASK_TYPES.translateFile]: 'File Translation',
+    [TASK_TYPES.reviewTranslatedFile]: 'Translation Review',
     [TASK_TYPES.translateLine]: 'Line Translation',
     [TASK_TYPES.transcribeFile]: 'File Transcription',
     [TASK_TYPES.transcribeLine]: 'Line Transcription',

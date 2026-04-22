@@ -20,6 +20,9 @@ from orchestrator.task_generate_summary import TaskGenerateSummary
 from orchestrator.task_generate_synopsis import TaskGenerateSynopsis
 from orchestrator.task_orchestrator import TaskOrchestrator
 from orchestrator.task_plan_translation_batches import TaskPlanTranslationBatches
+from orchestrator.task_plan_translation_review_batches import TaskPlanTranslationReviewBatches
+from orchestrator.task_retranslate_reviewed_lines import TaskRetranslateReviewedLines
+from orchestrator.task_review_translated_batches import TaskReviewTranslatedBatches
 from orchestrator.task_split_oversized_batches import TaskSplitOversizedBatches
 from orchestrator.task_transcribe_file import TaskTranscribeFile
 from orchestrator.task_transcribe_line import TaskTranscribeLine
@@ -42,6 +45,9 @@ LLM_TASK_TYPES = {
     TaskGenerateSynopsis.TASK_TYPE,
     TaskGenerateSummary.TASK_TYPE,
     TaskPlanTranslationBatches.TASK_TYPE,
+    TaskPlanTranslationReviewBatches.TASK_TYPE,
+    TaskReviewTranslatedBatches.TASK_TYPE,
+    TaskRetranslateReviewedLines.TASK_TYPE,
     TaskSplitOversizedBatches.TASK_TYPE,
 }
 AUDIO_TASK_TYPES = {
@@ -53,7 +59,11 @@ CONTEXT_TASK_TYPES = [
     TaskGenerateSynopsis.TASK_TYPE,
     TaskGenerateSummary.TASK_TYPE,
 ]
-TRANSLATE_TASK_TYPES = [TaskTranslateLine.TASK_TYPE, TaskTranslateFile.TASK_TYPE]
+TRANSLATE_TASK_TYPES = [
+    TaskTranslateLine.TASK_TYPE,
+    TaskTranslateFile.TASK_TYPE,
+    TaskRetranslateReviewedLines.TASK_TYPE,
+]
 TRANSCRIBE_TASK_TYPES = [TaskTranscribeLine.TASK_TYPE, TaskTranscribeFile.TASK_TYPE]
 OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
 
@@ -91,11 +101,24 @@ def build_task_response(task_type: str) -> dict[str, Any]:
         TaskSplitOversizedBatches.TASK_TYPE,
         TaskTranslateFile.TASK_TYPE,
     }
+    review_chain_task_types = {
+        TaskPlanTranslationReviewBatches.TASK_TYPE,
+        TaskReviewTranslatedBatches.TASK_TYPE,
+        TaskRetranslateReviewedLines.TASK_TYPE,
+    }
 
     if (
         task_type == TaskTranslateFile.TASK_TYPE
         and task_orchestrator.is_running()
         and active_task_type in translate_chain_task_types
+    ):
+        active_progress = progress_handler.get(active_task_type) if active_task_type else None
+        return processing_response(task_result_data(task_type, progress=active_progress or progress))
+
+    if (
+        task_type == TaskRetranslateReviewedLines.TASK_TYPE
+        and task_orchestrator.is_running()
+        and active_task_type in review_chain_task_types
     ):
         active_progress = progress_handler.get(active_task_type) if active_task_type else None
         return processing_response(task_result_data(task_type, progress=active_progress or progress))

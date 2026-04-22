@@ -29,6 +29,7 @@ Translator Helper is a full-stack application for transcribing, translating, and
   - `context.py` contains context-generation prompts
 - **Backend Outputs**: Generated files and audit logs live under `backend/outputs/`
   - `translate-file-logs/<YYYYMMDD-HHMMSS-original_filename>/` stores per-file-translation batch planning JSON logs
+  - `review-file-logs/<YYYYMMDD-HHMMSS-translated_filename>/` stores translated-file review and correction JSON logs
 
 ## Navigation
 
@@ -212,15 +213,17 @@ The application uses several reusable standalone components located in `frontend
 **How it works**:
 - Uses `app-file-upload` for `.ass` / `.srt` selection
 - Stores the selected subtitle `File` in `StateService`
+- Stores the selected translated subtitle `File` separately in `StateService` for translated-file review
 - Calls `ApiService.getSubtitleFileInfo()` once after selection
 - Stores subtitle stats in `StateService` so the file and stats persist across route changes in the current app session
+- Calls `ApiService.getSubtitleFileInfo()` for the translated subtitle selection and stores translated-file stats separately
 - Derives the matching saved context filename from the subtitle basename and auto-loads it from backend `context-files` when it exists
 - Writes loaded context fields into global `StateService` context state so Context and Translate update from the same source
 
 **Layout**:
 - Rendered in a sticky left sidebar on Context and Translate pages
 - The right column contains the page-specific workflow sections
-- The panel only owns active subtitle upload and file details; context file download/delete remains in the Context page's saved context list
+- The panel owns active original subtitle upload, active translated subtitle upload, and file details; context file download/delete remains in the Context page's saved context list
 
 ---
 
@@ -531,6 +534,9 @@ The running-status endpoint returns:
 - `POST /translate/translate-line`: Translate text line with context (FormData: text, context JSON, input_lang, output_lang)
 - `POST /translate/translate-file`: Translate subtitle file with batch size (FormData: file, context JSON, input_lang, output_lang, batch_size)
   - file translation now runs a 3-stage backend chain: `TaskPlanTranslationBatches` -> `TaskSplitOversizedBatches` -> `TaskTranslateFile`
+- `POST /translate/review-translated-file`: Review and correct a translated subtitle file against the original (FormData: file, translated_file, context JSON, input_lang, output_lang, batch_size)
+  - translated-file review runs a 3-stage backend chain: `TaskPlanTranslationReviewBatches` -> `TaskReviewTranslatedBatches` -> `TaskRetranslateReviewedLines`
+  - the original subtitle temp path is passed as `file_path`; the translated subtitle temp path is passed as `translated_file_path`
 
 **File Management** (`backend/routes/file_management.py`):
 - `GET /file-management/{folder}`: List files in `backend/outputs/{folder}/`
@@ -677,8 +683,87 @@ The running-status endpoint returns:
   - does not enforce maximum batch size on semantic output
   - passes through the chain data needed by downstream translation tasks
   - writes `01-plan-translation-batches.json` to the per-run folder under `backend/outputs/translate-file-logs/`
+  - uses generic chain field `log_dir` for audit output so translation and review workflows can share the planner
   - validates contiguous, ordered, gap-free, non-overlapping coverage of the entire subtitle file
   - is wired into the file translation chain before `TaskSplitOversizedBatches` and `TaskTranslateFile`
+
+**TaskPlanTranslationReviewBatches** (`backend/orchestrator/task_plan_translation_review_batches.py`):
+- Purpose: Review-workflow planner task that reuses `TaskPlanTranslationBatches` with a review-specific task type
+- Inputs:
+  - `file_path` for the original subtitle temp file
+  - `translated_file_path`
+  - `translated_filename`
+  - `original_filename`
+  - `context`
+  - `input_lang`
+  - `output_lang`
+  - `batch_size`
+  - `log_dir`
+- Output payload:
+```json
+{
+  "batches": [],
+  "file_path": "...",
+  "translated_file_path": "...",
+  "translated_filename": "...",
+  "context": {},
+  "input_lang": "ja",
+  "output_lang": "en",
+  "batch_size": 50,
+  "log_dir": "..."
+}
+```
+- Notes:
+  - does not run oversized-batch splitting in the translated-file review workflow
+
+**TaskReviewTranslatedBatches** (`backend/orchestrator/task_review_translated_batches.py`):
+- Purpose: Compare planned original/translated subtitle batches and identify exact subtitle indexes requiring correction
+- Inputs:
+  - `batches`
+  - `file_path` for the original subtitle temp file
+  - `translated_file_path`
+  - `context`
+  - `input_lang`
+  - `output_lang`
+  - `log_dir`
+- Output payload includes:
+```json
+{
+  "corrections": [
+    {
+      "index": 12,
+      "reason": "The translated line changes the speaker's intent."
+    }
+  ]
+}
+```
+- Notes:
+  - validates original and translated subtitle files have the same number of subtitle events
+  - writes `02-review-translated-batches.json` under `backend/outputs/review-file-logs/`
+
+**TaskRetranslateReviewedLines** (`backend/orchestrator/task_retranslate_reviewed_lines.py`):
+- Purpose: Retranslate only the reviewed correction indexes and save a corrected subtitle file
+- Inputs:
+  - `file_path` for the original subtitle temp file
+  - `translated_file_path`
+  - `translated_filename`
+  - `corrections`
+  - `context`
+  - `input_lang`
+  - `output_lang`
+  - `log_dir`
+- Output payload:
+```json
+{
+  "corrected_count": 3,
+  "output_filename": "episode01.en.corrected.ass"
+}
+```
+- Notes:
+  - each retranslation prompt includes original line, current translated line, and review reason
+  - corrected files are saved in `backend/outputs/sub-files/`
+  - output filenames are based on `translated_filename` with `.corrected` before the extension
+  - writes `03-retranslate-reviewed-lines.json` under `backend/outputs/review-file-logs/`
 
 **TaskSplitOversizedBatches** (`backend/orchestrator/task_split_oversized_batches.py`):
 - Purpose: Stage 2 repair task that splits only the oversized semantic batches into smaller consecutive batches within the configured maximum size
@@ -825,7 +910,9 @@ For file translations, `/task-results/TaskTranslateFile` reports status/progress
   - Task state is also tracked per backend task type using `getTaskState()`, `setTaskState()`, `clearTaskState()`, and `hasActiveTask()`
   - Task state shape is `taskType`, `status`, `result`, `message`, `progress`, `isPolling`
   - Active subtitle state is shared across Context and Translate via `activeSubtitleFile$`, `setActiveSubtitleFile()`, `getActiveSubtitleFile()`
+  - Active translated subtitle state is shared via `activeTranslatedSubtitleFile$`, `setActiveTranslatedSubtitleFile()`, `getActiveTranslatedSubtitleFile()`
   - Subtitle file details are shared through `subtitleFileInfo$`, `subtitleFileInfoLoading$`, and `subtitleFileInfoError$`
+  - Translated subtitle file details are shared through `translatedSubtitleFileInfo$`, `translatedSubtitleFileInfoLoading$`, and `translatedSubtitleFileInfoError$`
   - Task state persists across Angular route changes within the current app session, but not across a full browser refresh
 - Use component-level state for local UI state
 - Use `ApiService` for all backend API calls
@@ -854,6 +941,7 @@ When making changes to:
 - Manual testing in browser required
 - Backend terminal shows FastAPI logs
 - Frontend terminal shows build errors
+- The user normally keeps both frontend and backend running during coding; do not run `npm run build`, start the frontend dev server, or start the backend server unless explicitly asked
 - Backend task harnesses can be run directly from the CLI under `backend/tests/` for isolated task validation
 - `backend/tests/run_plan_translation_batches.py` chains `TaskPlanTranslationBatches` and `TaskSplitOversizedBatches` through `TaskOrchestrator.run_tasks(...)`
 

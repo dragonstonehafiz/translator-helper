@@ -146,6 +146,17 @@ export class ApiService {
     return this.http.post<ApiResponse<TaskStartData>>(`${this.baseUrl}/translate/translate-file`, formData);
   }
 
+  reviewTranslatedFile(originalFile: File, translatedFile: File, context: any, inputLang: string, outputLang: string, batchSize: number): Observable<ApiResponse<TaskStartData>> {
+    const formData = new FormData();
+    formData.append('file', originalFile);
+    formData.append('translated_file', translatedFile);
+    formData.append('context', JSON.stringify(context));
+    formData.append('input_lang', inputLang);
+    formData.append('output_lang', outputLang);
+    formData.append('batch_size', batchSize.toString());
+    return this.http.post<ApiResponse<TaskStartData>>(`${this.baseUrl}/translate/review-translated-file`, formData);
+  }
+
   listFiles(folder: string): Observable<ApiResponse<FileListData>> {
     return this.http.get<ApiResponse<FileListData>>(`${this.baseUrl}/file-management/${encodeURIComponent(folder)}`);
   }

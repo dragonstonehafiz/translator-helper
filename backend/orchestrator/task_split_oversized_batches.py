@@ -42,7 +42,7 @@ class TaskSplitOversizedBatches(BaseTask):
         input_lang = str(data.get("input_lang", "ja"))
         output_lang = str(data.get("output_lang", "en"))
         batch_size = max(1, int(data.get("batch_size", 50)))
-        translate_file_log_dir = str(data.get("translate_file_log_dir", ""))
+        log_dir = str(data.get("log_dir", ""))
 
         result_handler.set_processing(self.task_type)
         try:
@@ -80,10 +80,10 @@ class TaskSplitOversizedBatches(BaseTask):
                 "input_lang": input_lang,
                 "output_lang": output_lang,
                 "batch_size": batch_size,
-                "translate_file_log_dir": translate_file_log_dir,
+                "log_dir": log_dir,
             }
             self._write_split_log(
-                log_dir=translate_file_log_dir,
+                log_dir=log_dir,
                 original_filename=str(original_filename or ""),
                 input_lang=input_lang,
                 output_lang=output_lang,

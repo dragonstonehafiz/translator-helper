@@ -27,6 +27,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
   private readonly defaultTaskProgress = {
     [TASK_TYPES.translateLine]: { current: 0, total: 1, status: 'Translating the entered text', eta_seconds: 0 },
     [TASK_TYPES.translateFile]: { current: 0, total: 1, status: 'Preparing subtitle file translation', eta_seconds: 0 },
+    [TASK_TYPES.reviewTranslatedFile]: { current: 0, total: 1, status: 'Preparing translation review', eta_seconds: 0 },
   } as const;
 
   // Context data
@@ -57,14 +58,18 @@ export class TranslateComponent implements OnInit, OnDestroy {
   fileOutputLanguage = 'en';
   batchSize = 50;
   fileToTranslate: File | null = null;
+  translatedFileToReview: File | null = null;
   isTranslatingFile = false;
+  isReviewingTranslatedFile = false;
   availableDownloads: { name: string; size: number; modified: string }[] = [];
   isFetchingDownloads = false;
   downloadError = '';
   deletingDownload = '';
   private filePollingInterval?: any;
+  private reviewPollingInterval?: any;
   private lastShownTaskError: Record<string, string> = {};
   private subtitleFileSubscription?: Subscription;
+  private translatedSubtitleFileSubscription?: Subscription;
   private contentStateSubscription?: Subscription;
 
   languageOptions = LANGUAGE_OPTIONS;
@@ -87,6 +92,10 @@ export class TranslateComponent implements OnInit, OnDestroy {
     this.subtitleFileSubscription = this.stateService.activeSubtitleFile$.subscribe(file => {
       this.fileToTranslate = file;
     });
+    this.translatedFileToReview = this.stateService.getActiveTranslatedSubtitleFile();
+    this.translatedSubtitleFileSubscription = this.stateService.activeTranslatedSubtitleFile$.subscribe(file => {
+      this.translatedFileToReview = file;
+    });
     this.restoreTaskState();
     this.refreshDownloads();
   }
@@ -94,24 +103,31 @@ export class TranslateComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.stopLinePolling();
     this.stopFilePolling();
+    this.stopReviewPolling();
     this.subtitleFileSubscription?.unsubscribe();
+    this.translatedSubtitleFileSubscription?.unsubscribe();
     this.contentStateSubscription?.unsubscribe();
   }
 
   private restoreTaskState(): void {
     const lineTask = this.stateService.getTaskState(TASK_TYPES.translateLine);
     const fileTask = this.stateService.getTaskState(TASK_TYPES.translateFile);
+    const reviewTask = this.stateService.getTaskState(TASK_TYPES.reviewTranslatedFile);
 
     this.isTranslatingLine = lineTask.status === 'processing';
     this.lineTranslationResult = lineTask.result?.text ?? '';
 
     this.isTranslatingFile = fileTask.status === 'processing';
+    this.isReviewingTranslatedFile = reviewTask.status === 'processing';
 
     if (lineTask.status === 'processing' || lineTask.isPolling) {
       this.startLinePolling();
     }
     if (fileTask.status === 'processing' || fileTask.isPolling) {
       this.startFilePolling();
+    }
+    if (reviewTask.status === 'processing' || reviewTask.isPolling) {
+      this.startReviewPolling();
     }
   }
 
@@ -344,6 +360,105 @@ export class TranslateComponent implements OnInit, OnDestroy {
     if (this.filePollingInterval) {
       clearInterval(this.filePollingInterval);
       this.filePollingInterval = undefined;
+    }
+  }
+
+  reviewTranslatedFile(): void {
+    if (!this.fileToTranslate || !this.translatedFileToReview || this.isReviewingTranslatedFile || this.stateService.hasActiveTask()) return;
+
+    this.isReviewingTranslatedFile = true;
+    this.stateService.setTaskState(TASK_TYPES.reviewTranslatedFile, {
+      status: 'processing',
+      result: null,
+      message: null,
+      progress: this.defaultProgress(TASK_TYPES.reviewTranslatedFile),
+      isPolling: true,
+    });
+
+    const context = this.buildContext(
+      this.fileUseAdditionalInstructions,
+      this.fileUseCharacterList,
+      this.fileUseSynopsis,
+      this.fileUseSummary
+    );
+
+    this.apiService.reviewTranslatedFile(
+      this.fileToTranslate,
+      this.translatedFileToReview,
+      context,
+      this.fileInputLanguage,
+      this.fileOutputLanguage,
+      this.batchSize
+    ).subscribe({
+      next: (response) => {
+        if (response.status === 'processing') {
+          this.startReviewPolling();
+        } else {
+          const errorMessage = response.message || 'Failed to start translation review.';
+          this.stateService.setTaskState(TASK_TYPES.reviewTranslatedFile, {
+            status: 'error',
+            message: errorMessage,
+            isPolling: false,
+          });
+          this.showTaskError(TASK_TYPES.reviewTranslatedFile, errorMessage);
+          this.isReviewingTranslatedFile = false;
+        }
+      },
+      error: (error: any) => {
+        console.error('Translation review request failed:', error);
+        this.errorDialogService.show('Failed to start translation review. Please try again.');
+        this.stateService.setTaskState(TASK_TYPES.reviewTranslatedFile, {
+          status: 'error',
+          message: 'Failed to start translation review. Please try again.',
+          isPolling: false,
+        });
+        this.isReviewingTranslatedFile = false;
+      }
+    });
+  }
+
+  private startReviewPolling(): void {
+    if (this.reviewPollingInterval) {
+      return;
+    }
+    this.reviewPollingInterval = setInterval(() => {
+      this.apiService.getTaskResult(TASK_TYPES.reviewTranslatedFile).subscribe({
+        next: (response: TaskResultResponse) => {
+          const taskData = response.data;
+          this.stateService.setTaskState(TASK_TYPES.reviewTranslatedFile, {
+            status: response.status,
+            result: taskData?.result ?? null,
+            message: response.message ?? null,
+            progress: taskData?.progress ?? this.getExistingProgress(TASK_TYPES.reviewTranslatedFile),
+            isPolling: response.status === 'processing',
+          });
+          if (response.status === 'complete') {
+            this.isReviewingTranslatedFile = false;
+            this.stopReviewPolling();
+            this.refreshDownloads();
+          } else if (response.status === 'error') {
+            console.error('Translation review error:', response.message);
+            this.showTaskError(TASK_TYPES.reviewTranslatedFile, response.message || 'Translation review failed.');
+            this.isReviewingTranslatedFile = false;
+            this.stopReviewPolling();
+          } else if (response.status === 'idle') {
+            this.isReviewingTranslatedFile = false;
+            this.stopReviewPolling();
+          }
+        },
+        error: (error: any) => {
+          console.error('Polling error:', error);
+          this.isReviewingTranslatedFile = false;
+          this.stopReviewPolling();
+        }
+      });
+    }, 1000);
+  }
+
+  private stopReviewPolling(): void {
+    if (this.reviewPollingInterval) {
+      clearInterval(this.reviewPollingInterval);
+      this.reviewPollingInterval = undefined;
     }
   }
 
