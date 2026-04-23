@@ -356,7 +356,7 @@ this.errorDialogService.show({
 ### app-downloads-list
 **Location**: `frontend/src/app/components/downloads-list/`
 
-**Purpose**: Reusable downloads panel with search, sort, refresh, collapse, and per-file actions.
+**Purpose**: Reusable downloads panel with search, sort, pagination, refresh, collapse, and per-file actions.
 
 **When to use**:
 - Showing downloadable files for translations, exports, or other outputs
@@ -381,6 +381,7 @@ this.errorDialogService.show({
 - `error` (optional): Error message string
 - `deletingFilename` (optional): Filename currently deleting
 - `collapsed` (optional, default: false): Collapse state
+- `pageSize` (optional, default: 7): Number of files shown per page before pagination controls appear
 
 **Events**:
 - `refresh`: Fired when refresh is clicked

@@ -17,6 +17,7 @@ export class DownloadsListComponent {
   @Input() error = '';
   @Input() deletingFilename = '';
   @Input() collapsed = false;
+  @Input() pageSize = 7;
   @Output() collapsedChange = new EventEmitter<boolean>();
   @Output() refresh = new EventEmitter<void>();
   @Output() download = new EventEmitter<string>();
@@ -25,6 +26,7 @@ export class DownloadsListComponent {
   search = '';
   sortField: 'modified' | 'name' = 'name';
   sort: 'desc' | 'asc' = 'asc';
+  currentPage = 1;
 
   toggleCollapsed(): void {
     this.collapsed = !this.collapsed;
@@ -33,6 +35,45 @@ export class DownloadsListComponent {
 
   setSort(order: 'asc' | 'desc'): void {
     this.sort = order;
+    this.currentPage = 1;
+  }
+
+  onSearchChange(): void {
+    this.currentPage = 1;
+  }
+
+  onSortFieldChange(): void {
+    this.currentPage = 1;
+  }
+
+  goToPage(page: number): void {
+    this.currentPage = Math.min(Math.max(page, 1), this.totalPages);
+  }
+
+  get normalizedPageSize(): number {
+    return Number.isFinite(this.pageSize) && this.pageSize > 0 ? Math.floor(this.pageSize) : 7;
+  }
+
+  get totalPages(): number {
+    return Math.max(Math.ceil(this.filteredFiles.length / this.normalizedPageSize), 1);
+  }
+
+  get visiblePage(): number {
+    return Math.min(this.currentPage, this.totalPages);
+  }
+
+  get pageStartIndex(): number {
+    if (this.filteredFiles.length === 0) return 0;
+    return (this.visiblePage - 1) * this.normalizedPageSize + 1;
+  }
+
+  get pageEndIndex(): number {
+    return Math.min(this.visiblePage * this.normalizedPageSize, this.filteredFiles.length);
+  }
+
+  get paginatedFiles(): { name: string; size: number; modified: string }[] {
+    const start = (this.visiblePage - 1) * this.normalizedPageSize;
+    return this.filteredFiles.slice(start, start + this.normalizedPageSize);
   }
 
   get filteredFiles(): { name: string; size: number; modified: string }[] {

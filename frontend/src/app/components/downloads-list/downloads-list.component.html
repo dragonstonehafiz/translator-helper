@@ -20,11 +20,16 @@
         <input
           type="text"
           placeholder="Search files..."
-          [(ngModel)]="search">
+          [(ngModel)]="search"
+          (ngModelChange)="onSearchChange()">
       </div>
       <div class="download-sort">
         <label class="download-sort-label" for="downloadSortField">Sort</label>
-        <select id="downloadSortField" class="download-sort-select" [(ngModel)]="sortField">
+        <select
+          id="downloadSortField"
+          class="download-sort-select"
+          [(ngModel)]="sortField"
+          (ngModelChange)="onSortFieldChange()">
           <option value="modified">Date</option>
           <option value="name">Name</option>
         </select>
@@ -62,11 +67,11 @@
     </div>
 
     <div class="download-list" *ngIf="!isLoading && filteredFiles.length > 0">
-      <div class="download-item" *ngFor="let file of filteredFiles">
+      <div class="download-item" *ngFor="let file of paginatedFiles">
         <div class="download-info">
           <div class="download-name">{{ file.name }}</div>
           <div class="download-meta">
-            {{ formatBytes(file.size) }} • {{ file.modified | date:'short' }}
+            {{ formatBytes(file.size) }} - {{ file.modified | date:'short' }}
           </div>
         </div>
         <div class="download-actions">
@@ -85,6 +90,37 @@
             <span>{{ deletingFilename === file.name ? 'Deleting...' : 'Delete' }}</span>
           </app-primary-button>
         </div>
+      </div>
+    </div>
+
+    <div class="download-pagination" *ngIf="!isLoading && filteredFiles.length > normalizedPageSize">
+      <div class="download-page-summary">
+        Showing {{ pageStartIndex }}-{{ pageEndIndex }} of {{ filteredFiles.length }}
+      </div>
+      <div class="download-page-controls">
+        <button
+          type="button"
+          class="download-page-btn"
+          (click)="goToPage(visiblePage - 1)"
+          [disabled]="visiblePage === 1"
+          aria-label="Previous page"
+          title="Previous page">
+          <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
+            <path d="M15 6l-6 6 6 6V6z"></path>
+          </svg>
+        </button>
+        <span class="download-page-count">Page {{ visiblePage }} of {{ totalPages }}</span>
+        <button
+          type="button"
+          class="download-page-btn"
+          (click)="goToPage(visiblePage + 1)"
+          [disabled]="visiblePage === totalPages"
+          aria-label="Next page"
+          title="Next page">
+          <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
+            <path d="M9 6l6 6-6 6V6z"></path>
+          </svg>
+        </button>
       </div>
     </div>
   </div>
