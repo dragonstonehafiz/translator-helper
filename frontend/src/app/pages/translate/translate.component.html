@@ -192,16 +192,6 @@
       <app-primary-button [fullWidth]="true" (click)="translateFile()" [disabled]="!fileToTranslate || isAnyTaskRunning()">
         {{ isTranslatingFile ? 'Translating...' : 'Translate File' }}
       </app-primary-button>
-
-      <app-downloads-list
-        [files]="availableDownloads"
-        [isLoading]="isFetchingDownloads"
-        [error]="downloadError"
-        [deletingFilename]="deletingDownload"
-        (refresh)="refreshDownloads()"
-        (download)="downloadTranslatedFile($event)"
-        (delete)="deleteTranslatedFile($event)">
-      </app-downloads-list>
     </app-subsection>
 
     <app-subsection
@@ -245,6 +235,21 @@
       <app-primary-button [fullWidth]="true" (click)="reviewTranslatedFile()" [disabled]="!fileToTranslate || !translatedFileToReview || isAnyTaskRunning()">
         {{ isReviewingTranslatedFile ? 'Reviewing...' : 'Review Translation' }}
       </app-primary-button>
+    </app-subsection>
+
+    <app-subsection
+      title="Downloads"
+      tooltip="Translated and corrected subtitle files">
+
+      <app-downloads-list
+        [files]="availableDownloads"
+        [isLoading]="isFetchingDownloads"
+        [error]="downloadError"
+        [deletingFilename]="deletingDownload"
+        (refresh)="refreshDownloads()"
+        (download)="downloadTranslatedFile($event)"
+        (delete)="deleteTranslatedFile($event)">
+      </app-downloads-list>
     </app-subsection>
     </main>
   </div>

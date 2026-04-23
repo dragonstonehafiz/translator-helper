@@ -33,6 +33,19 @@ def generate_batch_review_prompt(
     - inconsistent names, terms, or honorific handling
     - awkward phrasing that changes the meaning or subtitle usability
 
+    Treat the provided context as authoritative for character names, established term translations, romanization, and honorific handling.
+    If a name or term appears in the context, do not infer an alternate reading.
+    When flagging a name or term issue, state the exact expected correction from the context.
+    Do not use uncertain phrasing such as "or similar" when the context provides the correct form.
+    For character names written as "Given Family (Japanese)", use that exact romanized name mapping from the context.
+    If the original Japanese uses only the given-name kanji plus an honorific, correct it to the context's romanized given name plus that honorific.
+    Do not substitute a family name for a given name unless the original Japanese line uses the family-name kanji.
+    Do not offer multiple possible name corrections when the context identifies the character.
+    Preserve the original honorific relationship unless the context explicitly says to change it.
+    Preserve Japanese honorific form precisely when romanizing it.
+    For example, お姉さま should be rendered as oneesama, not oneesan; 先輩 should be senpai.
+    If a current translation uses the wrong honorific form, flag the exact corrected honorific.
+
     Do not flag lines only because another valid wording is possible.
     Do not flag correct translations for minor stylistic preference.
 
@@ -83,6 +96,14 @@ def generate_line_retranslation_prompt(
     Produce one corrected {output_lang} subtitle line.
     Preserve the intended meaning, tone, and speaker intent from the original line.
     Use the review reason to fix the specific issue.
+    Treat the provided context as authoritative for character names, established term translations, romanization, and honorific handling.
+    If the review reason offers multiple possible name corrections but the context identifies the character, choose the exact context name that matches the original Japanese.
+    If the original Japanese uses only the given-name kanji plus an honorific, use the context's romanized given name plus that honorific.
+    Do not substitute a family name for a given name unless the original Japanese line uses the family-name kanji.
+    Preserve the original honorific relationship unless the context explicitly says to change it.
+    Preserve Japanese honorific form precisely when romanizing it.
+    For example, お姉さま should be rendered as oneesama, not oneesan; 先輩 should be senpai.
+    If the review reason fixes a name but misses the honorific nuance, still correct the honorific according to the original Japanese line.
 
     ## Context
 
