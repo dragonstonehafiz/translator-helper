@@ -126,9 +126,10 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  height: 40px;
   background: #f4f6fb;
   border: 1px solid #d7dcec;
-  padding: 6px;
+  padding: 0 8px 0 12px;
   border-radius: 999px;
 }
 
@@ -136,18 +137,56 @@
   font-size: 0.85rem;
   font-weight: 600;
   color: #44507a;
-  padding: 0 6px;
+  padding: 0;
+}
+
+.download-sort-select {
+  height: 32px;
+  min-width: 112px;
+  border: none;
+  background: transparent;
+  color: #333;
+  padding: 0 28px 0 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+    border-radius: 999px;
+  }
+}
+
+.download-sort-order {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 999px;
+  background: #f4f6fb;
+  border: 1px solid #d7dcec;
 }
 
 .download-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   border: none;
   background: transparent;
   color: #44507a;
-  padding: 6px 10px;
   border-radius: 999px;
   cursor: pointer;
   font-weight: 600;
   transition: background 0.2s ease, color 0.2s ease;
+
+  svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
 
   &.active {
     background: #667eea;
@@ -203,6 +242,66 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.download-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e0e5f2;
+}
+
+.download-page-summary {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.download-page-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.download-page-count {
+  min-width: 88px;
+  color: #44507a;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.download-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d7dcec;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #44507a;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+  }
+
+  &:hover:not(:disabled) {
+    background: #eef1fb;
+    border-color: #c7cfee;
+    color: #667eea;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
 }
 
 :host ::ng-deep .download-delete .primary-btn {
