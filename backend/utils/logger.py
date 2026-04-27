@@ -5,6 +5,9 @@ Logging configuration for Translator Helper backend.
 import logging
 from pathlib import Path
 
+SHARED_LOG_FILENAME = "translator-helper.log"
+
+
 def setup_logger(
     name: str = "translator-helper",
     level: int = logging.INFO,
@@ -33,9 +36,9 @@ def setup_logger(
     log_path = Path(log_dir)
     log_path.mkdir(exist_ok=True)
     
-    # File handler
+    # Route all backend logs into one shared file while keeping logger names in the entry text.
     file_handler = logging.FileHandler(
-        log_path / f"{name}.log",
+        log_path / SHARED_LOG_FILENAME,
         encoding='utf-8'
     )
     file_handler.setLevel(level)

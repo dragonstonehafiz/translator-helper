@@ -45,6 +45,10 @@ class TaskRetranslateReviewedLines(BaseTask):
 
         result_handler.set_processing(self.task_type)
         try:
+            if not file_path or not translated_file_path:
+                raise ValueError(
+                    "Translation review could not continue because the upstream review stage did not provide subtitle file paths."
+                )
             original_subs = pysubs2.load(file_path)
             translated_subs = pysubs2.load(translated_file_path)
             if len(original_subs) != len(translated_subs):

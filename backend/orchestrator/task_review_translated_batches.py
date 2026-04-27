@@ -81,7 +81,13 @@ class TaskReviewTranslatedBatches(BaseTask):
                     ),
                     temperature=0.1,
                 )
-                batch_corrections = self._parse_corrections(raw_output, start_index, end_index)
+                try:
+                    batch_corrections = self._parse_corrections(raw_output, start_index, end_index)
+                except ValueError as exc:
+                    raise ValueError(
+                        "Generated review output is malformed JSON. "
+                        f"Batch {start_index}-{end_index} must return exactly one JSON object with a 'corrections' array."
+                    ) from exc
                 for correction in batch_corrections:
                     index = int(correction["index"])
                     reason = str(correction["reason"]).strip()
@@ -125,7 +131,7 @@ class TaskReviewTranslatedBatches(BaseTask):
         except Exception as exc:
             logger.error("Error reviewing translated subtitle batches: %s", exc, exc_info=True)
             result_handler.set_error(self.task_type, str(exc))
-            return {}
+            raise
         finally:
             llm_client.set_running(False)
             logger.info("task=%s status=%s elapsed_seconds=%.3f", self.task_type, status, time.perf_counter() - started)
@@ -157,7 +163,10 @@ class TaskReviewTranslatedBatches(BaseTask):
         end_index: int,
     ) -> list[dict[str, int | str]]:
         json_payload = self._extract_json_payload(raw_output)
-        parsed = json.loads(json_payload)
+        try:
+            parsed = json.loads(json_payload)
+        except json.JSONDecodeError as exc:
+            raise ValueError("Review output did not contain exactly one valid JSON object.") from exc
         corrections = parsed.get("corrections")
         if not isinstance(corrections, list):
             raise ValueError("Review output must contain a 'corrections' array.")

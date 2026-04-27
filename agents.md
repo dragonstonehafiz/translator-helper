@@ -716,6 +716,7 @@ The running-status endpoint returns:
 ```
 - Notes:
   - does not run oversized-batch splitting in the translated-file review workflow
+  - if planning fails, the review chain stops immediately and the failure is surfaced to the final review task poller
 
 **TaskReviewTranslatedBatches** (`backend/orchestrator/task_review_translated_batches.py`):
 - Purpose: Compare planned original/translated subtitle batches and identify exact subtitle indexes requiring correction
@@ -741,6 +742,7 @@ The running-status endpoint returns:
 - Notes:
   - validates original and translated subtitle files have the same number of subtitle events
   - writes `02-review-translated-batches.json` under `backend/outputs/review-file-logs/`
+  - if the generated review response is malformed JSON, the review chain stops immediately and surfaces a clear malformed-JSON error instead of continuing to retranslation
 
 **TaskRetranslateReviewedLines** (`backend/orchestrator/task_retranslate_reviewed_lines.py`):
 - Purpose: Retranslate only the reviewed correction indexes and save a corrected subtitle file
@@ -812,7 +814,7 @@ Long-running operations use FastAPI's BackgroundTasks with polling:
 3. Each task writes final output/error to `ResultHandler` keyed by `task_type`
 4. Progress-capable tasks write progress to `ProgressHandler` keyed by `task_type`
 5. `GET /task-results/{task_type}` requires the exact `task_type` being polled and returns the shared envelope with `"processing"` | `"complete"` | `"error"` | `"idle"` plus task `result`/`progress` under `data`
-6. Task classes write execution timing entries to a shared `backend/outputs/task-timings.log` file (no per-task log files)
+6. Task classes write execution timing entries to the shared `backend/outputs/translator-helper.log` file (no separate task timing log file)
 Task result API payload shape:
 ```json
 {
