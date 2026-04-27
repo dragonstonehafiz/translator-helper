@@ -37,11 +37,13 @@ export class TranslateComponent implements OnInit, OnDestroy {
   additionalInstructions = '';
   activeContextTab: 'additional' | 'character' | 'synopsis' | 'summary' = 'additional';
 
+  // Shared context selectors
+  useAdditionalInstructions = false;
+  useCharacterList = false;
+  useSynopsis = false;
+  useSummary = false;
+
   // Translate Line
-  lineUseAdditionalInstructions = false;
-  lineUseCharacterList = false;
-  lineUseSynopsis = false;
-  lineUseSummary = false;
   lineInputLanguage = 'ja';
   lineOutputLanguage = 'en';
   lineTextToTranslate = '';
@@ -50,10 +52,6 @@ export class TranslateComponent implements OnInit, OnDestroy {
   private linePollingInterval?: any;
 
   // Translate File
-  fileUseAdditionalInstructions = false;
-  fileUseCharacterList = false;
-  fileUseSynopsis = false;
-  fileUseSummary = false;
   fileInputLanguage = 'ja';
   fileOutputLanguage = 'en';
   batchSize = 50;
@@ -181,10 +179,10 @@ export class TranslateComponent implements OnInit, OnDestroy {
     });
 
     const context = this.buildContext(
-      this.lineUseAdditionalInstructions,
-      this.lineUseCharacterList,
-      this.lineUseSynopsis,
-      this.lineUseSummary
+      this.useAdditionalInstructions,
+      this.useCharacterList,
+      this.useSynopsis,
+      this.useSummary
     );
 
     this.apiService.translateLine(
@@ -278,10 +276,10 @@ export class TranslateComponent implements OnInit, OnDestroy {
     });
 
     const context = this.buildContext(
-      this.fileUseAdditionalInstructions,
-      this.fileUseCharacterList,
-      this.fileUseSynopsis,
-      this.fileUseSummary
+      this.useAdditionalInstructions,
+      this.useCharacterList,
+      this.useSynopsis,
+      this.useSummary
     );
 
     this.apiService.translateFile(
@@ -376,10 +374,10 @@ export class TranslateComponent implements OnInit, OnDestroy {
     });
 
     const context = this.buildContext(
-      this.fileUseAdditionalInstructions,
-      this.fileUseCharacterList,
-      this.fileUseSynopsis,
-      this.fileUseSummary
+      this.useAdditionalInstructions,
+      this.useCharacterList,
+      this.useSynopsis,
+      this.useSummary
     );
 
     this.apiService.reviewTranslatedFile(
