@@ -49,6 +49,9 @@ def generate_translate_sub_prompt(
         Only output the naturalized translation text directly.
         Do not wrap it in markdown or label it.
         Do not add any speaker names or labels (e.g. "Producer:").
+        Do not prepend or append quotation marks around the full line.
+        Do not prepend or append asterisks around the full line.
+        If the line is dialogue or inner thoughts, output the translated text directly without adding wrapper punctuation that was not present in the source.
         """.strip()
 
     return system_prompt

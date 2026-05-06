@@ -89,6 +89,7 @@ class TaskTranslateFile(BaseTask):
                 log_dir=log_dir,
                 progress_callback=on_progress,
             )
+            self._normalize_translated_subtitles(translated_subs)
 
             safe_original_name = os.path.basename(original_filename)
             name_parts = safe_original_name.split(".")
@@ -343,6 +344,31 @@ class TaskTranslateFile(BaseTask):
 
     def _is_rate_limit_error(self, exc: Exception) -> bool:
         return isinstance(exc, (OpenAIRateLimitError, AnthropicRateLimitError))
+
+    def _normalize_translated_subtitles(self, subs):
+        quote_pairs = {
+            '"': '"',
+            "'": "'",
+            "“": "”",
+            "‘": "’",
+            "*": "*",
+        }
+        for line in subs:
+            if not isinstance(line.text, str):
+                continue
+
+            stripped = line.text.strip()
+            if len(stripped) < 2:
+                line.text = stripped
+                continue
+
+            opening = stripped[0]
+            closing = stripped[-1]
+            expected_closing = quote_pairs.get(opening)
+            if expected_closing and closing == expected_closing:
+                line.text = stripped[1:-1].strip()
+            else:
+                line.text = stripped
 
     def _build_failure_log(
         self,
