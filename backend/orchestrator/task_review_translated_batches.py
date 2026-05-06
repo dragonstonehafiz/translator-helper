@@ -66,6 +66,7 @@ class TaskReviewTranslatedBatches(BaseTask):
             llm_client.set_running(True)
             corrections_by_index: dict[int, dict[str, int | str]] = {}
             batch_logs = []
+            failure_logs: list[dict] = []
 
             for batch_number, batch in enumerate(batches, start=1):
                 start_index = int(batch["start_index"])
@@ -84,6 +85,19 @@ class TaskReviewTranslatedBatches(BaseTask):
                 try:
                     batch_corrections = self._parse_corrections(raw_output, start_index, end_index)
                 except ValueError as exc:
+                    failure_logs.append(
+                        self._build_failure_log(
+                            batch_number=batch_number,
+                            total_batches=len(batches),
+                            start_index=start_index,
+                            end_index=end_index,
+                            original_lines=original_lines,
+                            translated_lines=translated_lines,
+                            raw_output=raw_output,
+                            failure=str(exc),
+                        )
+                    )
+                    self._write_failure_log(log_dir=log_dir, failure_logs=failure_logs)
                     raise ValueError(
                         "Generated review output is malformed JSON. "
                         f"Batch {start_index}-{end_index} must return exactly one JSON object with a 'corrections' array."
@@ -129,7 +143,6 @@ class TaskReviewTranslatedBatches(BaseTask):
             status = "complete"
             return payload
         except Exception as exc:
-            logger.error("Error reviewing translated subtitle batches: %s", exc, exc_info=True)
             result_handler.set_error(self.task_type, str(exc))
             raise
         finally:
@@ -222,4 +235,60 @@ class TaskReviewTranslatedBatches(BaseTask):
             "corrections": corrections,
         }
         with open(output_dir / "02-review-translated-batches.json", "w", encoding="utf-8") as file_handle:
+            json.dump(log_payload, file_handle, ensure_ascii=False, indent=2)
+
+    def _build_failure_log(
+        self,
+        batch_number: int,
+        total_batches: int,
+        start_index: int,
+        end_index: int,
+        original_lines: list[str],
+        translated_lines: list[str],
+        raw_output: str,
+        failure: str,
+    ) -> dict:
+        return {
+            "batch": {
+                "number": batch_number,
+                "total": total_batches,
+                "start_index": start_index,
+                "end_index": end_index,
+                "size": len(original_lines),
+            },
+            "failure": failure,
+            "expected": {
+                "shape": "exactly one JSON object with a 'corrections' array",
+                "schema": {
+                    "corrections": [
+                        {
+                            "index": "integer within the reviewed batch span",
+                            "reason": "non-empty string",
+                        }
+                    ]
+                },
+                "inputs": {
+                    "original_lines": original_lines,
+                    "translated_lines": translated_lines,
+                },
+            },
+            "actual": {
+                "shape": "raw model output text",
+                "text": raw_output,
+            },
+        }
+
+    def _write_failure_log(self, log_dir: str, failure_logs: list[dict]):
+        if not log_dir or not failure_logs:
+            return
+
+        output_dir = Path(log_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / "02-review-translated-batch-failures.json"
+        log_payload = {
+            "task_type": self.task_type,
+            "failure_count": len(failure_logs),
+            "failures": failure_logs,
+        }
+        with open(output_path, "w", encoding="utf-8") as file_handle:
             json.dump(log_payload, file_handle, ensure_ascii=False, indent=2)

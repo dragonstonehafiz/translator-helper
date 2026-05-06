@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from pathlib import Path
 
 import pysubs2
 from anthropic import RateLimitError as AnthropicRateLimitError
@@ -44,6 +45,7 @@ class TaskTranslateFile(BaseTask):
         input_lang = str(data.get("input_lang", "ja"))
         output_lang = str(data.get("output_lang", "en"))
         batch_size = int(data.get("batch_size", 3))
+        log_dir = str(data.get("log_dir", ""))
 
         result_handler.set_processing(self.task_type)
         start_time = time.time()
@@ -84,6 +86,7 @@ class TaskTranslateFile(BaseTask):
                 input_lang=input_lang,
                 target_lang=output_lang,
                 temperature=llm_client.get_temperature(),
+                log_dir=log_dir,
                 progress_callback=on_progress,
             )
 
@@ -145,15 +148,19 @@ class TaskTranslateFile(BaseTask):
         input_lang: str,
         target_lang: str,
         temperature: float | None,
+        log_dir: str = "",
         progress_callback=None,
     ):
         processed = 0
         total_lines = len(subs)
         total_batches = len(batch_ranges)
+        failure_logs: list[dict] = []
 
         for batch_number, (start, end) in enumerate(batch_ranges, start=1):
             pending_chunks = [{
                 "batch": subs[start:end],
+                "start_index": start + 1,
+                "end_index": end,
                 "allow_split_retry": True,
             }]
             context_dict = context.copy()
@@ -161,12 +168,15 @@ class TaskTranslateFile(BaseTask):
             while pending_chunks:
                 chunk = pending_chunks.pop(0)
                 batch = chunk["batch"]
+                chunk_start_index = int(chunk["start_index"])
+                chunk_end_index = int(chunk["end_index"])
                 allow_split_retry = bool(chunk["allow_split_retry"])
                 batch_lines = self._build_batch_lines(batch)
                 malformed_error: Exception | None = None
-                malformed_output: str | None = None
+                malformed_lines: list[str] | None = None
 
                 for _ in range(3):
+                    translated_lines: list[str] | None = None
                     try:
                         translated_lines = self._translate_batch(
                             llm,
@@ -192,7 +202,7 @@ class TaskTranslateFile(BaseTask):
                             time.sleep(1.5)
                             continue
                         malformed_error = exc
-                        malformed_output = json.dumps(translated_lines, ensure_ascii=False) if "translated_lines" in locals() else None
+                        malformed_lines = list(translated_lines) if translated_lines is not None else None
                         break
 
                 if malformed_error is None:
@@ -200,31 +210,61 @@ class TaskTranslateFile(BaseTask):
 
                 if allow_split_retry and len(batch) > 1:
                     midpoint = len(batch) // 2
+                    failure_logs.append(
+                        self._build_failure_log(
+                            phase="split",
+                            batch_number=batch_number,
+                            total_batches=total_batches,
+                            start_index=chunk_start_index,
+                            end_index=chunk_end_index,
+                            expected_lines=batch_lines,
+                            actual_lines=malformed_lines,
+                            failure=str(malformed_error),
+                        )
+                    )
                     app_logger.warning(
-                        "Batch translation format failure; splitting batch=%s/%s size=%s failure=%s failed_output=%s",
+                        "Batch translation format failure; splitting batch=%s/%s span=%s-%s size=%s failure=%s",
                         batch_number,
                         total_batches,
+                        chunk_start_index,
+                        chunk_end_index,
                         len(batch),
                         str(malformed_error),
-                        malformed_output or "[]",
                     )
                     pending_chunks.insert(0, {
                         "batch": batch[midpoint:],
+                        "start_index": chunk_start_index + midpoint,
+                        "end_index": chunk_end_index,
                         "allow_split_retry": False,
                     })
                     pending_chunks.insert(0, {
                         "batch": batch[:midpoint],
+                        "start_index": chunk_start_index,
+                        "end_index": chunk_start_index + midpoint - 1,
                         "allow_split_retry": False,
                     })
                     continue
 
+                failure_logs.append(
+                    self._build_failure_log(
+                        phase="per-line-fallback",
+                        batch_number=batch_number,
+                        total_batches=total_batches,
+                        start_index=chunk_start_index,
+                        end_index=chunk_end_index,
+                        expected_lines=batch_lines,
+                        actual_lines=malformed_lines,
+                        failure=str(malformed_error),
+                    )
+                )
                 app_logger.warning(
-                    "Batch translation fallback to per-line mode; batch=%s/%s size=%s failure=%s failed_output=%s",
+                    "Batch translation fallback to per-line mode; batch=%s/%s span=%s-%s size=%s failure=%s",
                     batch_number,
                     total_batches,
+                    chunk_start_index,
+                    chunk_end_index,
                     len(batch),
                     str(malformed_error),
-                    malformed_output or "[]",
                 )
                 for line in batch:
                     translated_text = self._translate_single_line(
@@ -240,6 +280,7 @@ class TaskTranslateFile(BaseTask):
                     if progress_callback:
                         progress_callback(processed, total_lines, batch_number, total_batches)
 
+        self._write_failure_log(log_dir=log_dir, failure_logs=failure_logs)
         return subs
 
     def _translate_batch(
@@ -302,3 +343,51 @@ class TaskTranslateFile(BaseTask):
 
     def _is_rate_limit_error(self, exc: Exception) -> bool:
         return isinstance(exc, (OpenAIRateLimitError, AnthropicRateLimitError))
+
+    def _build_failure_log(
+        self,
+        phase: str,
+        batch_number: int,
+        total_batches: int,
+        start_index: int,
+        end_index: int,
+        expected_lines: list[str],
+        actual_lines: list[str] | None,
+        failure: str,
+    ) -> dict:
+        return {
+            "phase": phase,
+            "batch": {
+                "number": batch_number,
+                "total": total_batches,
+                "start_index": start_index,
+                "end_index": end_index,
+                "size": len(expected_lines),
+            },
+            "failure": failure,
+            "expected": {
+                "shape": "one translated line per input subtitle line",
+                "line_count": len(expected_lines),
+                "lines": expected_lines,
+            },
+            "actual": {
+                "shape": "newline-split translated output returned by the model",
+                "line_count": len(actual_lines or []),
+                "lines": actual_lines or [],
+            },
+        }
+
+    def _write_failure_log(self, log_dir: str, failure_logs: list[dict]):
+        if not log_dir or not failure_logs:
+            return
+
+        output_dir = Path(log_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / "03-translate-file-batch-failures.json"
+        log_payload = {
+            "task_type": self.task_type,
+            "failure_count": len(failure_logs),
+            "failures": failure_logs,
+        }
+        with open(output_path, "w", encoding="utf-8") as file_handle:
+            json.dump(log_payload, file_handle, ensure_ascii=False, indent=2)
