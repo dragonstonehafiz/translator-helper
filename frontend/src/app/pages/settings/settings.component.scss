@@ -1,7 +1,7 @@
-.page-container {
-  padding: 75px 20px 40px;
-  max-width: 1200px;
-  margin: 0 auto;
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .header-container {
@@ -185,6 +185,12 @@
 
 .load-button-spacing {
   margin-top: 10px;
+}
+
+.no-schema-message {
+  color: #888;
+  font-size: 0.95rem;
+  margin: 0;
 }
 
 .field-label {

@@ -12,14 +12,16 @@ import { DownloadsListComponent } from '../../components/downloads-list/download
 import { ApiService, TaskResultResponse } from '../../services/api.service';
 import { StateService, TASK_TYPES, TaskProgress } from '../../services/state.service';
 import { ConfirmationService } from '../../services/confirmation.service';
-import { ActiveSubtitlePanelComponent } from '../../components/active-subtitle-panel/active-subtitle-panel.component';
+import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
+import { TabsComponent } from '../../components/tabs/tabs.component';
+import { TabComponent } from '../../components/tabs/tab.component';
 import { LANGUAGE_OPTIONS } from '../../shared/language-options';
 import { ErrorDialogService } from '../../services/error-dialog.service';
 
 @Component({
   selector: 'app-translate',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, TooltipIconComponent, ContextStatusComponent, PrimaryButtonComponent, LoadingTextIndicatorComponent, DownloadsListComponent, ActiveSubtitlePanelComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, TooltipIconComponent, ContextStatusComponent, PrimaryButtonComponent, LoadingTextIndicatorComponent, DownloadsListComponent, FileUploadComponent, TabsComponent, TabComponent],
   templateUrl: './translate.component.html',
   styleUrl: './translate.component.scss'
 })
@@ -35,7 +37,6 @@ export class TranslateComponent implements OnInit, OnDestroy {
   synopsis = '';
   summary = '';
   additionalInstructions = '';
-  activeContextTab: 'additional' | 'character' | 'synopsis' | 'summary' = 'additional';
 
   // Shared context selectors
   useAdditionalInstructions = false;
@@ -129,11 +130,23 @@ export class TranslateComponent implements OnInit, OnDestroy {
     }
   }
 
-  setContextTab(tab: 'additional' | 'character' | 'synopsis' | 'summary'): void {
-    this.activeContextTab = tab;
+  onSubtitleFileSelected(files: File[]): void {
+    this.stateService.setActiveSubtitleFile(files[0] ?? null);
   }
 
-  updateAdditionalInstructions(): void {
+  clearSubtitleFile(): void {
+    this.stateService.setActiveSubtitleFile(null);
+  }
+
+  onTranslatedSubtitleFileSelected(files: File[]): void {
+    this.stateService.setActiveTranslatedSubtitleFile(files[0] ?? null);
+  }
+
+  clearTranslatedSubtitleFile(): void {
+    this.stateService.setActiveTranslatedSubtitleFile(null);
+  }
+
+updateAdditionalInstructions(): void {
     this.stateService.setAdditionalInstructions(this.additionalInstructions);
   }
 

@@ -4,205 +4,185 @@
     <app-tooltip-icon tooltip="Upload a subtitle file (.ass or .srt) and the app will automatically use the selected OpenAI API to generate context for translations"></app-tooltip-icon>
   </div>
 
-  <div class="workspace-layout">
-    <aside class="workspace-sidebar">
-      <app-active-subtitle-panel></app-active-subtitle-panel>
-    </aside>
+  <div class="form-section">
+  <app-tabs>
 
-    <main class="form-section workspace-main">
-    <app-subsection
-      title="Context Files"
-      tooltip="Saved context files. Load a previous context or import an external JSON to override the current file's context.">
-      <app-downloads-list
-        title="Saved Contexts"
-        [files]="availableContextFiles"
-        [isLoading]="isFetchingContextFiles"
-        [deletingFilename]="deletingContextFile"
-        (refresh)="refreshContextFiles()"
-        (download)="downloadContextFile($event)"
-        (delete)="deleteContextFile($event)">
-      </app-downloads-list>
-      <div class="import-context-section">
-        <div class="warning-banner">
-          Importing a context file will override all current context data. A subtitle file must be loaded first.
+    <app-tab label="Context Files">
+      <app-subsection
+        title="Context Files"
+        tooltip="Saved context files. Load a previous context or import an external JSON to override the current file's context.">
+        <app-downloads-list
+          title="Saved Contexts"
+          [files]="availableContextFiles"
+          [isLoading]="isFetchingContextFiles"
+          [deletingFilename]="deletingContextFile"
+          (refresh)="refreshContextFiles()"
+          (download)="downloadContextFile($event)"
+          (delete)="deleteContextFile($event)">
+        </app-downloads-list>
+        <div class="import-context-section">
+          <div class="warning-banner">
+            Importing a context file will override all current context data. A subtitle file must be loaded first.
+          </div>
+          <app-file-upload
+            accept=".json"
+            placeholder="Import Context File"
+            subtext=".json"
+            [selectedFiles]="[]"
+            (filesSelected)="onImportFilesSelected($event)">
+          </app-file-upload>
         </div>
+      </app-subsection>
+    </app-tab>
+
+    <app-tab label="Context Generation">
+      <app-subsection
+        title="Context Generation"
+        tooltip="Choose languages and upload subtitles for context generation">
+
         <app-file-upload
-          accept=".json"
-          placeholder="Import Context File"
-          subtext=".json"
-          [selectedFiles]="[]"
-          (filesSelected)="onImportFilesSelected($event)">
+          accept=".ass,.srt"
+          placeholder="Upload Subtitle File"
+          subtext=".ass / .srt"
+          [selectedFiles]="selectedFile ? [selectedFile] : []"
+          (filesSelected)="onSubtitleFileSelected($event)">
         </app-file-upload>
-      </div>
-    </app-subsection>
 
-    <app-subsection
-      title="Context Generation"
-      tooltip="Choose languages and upload subtitles for context generation">
-      <div class="form-row">
-        <div class="form-group">
-          <div class="label-container">
-            <label for="inputLanguage">Input Language</label>
-          </div>
-          <select id="inputLanguage" [(ngModel)]="inputLanguage">
-            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <div class="label-container">
-            <label for="outputLanguage">Output Language</label>
-          </div>
-          <select id="outputLanguage" [(ngModel)]="outputLanguage">
-            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
-          </select>
-        </div>
-      </div>
-
-      <app-context-status
-        [additionalInstructions]="additionalInstructions"
-        [characterList]="characterList"
-        [synopsis]="synopsis"
-        [summary]="summary">
-      </app-context-status>
-
-      <hr class="context-divider">
-
-      <div class="context-tabs">
-        <button type="button"
-                class="context-tab"
-                [class.active]="activeContextTab === 'additional'"
-                (click)="setContextTab('additional')">Additional Instructions</button>
-        <button type="button"
-                class="context-tab"
-                [class.active]="activeContextTab === 'character'"
-                (click)="setContextTab('character')">Character List</button>
-        <button type="button"
-                class="context-tab"
-                [class.active]="activeContextTab === 'synopsis'"
-                (click)="setContextTab('synopsis')">Synopsis</button>
-        <button type="button"
-                class="context-tab"
-                [class.active]="activeContextTab === 'summary'"
-                (click)="setContextTab('summary')">Summary</button>
-      </div>
-
-      <div class="context-tab-content" *ngIf="activeContextTab === 'additional'">
-        <div class="form-group">
-          <div class="context-field-wrapper">
-            <app-text-field
-              label="Additional Instructions"
-              tooltip="Additional instructions are user-provided notes for translators or generation context."
-              placeholder="Enter any additional instructions..."
-              [initialReadMode]="false"
-              [(ngModel)]="additionalInstructions"
-              (ngModelChange)="updateAdditionalInstructions()">
-            </app-text-field>
-          </div>
-        </div>
-
-        <div class="context-options context-options--empty">
-          <label class="checkbox-label">
-            <input type="checkbox" disabled>
-            <span>No options available</span>
-          </label>
-        </div>
-
-        <app-primary-button [fullWidth]="true" [disabled]="true">
-          (Not Available)
-        </app-primary-button>
-      </div>
-
-      <div class="context-tab-content" *ngIf="activeContextTab === 'character'">
-        <div class="form-group">
-          <div class="context-field-wrapper" [class.is-loading]="isGeneratingCharacterList">
-            <app-text-field
-              label="Character List"
-              tooltip="Generate a list of characters with descriptions from the subtitle file"
-              placeholder="Enter character names and descriptions..."
-              [(ngModel)]="characterList"
-              (ngModelChange)="updateCharacterList()">
-            </app-text-field>
-            <div class="context-field-overlay" *ngIf="isGeneratingCharacterList">
-              <app-loading-text-indicator text="Generating Character List..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
+        <div class="form-row">
+          <div class="form-group">
+            <div class="label-container">
+              <label for="inputLanguage">Input Language</label>
             </div>
+            <select id="inputLanguage" [(ngModel)]="inputLanguage">
+              <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+            </select>
           </div>
-        </div>
 
-        <div class="context-options">
-          <label class="checkbox-label">
-            <input type="checkbox" [(ngModel)]="characterListUseAdditionalInstructions">
-            <span>Include Additional Instructions</span>
-          </label>
-        </div>
-
-        <app-primary-button [fullWidth]="true" (click)="generateCharacterList()" [disabled]="isAnyTaskRunning() || !selectedFile">
-          Generate Character List
-        </app-primary-button>
-      </div>
-
-      <div class="context-tab-content" *ngIf="activeContextTab === 'synopsis'">
-        <div class="form-group">
-          <div class="context-field-wrapper" [class.is-loading]="isGeneratingSynopsis">
-            <app-text-field
-              label="Synopsis"
-              tooltip="Generate a synopsis of the episode or scene"
-              placeholder="Enter synopsis..."
-              [(ngModel)]="synopsis"
-              (ngModelChange)="updateSynopsis()">
-            </app-text-field>
-            <div class="context-field-overlay" *ngIf="isGeneratingSynopsis">
-              <app-loading-text-indicator text="Generating Synopsis..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
+          <div class="form-group">
+            <div class="label-container">
+              <label for="outputLanguage">Output Language</label>
             </div>
+            <select id="outputLanguage" [(ngModel)]="outputLanguage">
+              <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+            </select>
           </div>
         </div>
 
-        <div class="context-options">
-          <label class="checkbox-label">
-            <input type="checkbox" [(ngModel)]="synopsisUseAdditionalInstructions">
-            <span>Include Additional Instructions</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" [(ngModel)]="synopsisUseCharacterList">
-            <span>Include Character List</span>
-          </label>
-        </div>
-        <app-primary-button [fullWidth]="true" (click)="generateSynopsis()" [disabled]="isAnyTaskRunning() || !selectedFile">
-          Generate Synopsis
-        </app-primary-button>
-      </div>
+        <app-context-status
+          [additionalInstructions]="additionalInstructions"
+          [characterList]="characterList"
+          [synopsis]="synopsis"
+          [summary]="summary">
+        </app-context-status>
 
-      <div class="context-tab-content" *ngIf="activeContextTab === 'summary'">
-        <div class="form-group">
-          <div class="context-field-wrapper" [class.is-loading]="isGeneratingSummary">
-            <app-text-field
-              label="Summary"
-              tooltip="Generate a high-level summary of the episode or content"
-              placeholder="Enter summary..."
-              [(ngModel)]="summary"
-              (ngModelChange)="updateSummary()">
-            </app-text-field>
-            <div class="context-field-overlay" *ngIf="isGeneratingSummary">
-              <app-loading-text-indicator text="Generating Summary..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
+        <hr class="context-divider">
+
+        <app-tabs>
+          <app-tab label="Additional Instructions">
+            <div class="context-field-wrapper">
+              <app-text-field
+                label="Additional Instructions"
+                tooltip="Additional instructions are user-provided notes for translators or generation context."
+                placeholder="Enter any additional instructions..."
+                [initialReadMode]="false"
+                [(ngModel)]="additionalInstructions"
+                (ngModelChange)="updateAdditionalInstructions()">
+              </app-text-field>
             </div>
-          </div>
-        </div>
+            <div class="context-options context-options--empty">
+              <label class="checkbox-label">
+                <input type="checkbox" disabled>
+                <span>No options available</span>
+              </label>
+            </div>
+            <app-primary-button [fullWidth]="true" [disabled]="true">
+              (Not Available)
+            </app-primary-button>
+          </app-tab>
 
-        <div class="context-options">
-          <label class="checkbox-label">
-            <input type="checkbox" [(ngModel)]="summaryUseAdditionalInstructions">
-            <span>Include Additional Instructions</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" [(ngModel)]="summaryUseCharacterList">
-            <span>Include Character List</span>
-          </label>
-        </div>
-        <app-primary-button [fullWidth]="true" (click)="generateSummary()" [disabled]="isAnyTaskRunning() || !selectedFile">
-          Generate Summary
-        </app-primary-button>
-      </div>
-    </app-subsection>
-    </main>
+          <app-tab label="Character List">
+            <div class="context-field-wrapper" [class.is-loading]="isGeneratingCharacterList">
+              <app-text-field
+                label="Character List"
+                tooltip="Generate a list of characters with descriptions from the subtitle file"
+                placeholder="Enter character names and descriptions..."
+                [(ngModel)]="characterList"
+                (ngModelChange)="updateCharacterList()">
+              </app-text-field>
+              <div class="context-field-overlay" *ngIf="isGeneratingCharacterList">
+                <app-loading-text-indicator text="Generating Character List..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
+              </div>
+            </div>
+            <div class="context-options">
+              <label class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="characterListUseAdditionalInstructions">
+                <span>Include Additional Instructions</span>
+              </label>
+            </div>
+            <app-primary-button [fullWidth]="true" (click)="generateCharacterList()" [disabled]="isAnyTaskRunning() || !selectedFile">
+              Generate Character List
+            </app-primary-button>
+          </app-tab>
+
+          <app-tab label="Synopsis">
+            <div class="context-field-wrapper" [class.is-loading]="isGeneratingSynopsis">
+              <app-text-field
+                label="Synopsis"
+                tooltip="Generate a synopsis of the episode or scene"
+                placeholder="Enter synopsis..."
+                [(ngModel)]="synopsis"
+                (ngModelChange)="updateSynopsis()">
+              </app-text-field>
+              <div class="context-field-overlay" *ngIf="isGeneratingSynopsis">
+                <app-loading-text-indicator text="Generating Synopsis..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
+              </div>
+            </div>
+            <div class="context-options">
+              <label class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="synopsisUseAdditionalInstructions">
+                <span>Include Additional Instructions</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="synopsisUseCharacterList">
+                <span>Include Character List</span>
+              </label>
+            </div>
+            <app-primary-button [fullWidth]="true" (click)="generateSynopsis()" [disabled]="isAnyTaskRunning() || !selectedFile">
+              Generate Synopsis
+            </app-primary-button>
+          </app-tab>
+
+          <app-tab label="Summary">
+            <div class="context-field-wrapper" [class.is-loading]="isGeneratingSummary">
+              <app-text-field
+                label="Summary"
+                tooltip="Generate a high-level summary of the episode or content"
+                placeholder="Enter summary..."
+                [(ngModel)]="summary"
+                (ngModelChange)="updateSummary()">
+              </app-text-field>
+              <div class="context-field-overlay" *ngIf="isGeneratingSummary">
+                <app-loading-text-indicator text="Generating Summary..." color="#667eea" size="1.2rem"></app-loading-text-indicator>
+              </div>
+            </div>
+            <div class="context-options">
+              <label class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="summaryUseAdditionalInstructions">
+                <span>Include Additional Instructions</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="summaryUseCharacterList">
+                <span>Include Character List</span>
+              </label>
+            </div>
+            <app-primary-button [fullWidth]="true" (click)="generateSummary()" [disabled]="isAnyTaskRunning() || !selectedFile">
+              Generate Summary
+            </app-primary-button>
+          </app-tab>
+        </app-tabs>
+      </app-subsection>
+    </app-tab>
+
+  </app-tabs>
   </div>
 </div>

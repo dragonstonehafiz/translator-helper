@@ -36,24 +36,15 @@ Translator Helper is a full-stack application for transcribing, translating, and
 ### app-navbar
 **Location**: `frontend/src/app/components/navbar/`
 
-**Purpose**: Fixed top navigation bar with page links and automatic subsection navigation.
+**Purpose**: Fixed top navigation bar with page links.
 
 **Features**:
-- **Main navbar** (60px height): Contains brand logo and direct links to all pages (Settings, Context, Transcribe, Translate)
-- **Subnav** (50px height): Automatically detects and displays subsection links for the current page
-- Subsection links scroll smoothly to the corresponding section on click
-- Active subsection is highlighted in purple
-- Both navbars are fixed at the top with z-index layering
+- **Navbar** (60px height): Contains brand logo and direct links to all pages (Settings, Context, Transcribe, Translate)
+- Fixed at the top with z-index 100
 
 **Layout Impact**:
-- Pages should have `padding-top: 130px` to account for both navbars (60px + 50px + 20px offset)
-- Subsection links are auto-generated from `app-subsection` components on the page
-
-**How it works**:
-- Detects all `<app-subsection>` elements on the current page
-- Reads the `title` attribute from each subsection
-- Creates clickable links in the subnav
-- Updates active state based on scroll position
+- Pages use the global `.page-container` class which sets `padding-top: 80px` (60px navbar + 20px offset)
+- Global `.page-container` is defined in `frontend/src/styles.scss` — do not duplicate it in page SCSs
 
 ---
 
@@ -200,30 +191,42 @@ The application uses several reusable standalone components located in `frontend
 
 ---
 
-### app-active-subtitle-panel
-**Location**: `frontend/src/app/components/active-subtitle-panel/`
+### app-tabs / app-tab
+**Location**: `frontend/src/app/components/tabs/`
 
-**Purpose**: Sticky workspace-side panel for the single active subtitle file shared by Context and Translate workflows.
+**Purpose**: Reusable pill-style tab container for grouping page sections.
 
 **When to use**:
-- Pages that operate on the current subtitle file
-- Replacing per-page subtitle upload controls
-- Showing subtitle file details while users scroll through long workflow sections
+- Grouping related subsections within a single card area
+- Switching between workflows on the same page (e.g. Translate Line vs Translate File)
+
+**Usage**:
+```html
+<app-tabs>
+  <app-tab label="Tab One">
+    <app-subsection title="Tab One">
+      <!-- content -->
+    </app-subsection>
+  </app-tab>
+  <app-tab label="Tab Two">
+    <app-subsection title="Tab Two">
+      <!-- content -->
+    </app-subsection>
+  </app-tab>
+</app-tabs>
+```
 
 **How it works**:
-- Uses `app-file-upload` for `.ass` / `.srt` selection
-- Stores the selected subtitle `File` in `StateService`
-- Stores the selected translated subtitle `File` separately in `StateService` for translated-file review
-- Calls `ApiService.getSubtitleFileInfo()` once after selection
-- Stores subtitle stats in `StateService` so the file and stats persist across route changes in the current app session
-- Calls `ApiService.getSubtitleFileInfo()` for the translated subtitle selection and stores translated-file stats separately
-- Derives the matching saved context filename from the subtitle basename and auto-loads it from backend `context-files` when it exists
-- Writes loaded context fields into global `StateService` context state so Context and Translate update from the same source
+- `TabsComponent` uses `ContentChildren(TabComponent)` to manage which tab is active
+- `TabComponent` applies `[hidden]` to its own host element so hidden tabs are fully removed from layout (no gap contribution)
+- Tab state is preserved when switching tabs since `[hidden]` keeps the DOM alive (unlike `*ngIf`)
 
-**Layout**:
-- Rendered in a sticky left sidebar on Context and Translate pages
-- The right column contains the page-specific workflow sections
-- The panel owns active original subtitle upload, active translated subtitle upload, and file details; context file download/delete remains in the Context page's saved context list
+**Notes**:
+- `app-tabs` can be used at any nesting level — both as a top-level page tab switcher and as an inner sub-tab switcher within a subsection
+- When used as a top-level switcher, put `app-subsection` inside each `app-tab`
+- When used as an inner switcher (e.g. switching between context fields), content goes directly inside `app-tab` with no nested `app-subsection`
+- Do not use hand-rolled tab buttons (`context-tab`, `*ngIf` visibility) — always use `app-tabs`/`app-tab` instead
+- Both `TabsComponent` and `TabComponent` must be added to the page component's `imports` array
 
 ---
 
@@ -859,9 +862,9 @@ For file translations, `/task-results/TaskTranslateFile` reports status/progress
 - **Text**: `#333`
 
 ### Layout
-- **Navbar**: Fixed 60px height at top, with 50px subnav below when subsections exist
-- **Page Container**: Max-width 1200px, centered with `margin: 0 auto`
-- **Page Padding**: `padding: 75px 20px 40px` (top accounts for navbar + subnav + offset)
+- **Navbar**: Fixed 60px height at top (no subnav)
+- **Page Container**: Max-width 1400px, centered with `margin: 0 auto` — defined globally in `frontend/src/styles.scss`, do not duplicate in page SCSs
+- **Page Padding**: `padding: 80px 20px 40px` (top accounts for 60px navbar + 20px offset)
 - **Responsive**: None currently - desktop-focused
 
 ### Form Elements
@@ -886,24 +889,20 @@ For file translations, `/task-results/TaskTranslateFile` reports status/progress
 - If creating sections, use `app-subsection`
 
 ### Page Layout
-- Use standard page container with proper padding for navbar
+- Use the global `.page-container` class — it is defined in `frontend/src/styles.scss` and requires no per-page SCSS
 - Example page structure:
 ```html
 <div class="page-container">
   <div class="header-container">
     <h1>Page Title</h1>
   </div>
-  <!-- Page content with app-subsection components -->
+  <div class="form-section">
+    <!-- app-subsection and app-tabs components -->
+  </div>
 </div>
 ```
-- SCSS for page container:
-```scss
-.page-container {
-  padding: 75px 20px 40px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-```
+- Use `app-tabs` to group related subsections; each `app-tab` should contain one `app-subsection`
+- Do not add `.page-container` styles to individual page SCSS files
 
 ### State Management
 - Use `StateService` for cross-component state
@@ -960,8 +959,8 @@ When making changes to:
 1. Create page component in `frontend/src/app/pages/`
 2. Add route in `frontend/src/app/app.routes.ts`
 3. Add link in `navbar.component.html` (main navbar menu)
-4. Use standard page container structure with proper padding (130px top)
-5. Use `app-subsection` components for content organization (will automatically appear in subnav)
+4. Use `<div class="page-container">` — padding and max-width come from the global stylesheet, no per-page SCSS needed
+5. Use `app-subsection` for content sections and `app-tabs` to group related sections into tabs
 
 ### Adding a New Text Field
 Use `app-text-field` instead of creating a new textarea:

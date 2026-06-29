@@ -1,0 +1,16 @@
+<div class="tabs-container">
+  <div class="tab-bar">
+    <button
+      *ngFor="let tab of getTabList(); let i = index"
+      type="button"
+      class="tab-button"
+      [class.active]="activeIndex === i"
+      (click)="selectTab(i)">
+      {{ tab.label }}
+    </button>
+  </div>
+
+  <div class="tab-content">
+    <ng-content></ng-content>
+  </div>
+</div>

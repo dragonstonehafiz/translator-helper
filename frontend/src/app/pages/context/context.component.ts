@@ -13,14 +13,15 @@ import { LoadingTextIndicatorComponent } from '../../components/loading-text-ind
 import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
 import { DownloadsListComponent } from '../../components/downloads-list/downloads-list.component';
 import { ConfirmationService } from '../../services/confirmation.service';
-import { ActiveSubtitlePanelComponent } from '../../components/active-subtitle-panel/active-subtitle-panel.component';
+import { TabsComponent } from '../../components/tabs/tabs.component';
+import { TabComponent } from '../../components/tabs/tab.component';
 import { LANGUAGE_OPTIONS } from '../../shared/language-options';
 import { ErrorDialogService } from '../../services/error-dialog.service';
 
 @Component({
   selector: 'app-context',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent, TooltipIconComponent, ContextStatusComponent, LoadingTextIndicatorComponent, PrimaryButtonComponent, DownloadsListComponent, ActiveSubtitlePanelComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, FileUploadComponent, TextFieldComponent, TooltipIconComponent, ContextStatusComponent, LoadingTextIndicatorComponent, PrimaryButtonComponent, DownloadsListComponent, TabsComponent, TabComponent],
   templateUrl: './context.component.html',
   styleUrl: './context.component.scss'
 })
@@ -66,7 +67,6 @@ export class ContextComponent implements OnInit, OnDestroy {
   isGeneratingSynopsis = false;
   isGeneratingSummary = false;
 
-  activeContextTab: 'additional' | 'character' | 'synopsis' | 'summary' = 'additional';
   
   languageOptions = LANGUAGE_OPTIONS;
 
@@ -157,11 +157,11 @@ export class ContextComponent implements OnInit, OnDestroy {
     this.saveContext();
   }
 
-  setContextTab(tab: 'additional' | 'character' | 'synopsis' | 'summary'): void {
-    this.activeContextTab = tab;
+  onSubtitleFileSelected(files: File[]): void {
+    this.stateService.setActiveSubtitleFile(files[0] ?? null);
   }
 
-  generateCharacterList(): void {
+generateCharacterList(): void {
     if (!this.selectedFile) {
       this.errorDialogService.show('Please upload a subtitle file first');
       return;

@@ -1,8 +1,3 @@
-.page-container {
-  padding: 75px 16px 40px;
-  max-width: 1560px;
-  margin: 0 auto;
-}
 
 .header-container {
   display: flex;
@@ -24,22 +19,6 @@
   gap: 40px;
 }
 
-.workspace-layout {
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-
-.workspace-sidebar {
-  position: sticky;
-  top: 130px;
-  align-self: start;
-}
-
-.workspace-main {
-  min-width: 0;
-}
 
 .context-divider {
   margin: 16px 0 0;
@@ -47,42 +26,6 @@
   border-top: 1px solid #e2e6ef;
 }
 
-.context-tabs {
-  display: flex;
-  gap: 12px;
-  margin: 16px 0 8px;
-  flex-wrap: wrap;
-}
-
-.context-tab {
-  padding: 8px 16px;
-  border-radius: 999px;
-  border: 1px solid #d7dcec;
-  background: #f4f6fb;
-  color: #44507a;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-
-  &:hover {
-    background: #e9edfb;
-    border-color: #c7cfee;
-  }
-
-  &.active {
-    background: #667eea;
-    border-color: #667eea;
-    color: #ffffff;
-  }
-}
-
-.context-tab-content {
-  margin-top: 12px;
-
-  app-primary-button {
-    margin-top: 12px;
-  }
-}
 
 .context-field-wrapper {
   position: relative;

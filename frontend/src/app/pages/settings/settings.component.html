@@ -5,153 +5,107 @@
 
   <div class="form-section">
     <app-subsection title="Status">
-    
-    <div class="status-row">
-      <div class="status-box" [class.ready]="llmReady === true" [class.not-ready]="llmReady === false" [class.not-connected]="llmReady === null">
-        <h3 class="component-name">LLM</h3>
-        <div class="status-content">
-          <div class="status-indicator"></div>
-          <span class="status-text">
-            {{ llmReady === null ? 'Not Connected' : (llmReady ? 'Ready' : 'Not Ready') }}
-          </span>
-        </div>
-        <div class="status-details" *ngIf="llmReady && llmDetails.length">
-          <div *ngFor="let item of llmDetails">{{ item.label }}: {{ item.value }}</div>
-        </div>
-        <div class="status-details error-details" *ngIf="!llmReady && llmLoadingError">
-          <div>{{ llmLoadingError }}</div>
-        </div>
-      </div>
-
-      <div class="status-box" [class.ready]="audioReady === true" [class.not-ready]="audioReady === false" [class.not-connected]="audioReady === null">
-        <h3 class="component-name">Transcription Model</h3>
-        <div class="status-content">
-          <div class="status-indicator"></div>
-          <span class="status-text">
-            {{ audioReady === null ? 'Not Connected' : (audioReady ? 'Ready' : 'Not Ready') }}
-          </span>
-        </div>
-        <div class="status-details" *ngIf="audioReady && audioDetails.length">
-          <div *ngFor="let item of audioDetails">{{ item.label }}: {{ item.value }}</div>
-        </div>
-        <div class="status-details error-details" *ngIf="!audioReady && audioLoadingError">
-          <div>{{ audioLoadingError }}</div>
-        </div>
-      </div>
-    </div>
-
-
-    </app-subsection>
-
-    <app-subsection *ngIf="llmSchema" title="LLM">
-      <div class="schema-grid">
-        <div class="form-group" *ngFor="let field of llmSchema.fields">
-          <div class="field-label">
-            <label [for]="'llm-' + field.key">{{ field.label }}</label>
-            <app-tooltip-icon *ngIf="field.help" [tooltip]="field.help"></app-tooltip-icon>
+      <div class="status-row">
+        <div class="status-box" [class.ready]="llmReady === true" [class.not-ready]="llmReady === false" [class.not-connected]="llmReady === null">
+          <h3 class="component-name">LLM</h3>
+          <div class="status-content">
+            <div class="status-indicator"></div>
+            <span class="status-text">
+              {{ llmReady === null ? 'Not Connected' : (llmReady ? 'Ready' : 'Not Ready') }}
+            </span>
           </div>
-          <ng-container [ngSwitch]="field.type">
-            <select
-              *ngSwitchCase="'select'"
-              [id]="'llm-' + field.key"
-              [(ngModel)]="settingsValues.llm[field.key]"
-              [disabled]="loadingLlm || llmReady === null">
-              <option *ngFor="let option of field.options || []" [value]="option.value">{{ option.label }}</option>
-            </select>
-            <input
-              *ngSwitchCase="'number'"
-              type="number"
-              [id]="'llm-' + field.key"
-              [(ngModel)]="settingsValues.llm[field.key]"
-              [min]="field.min ?? null"
-              [max]="field.max ?? null"
-              [step]="field.step ?? null"
-              [disabled]="loadingLlm || llmReady === null">
-            <input
-              *ngSwitchCase="'password'"
-              type="password"
-              [id]="'llm-' + field.key"
-              [(ngModel)]="settingsValues.llm[field.key]"
-              [placeholder]="field.placeholder"
-              [disabled]="loadingLlm || llmReady === null">
-            <input
-              *ngSwitchCase="'boolean'"
-              type="checkbox"
-              [id]="'llm-' + field.key"
-              [(ngModel)]="settingsValues.llm[field.key]"
-              [disabled]="loadingLlm || llmReady === null">
-            <input
-              *ngSwitchDefault
-              type="text"
-              [id]="'llm-' + field.key"
-              [(ngModel)]="settingsValues.llm[field.key]"
-              [placeholder]="field.placeholder"
-              [disabled]="loadingLlm || llmReady === null">
-          </ng-container>
-        </div>
-      </div>
-      <div class="load-button-spacing">
-        <app-primary-button [fullWidth]="true" (click)="loadLlmModel()" [disabled]="loadingLlm || (llmApiKeyRequired && !settingsValues.llm['api_key'] && !llmReady)">
-          <span *ngIf="!loadingLlm">Reload LLM</span>
-          <span *ngIf="loadingLlm">Loading...</span>
-        </app-primary-button>
-      </div>
-    </app-subsection>
-
-    <app-subsection *ngIf="audioSchema" title="Transcription Model">
-      <div class="schema-grid">
-        <div class="form-group" *ngFor="let field of audioSchema.fields">
-          <div class="field-label">
-            <label [for]="'audio-' + field.key">{{ field.label }}</label>
-            <app-tooltip-icon *ngIf="field.help" [tooltip]="field.help"></app-tooltip-icon>
+          <div class="status-details" *ngIf="llmReady && llmDetails.length">
+            <div *ngFor="let item of llmDetails">{{ item.label }}: {{ item.value }}</div>
           </div>
-          <ng-container [ngSwitch]="field.type">
-            <select
-              *ngSwitchCase="'select'"
-              [id]="'audio-' + field.key"
-              [(ngModel)]="settingsValues.audio[field.key]"
-              [disabled]="loadingAudio || audioReady === null">
-              <option *ngFor="let option of field.options || []" [value]="option.value">{{ option.label }}</option>
-            </select>
-            <input
-              *ngSwitchCase="'number'"
-              type="number"
-              [id]="'audio-' + field.key"
-              [(ngModel)]="settingsValues.audio[field.key]"
-              [min]="field.min ?? null"
-              [max]="field.max ?? null"
-              [step]="field.step ?? null"
-              [disabled]="loadingAudio || audioReady === null">
-            <input
-              *ngSwitchCase="'password'"
-              type="password"
-              [id]="'audio-' + field.key"
-              [(ngModel)]="settingsValues.audio[field.key]"
-              [placeholder]="field.placeholder"
-              [disabled]="loadingAudio || audioReady === null">
-            <input
-              *ngSwitchCase="'boolean'"
-              type="checkbox"
-              [id]="'audio-' + field.key"
-              [(ngModel)]="settingsValues.audio[field.key]"
-              [disabled]="loadingAudio || audioReady === null">
-            <input
-              *ngSwitchDefault
-              type="text"
-              [id]="'audio-' + field.key"
-              [(ngModel)]="settingsValues.audio[field.key]"
-              [placeholder]="field.placeholder"
-              [disabled]="loadingAudio || audioReady === null">
-          </ng-container>
+          <div class="status-details error-details" *ngIf="!llmReady && llmLoadingError">
+            <div>{{ llmLoadingError }}</div>
+          </div>
         </div>
-      </div>
-      <div class="load-button-spacing">
-        <app-primary-button [fullWidth]="true" (click)="loadAudioModel()" [disabled]="loadingAudio">
-          <span *ngIf="!loadingAudio">Reload Transcription Model</span>
-          <span *ngIf="loadingAudio">Loading...</span>
-        </app-primary-button>
+
+        <div class="status-box" [class.ready]="audioReady === true" [class.not-ready]="audioReady === false" [class.not-connected]="audioReady === null">
+          <h3 class="component-name">Transcription Model</h3>
+          <div class="status-content">
+            <div class="status-indicator"></div>
+            <span class="status-text">
+              {{ audioReady === null ? 'Not Connected' : (audioReady ? 'Ready' : 'Not Ready') }}
+            </span>
+          </div>
+          <div class="status-details" *ngIf="audioReady && audioDetails.length">
+            <div *ngFor="let item of audioDetails">{{ item.label }}: {{ item.value }}</div>
+          </div>
+          <div class="status-details error-details" *ngIf="!audioReady && audioLoadingError">
+            <div>{{ audioLoadingError }}</div>
+          </div>
+        </div>
       </div>
     </app-subsection>
 
+    <app-tabs>
+      <app-tab label="LLM">
+        <app-subsection title="LLM">
+          <ng-container *ngIf="llmSchema; else noLlmSchema">
+            <div class="schema-grid">
+              <div class="form-group" *ngFor="let field of llmSchema.fields">
+                <div class="field-label">
+                  <label [for]="'llm-' + field.key">{{ field.label }}</label>
+                  <app-tooltip-icon *ngIf="field.help" [tooltip]="field.help"></app-tooltip-icon>
+                </div>
+                <ng-container [ngSwitch]="field.type">
+                  <select *ngSwitchCase="'select'" [id]="'llm-' + field.key" [(ngModel)]="settingsValues.llm[field.key]" [disabled]="loadingLlm || llmReady === null">
+                    <option *ngFor="let option of field.options || []" [value]="option.value">{{ option.label }}</option>
+                  </select>
+                  <input *ngSwitchCase="'number'" type="number" [id]="'llm-' + field.key" [(ngModel)]="settingsValues.llm[field.key]" [min]="field.min ?? null" [max]="field.max ?? null" [step]="field.step ?? null" [disabled]="loadingLlm || llmReady === null">
+                  <input *ngSwitchCase="'password'" type="password" [id]="'llm-' + field.key" [(ngModel)]="settingsValues.llm[field.key]" [placeholder]="field.placeholder" [disabled]="loadingLlm || llmReady === null">
+                  <input *ngSwitchCase="'boolean'" type="checkbox" [id]="'llm-' + field.key" [(ngModel)]="settingsValues.llm[field.key]" [disabled]="loadingLlm || llmReady === null">
+                  <input *ngSwitchDefault type="text" [id]="'llm-' + field.key" [(ngModel)]="settingsValues.llm[field.key]" [placeholder]="field.placeholder" [disabled]="loadingLlm || llmReady === null">
+                </ng-container>
+              </div>
+            </div>
+            <div class="load-button-spacing">
+              <app-primary-button [fullWidth]="true" (click)="loadLlmModel()" [disabled]="loadingLlm || (llmApiKeyRequired && !settingsValues.llm['api_key'] && !llmReady)">
+                <span *ngIf="!loadingLlm">Reload LLM</span>
+                <span *ngIf="loadingLlm">Loading...</span>
+              </app-primary-button>
+            </div>
+          </ng-container>
+          <ng-template #noLlmSchema>
+            <p class="no-schema-message">LLM schema not available. Check your server connection.</p>
+          </ng-template>
+        </app-subsection>
+      </app-tab>
+
+      <app-tab label="Transcription Model">
+        <app-subsection title="Transcription Model">
+          <ng-container *ngIf="audioSchema; else noAudioSchema">
+            <div class="schema-grid">
+              <div class="form-group" *ngFor="let field of audioSchema.fields">
+                <div class="field-label">
+                  <label [for]="'audio-' + field.key">{{ field.label }}</label>
+                  <app-tooltip-icon *ngIf="field.help" [tooltip]="field.help"></app-tooltip-icon>
+                </div>
+                <ng-container [ngSwitch]="field.type">
+                  <select *ngSwitchCase="'select'" [id]="'audio-' + field.key" [(ngModel)]="settingsValues.audio[field.key]" [disabled]="loadingAudio || audioReady === null">
+                    <option *ngFor="let option of field.options || []" [value]="option.value">{{ option.label }}</option>
+                  </select>
+                  <input *ngSwitchCase="'number'" type="number" [id]="'audio-' + field.key" [(ngModel)]="settingsValues.audio[field.key]" [min]="field.min ?? null" [max]="field.max ?? null" [step]="field.step ?? null" [disabled]="loadingAudio || audioReady === null">
+                  <input *ngSwitchCase="'password'" type="password" [id]="'audio-' + field.key" [(ngModel)]="settingsValues.audio[field.key]" [placeholder]="field.placeholder" [disabled]="loadingAudio || audioReady === null">
+                  <input *ngSwitchCase="'boolean'" type="checkbox" [id]="'audio-' + field.key" [(ngModel)]="settingsValues.audio[field.key]" [disabled]="loadingAudio || audioReady === null">
+                  <input *ngSwitchDefault type="text" [id]="'audio-' + field.key" [(ngModel)]="settingsValues.audio[field.key]" [placeholder]="field.placeholder" [disabled]="loadingAudio || audioReady === null">
+                </ng-container>
+              </div>
+            </div>
+            <div class="load-button-spacing">
+              <app-primary-button [fullWidth]="true" (click)="loadAudioModel()" [disabled]="loadingAudio">
+                <span *ngIf="!loadingAudio">Reload Transcription Model</span>
+                <span *ngIf="loadingAudio">Loading...</span>
+              </app-primary-button>
+            </div>
+          </ng-container>
+          <ng-template #noAudioSchema>
+            <p class="no-schema-message">Transcription model schema not available. Check your server connection.</p>
+          </ng-template>
+        </app-subsection>
+      </app-tab>
+    </app-tabs>
   </div>
 </div>

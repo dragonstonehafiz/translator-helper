@@ -11,12 +11,14 @@ import {
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
 import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon.component';
 import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
+import { TabsComponent } from '../../components/tabs/tabs.component';
+import { TabComponent } from '../../components/tabs/tab.component';
 import { ErrorDialogService } from '../../services/error-dialog.service';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, PrimaryButtonComponent, TooltipIconComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, PrimaryButtonComponent, TooltipIconComponent, TabsComponent, TabComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'
 })
