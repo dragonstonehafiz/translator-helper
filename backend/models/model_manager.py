@@ -26,9 +26,6 @@ class ModelManager:
         self.llm_loading_error: Optional[str] = None
         self.audio_loading_error: Optional[str] = None
 
-        # Eager load both clients during manager initialization.
-        self.load_llm_model()
-        self.load_audio_model()
 
     @staticmethod
     def get_instance() -> "ModelManager":

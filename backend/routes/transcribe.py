@@ -4,8 +4,8 @@ Transcription routes.
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, UploadFile
 
-from orchestrator.task_transcribe_file import TaskTranscribeFile
-from orchestrator.task_transcribe_line import TaskTranscribeLine
+from orchestrator.tasks.task_transcribe_file import TaskTranscribeFile
+from orchestrator.tasks.task_transcribe_line import TaskTranscribeLine
 from utils.api_response import error_response, processing_response
 
 from .shared import (

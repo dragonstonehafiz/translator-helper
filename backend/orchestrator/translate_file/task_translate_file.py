@@ -97,9 +97,10 @@ class TaskTranslateFile(BaseTask):
             base_name = name_parts[0]
             safe_lang = "".join(char for char in output_lang if char.isalnum() or char in ("-", "_")) or "lang"
             translated_filename = f"{base_name}.{safe_lang}.{ext}"
-            output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "outputs", "sub-files")
-            os.makedirs(output_dir, exist_ok=True)
-            output_path = os.path.join(output_dir, translated_filename)
+            from utils.config import OUTPUTS_DIR
+            output_dir = OUTPUTS_DIR / "sub-files"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_path = output_dir / translated_filename
             translated_subs.save(output_path)
 
             progress_handler.set(

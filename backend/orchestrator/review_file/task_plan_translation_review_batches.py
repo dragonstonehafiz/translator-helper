@@ -1,5 +1,5 @@
 from orchestrator.result_handler import ResultHandler
-from orchestrator.task_plan_translation_batches import TaskPlanTranslationBatches
+from orchestrator.translate_file.task_plan_translation_batches import TaskPlanTranslationBatches
 
 
 class TaskPlanTranslationReviewBatches(TaskPlanTranslationBatches):

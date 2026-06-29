@@ -77,8 +77,8 @@ def main() -> int:
         from models.model_manager import ModelManager
         from orchestrator.task_orchestrator import TaskOrchestrator
         from orchestrator.result_handler import ResultHandler
-        from orchestrator.task_plan_translation_batches import TaskPlanTranslationBatches
-        from orchestrator.task_split_oversized_batches import TaskSplitOversizedBatches
+        from orchestrator.translate_file.task_plan_translation_batches import TaskPlanTranslationBatches
+        from orchestrator.translate_file.task_split_oversized_batches import TaskSplitOversizedBatches
     except Exception as exc:
         print(json.dumps({"status": "error", "message": f"Failed to import backend task dependencies: {exc}"}))
         return 1

@@ -7,9 +7,9 @@ import os
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 
-from orchestrator.task_generate_character_list import TaskGenerateCharacterList
-from orchestrator.task_generate_summary import TaskGenerateSummary
-from orchestrator.task_generate_synopsis import TaskGenerateSynopsis
+from orchestrator.tasks.task_generate_character_list import TaskGenerateCharacterList
+from orchestrator.tasks.task_generate_summary import TaskGenerateSummary
+from orchestrator.tasks.task_generate_synopsis import TaskGenerateSynopsis
 from utils.api_response import error_response, processing_response, success_response
 
 from .shared import (
