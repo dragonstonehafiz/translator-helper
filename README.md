@@ -43,6 +43,7 @@ A full-stack web application for transcribing and translating subtitle files. Bu
 - [WhisperX](https://github.com/m-bain/whisperX) for audio transcription with accurate word-level timestamps
 - [Anthropic Claude API](https://www.anthropic.com/) for translation and context generation
 - [OpenAI API](https://platform.openai.com/) for translation and context generation
+- [DeepSeek API](https://platform.deepseek.com/) for translation and context generation
 - [llama.cpp](https://github.com/ggml-org/llama.cpp) via `llama-cpp-python` for local GGUF inference
 - `pysubs2` for subtitle file parsing (.ass/.srt)
 
@@ -98,6 +99,7 @@ Settings (API keys, model names, temperatures, etc.) are stored as JSON files in
 |---|---|
 | `backend/data/llm_claude.json` | Anthropic Claude |
 | `backend/data/llm_chatgpt.json` | OpenAI ChatGPT |
+| `backend/data/llm_deepseek.json` | DeepSeek |
 | `backend/data/llm_llamacpp.json` | llama.cpp (local GGUF) |
 | `backend/data/audio_whisperx.json` | WhisperX |
 | `backend/data/audio_whisper.json` | Whisper |

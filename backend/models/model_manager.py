@@ -2,7 +2,8 @@ import os
 from typing import Optional
 
 from models.audio_whisperx import AudioWhisperX
-from models.llm_claude import LLMClaude
+# from models.llm_claude import LLMClaude
+from models.llm_deepseek import LLMDeepSeek
 # from models.llm_llamacpp import LLMLlamaCpp
 from interface.llm_interface import LLMInterface
 from interface.audio_model_interface import AudioModelInterface
@@ -83,7 +84,7 @@ class ModelManager:
         try:
             self.loading_llm_model = True
             if self._llm_client is None:
-                self._llm_client = LLMClaude()
+                self._llm_client = LLMDeepSeek()
             self._llm_client.initialize()
             self.llm_loading_error = None
             logger.info(

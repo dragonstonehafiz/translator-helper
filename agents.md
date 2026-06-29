@@ -6,7 +6,7 @@ This document provides guidelines for AI agents working on the Translator Helper
 
 Translator Helper is a full-stack application for transcribing, translating, and managing subtitle files. It consists of:
 - **Frontend**: Angular 17.3.12 standalone application with TypeScript and SCSS
-- **Backend**: FastAPI Python server with WhisperX (transcription) and Claude/OpenAI-capable LLM backends (translation/context)
+- **Backend**: FastAPI Python server with WhisperX (transcription) and Claude/OpenAI/DeepSeek-capable LLM backends (translation/context)
 - **Backend Interfaces**: Abstract interfaces for LLM and audio models (see `backend/interface/`)
 - **Backend Models**: Concrete model implementations (see `backend/models/`)
   - `backend/models/model_manager.py` is model-focused (load/config/infer), not task-result orchestration
