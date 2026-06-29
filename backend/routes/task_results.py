@@ -4,11 +4,11 @@ Shared task-result polling route.
 
 from fastapi import APIRouter
 
-from .shared import AUDIO_TASK_TYPES, CONTEXT_TASK_TYPES, TRANSLATE_TASK_TYPES, build_task_response, ensure_task_type
+from .shared import AUDIO_TASK_TYPES, LIBRARY_TASK_TYPES, TRANSLATE_TASK_TYPES, build_task_response, ensure_task_type
 
 router = APIRouter(prefix="/task-results")
 
-TASK_RESULT_TYPES = set(CONTEXT_TASK_TYPES) | set(TRANSLATE_TASK_TYPES) | set(AUDIO_TASK_TYPES)
+TASK_RESULT_TYPES = LIBRARY_TASK_TYPES | set(TRANSLATE_TASK_TYPES) | set(AUDIO_TASK_TYPES)
 
 
 @router.get("/{task_type}")

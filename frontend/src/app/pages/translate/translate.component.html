@@ -6,54 +6,16 @@
 
   <div class="form-section">
     <app-subsection
-      title="Context"
-      tooltip="Saved context from the Context page">
+      title="Series"
+      tooltip="Select the library series to use as translation context">
 
-      <app-context-status
-        [characterList]="characterList"
-        [synopsis]="synopsis"
-        [summary]="summary"
-        [additionalInstructions]="additionalInstructions">
-      </app-context-status>
-
-      <app-tabs>
-        <app-tab label="Additional Instructions">
-          <app-text-field
-            label="Additional Instructions"
-            placeholder="No additional instructions available..."
-            [rows]="6"
-            [(ngModel)]="additionalInstructions"
-            (ngModelChange)="updateAdditionalInstructions()">
-          </app-text-field>
-        </app-tab>
-        <app-tab label="Character List">
-          <app-text-field
-            label="Character List"
-            placeholder="No character list available..."
-            [rows]="6"
-            [(ngModel)]="characterList"
-            (ngModelChange)="updateCharacterList()">
-          </app-text-field>
-        </app-tab>
-        <app-tab label="Synopsis">
-          <app-text-field
-            label="Synopsis"
-            placeholder="No synopsis available..."
-            [rows]="6"
-            [(ngModel)]="synopsis"
-            (ngModelChange)="updateSynopsis()">
-          </app-text-field>
-        </app-tab>
-        <app-tab label="Summary">
-          <app-text-field
-            label="Summary"
-            placeholder="No summary available..."
-            [rows]="6"
-            [(ngModel)]="summary"
-            (ngModelChange)="updateSummary()">
-          </app-text-field>
-        </app-tab>
-      </app-tabs>
+      <div class="form-group">
+        <label for="seriesSelect">Series</label>
+        <select id="seriesSelect" [(ngModel)]="selectedSeriesId" (ngModelChange)="onSeriesSelected($event)">
+          <option [value]="null">— None —</option>
+          <option *ngFor="let s of seriesList" [value]="s.id">{{ s.name }} ({{ s.input_lang }} → {{ s.output_lang }})</option>
+        </select>
+      </div>
     </app-subsection>
 
     <app-tabs>
@@ -61,25 +23,6 @@
         <app-subsection
           title="Translate Line"
           tooltip="Translate a single line of text">
-
-          <div class="checkbox-group">
-            <label class="checkbox-label">
-              <input type="checkbox" [(ngModel)]="useAdditionalInstructions">
-              <span>Additional Instructions</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" [(ngModel)]="useCharacterList">
-              <span>Character List</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" [(ngModel)]="useSynopsis">
-              <span>Synopsis</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" [(ngModel)]="useSummary">
-              <span>Summary</span>
-            </label>
-          </div>
 
           <div class="form-row">
             <div class="form-group">
@@ -135,25 +78,6 @@
             (filesSelected)="onSubtitleFileSelected($event)">
           </app-file-upload>
 
-          <div class="checkbox-group">
-            <label class="checkbox-label">
-              <input type="checkbox" [(ngModel)]="useAdditionalInstructions">
-              <span>Additional Instructions</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" [(ngModel)]="useCharacterList">
-              <span>Character List</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" [(ngModel)]="useSynopsis">
-              <span>Synopsis</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" [(ngModel)]="useSummary">
-              <span>Summary</span>
-            </label>
-          </div>
-
           <div class="form-row">
             <div class="form-group">
               <label for="fileInputLanguage">Input Language</label>
@@ -202,25 +126,6 @@
             [selectedFiles]="translatedFileToReview ? [translatedFileToReview] : []"
             (filesSelected)="onTranslatedSubtitleFileSelected($event)">
           </app-file-upload>
-
-          <div class="checkbox-group">
-            <label class="checkbox-label">
-              <input type="checkbox" [(ngModel)]="useAdditionalInstructions">
-              <span>Additional Instructions</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" [(ngModel)]="useCharacterList">
-              <span>Character List</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" [(ngModel)]="useSynopsis">
-              <span>Synopsis</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" [(ngModel)]="useSummary">
-              <span>Summary</span>
-            </label>
-          </div>
 
           <div class="form-row">
             <div class="form-group">

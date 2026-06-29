@@ -1,0 +1,384 @@
+.header-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 20px;
+
+  h1 {
+    font-size: 2.5rem;
+    color: #333;
+    margin: 0;
+  }
+}
+
+.btn-back {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #667eea;
+  font-size: 1.8rem;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+
+  &:hover { color: #5568d3; }
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+
+// ── Inline forms ───────────────────────────────────────────────────────────
+
+// ── Shared edit form layout ────────────────────────────────────────────────
+// Applied to: .inline-form, .character-card-body.inline-form, .glossary-inline-edit
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;  // gap that appears AFTER each field (textbox → next label)
+}
+
+.inline-form {
+  @extend .edit-form;
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.glossary-inline-edit {
+  @extend .edit-form;
+  width: 100%;
+}
+
+.character-card-body.inline-form {
+  @extend .edit-form;
+  border-radius: 0 0 8px 8px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;  // label sits tight above its input
+
+  label {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+  }
+
+  input[type=text],
+  textarea,
+  select {
+    padding: 12px 15px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+    background-color: white;
+    box-sizing: border-box;
+    width: 100%;
+
+    &:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+  }
+
+  select { cursor: pointer; }
+}
+
+.form-row {
+  display: flex;
+  gap: 20px;
+
+  .form-group { flex: 1; }
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+
+  // both Save (app-primary-button host) and Cancel (button) stretch to fill half each
+  app-primary-button {
+    flex: 1;
+    display: flex;
+
+    // force the inner button to fill the host
+    ::ng-deep .primary-btn {
+      width: 100%;
+      flex: 1;
+    }
+  }
+
+  .btn-cancel {
+    flex: 1;
+  }
+}
+
+// ── Secondary / cancel button ──────────────────────────────────────────────
+
+.btn-cancel {
+  padding: 12px 20px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #555;
+  transition: border-color 0.2s, background 0.2s;
+
+  &:hover { background: #f0f0f0; border-color: #bbb; }
+}
+
+// ── Character cards ────────────────────────────────────────────────────────
+
+.character-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.character-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  cursor: pointer;
+  background: #fff;
+
+  &:hover { background: #f8f9fa; }
+}
+
+.character-card-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #333;
+}
+
+.aliases {
+  font-weight: 400;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.character-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.expand-icon {
+  color: #999;
+  font-size: 0.75rem;
+  margin-left: 4px;
+}
+
+.character-card-body {
+  padding: 20px;
+  border-top: 1px solid #eee;
+  background: #f8f9fa;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.char-field {
+  font-size: 0.95rem;
+  color: #444;
+  line-height: 1.6;
+
+  ul {
+    margin: 6px 0 0 18px;
+    padding: 0;
+    li { margin-bottom: 4px; }
+  }
+}
+
+// ── Glossary ───────────────────────────────────────────────────────────────
+
+.glossary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  background: #fff;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.glossary-inline-edit {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.glossary-row-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+.glossary-term { font-weight: 600; color: #333; }
+.glossary-arrow { color: #999; }
+.glossary-translation { color: #444; }
+.glossary-notes { color: #888; font-size: 0.88rem; }
+
+.glossary-row-actions {
+  display: flex;
+  gap: 8px;
+}
+
+// ── Relationship / history list entries ────────────────────────────────────
+
+.list-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.list-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+
+  input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    background: #fff;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease;
+
+    &:focus { outline: none; border-color: #667eea; }
+  }
+}
+
+
+.list-add-row {
+  display: flex;
+  gap: 8px;
+
+  input { flex: 1; }
+
+  &.two-input input:first-child { max-width: 180px; flex: 0 0 180px; }
+}
+
+// ── Library update ─────────────────────────────────────────────────────────
+
+.update-status {
+  text-align: center;
+}
+
+.proposals-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  h3 {
+    font-size: 1.1rem;
+    color: #333;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  h4 {
+    font-size: 0.85rem;
+    color: #667eea;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+  }
+}
+
+.proposal-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.proposal-name {
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.proposal-field-tag {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #667eea;
+  background: #eef0fd;
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+
+.proposal-detail {
+  font-size: 0.9rem;
+  color: #555;
+  line-height: 1.5;
+}
+
+.proposal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+// ── Misc ───────────────────────────────────────────────────────────────────
+
+.search-not-ready {
+  color: #856404;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+}
+
+.empty-state {
+  color: #999;
+  font-size: 0.95rem;
+  padding: 16px 0;
+  text-align: center;
+}
+
+.loading-row {
+  padding: 20px 0;
+  text-align: center;
+}
+
+// ── Danger button override ─────────────────────────────────────────────────
+
+:host ::ng-deep .btn-danger .primary-btn {
+  background: linear-gradient(135deg, #d64545 0%, #b31f1f 100%);
+  box-shadow: none;
+}
+
+:host ::ng-deep .btn-danger .primary-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(214, 69, 69, 0.35);
+}

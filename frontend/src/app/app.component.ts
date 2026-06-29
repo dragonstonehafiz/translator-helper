@@ -53,9 +53,7 @@ export class AppComponent implements OnInit {
     TASK_TYPES.translateLine,
     TASK_TYPES.transcribeFile,
     TASK_TYPES.transcribeLine,
-    TASK_TYPES.generateCharacterList,
-    TASK_TYPES.generateSynopsis,
-    TASK_TYPES.generateSummary,
+    TASK_TYPES.updateLibrary,
   ];
   private readonly taskLabels: Record<string, string> = {
     [TASK_TYPES.translateFile]: 'File Translation',
@@ -63,9 +61,7 @@ export class AppComponent implements OnInit {
     [TASK_TYPES.translateLine]: 'Line Translation',
     [TASK_TYPES.transcribeFile]: 'File Transcription',
     [TASK_TYPES.transcribeLine]: 'Line Transcription',
-    [TASK_TYPES.generateCharacterList]: 'Character List',
-    [TASK_TYPES.generateSynopsis]: 'Synopsis',
-    [TASK_TYPES.generateSummary]: 'Summary',
+    [TASK_TYPES.updateLibrary]: 'Library Update',
   };
 
   constructor(
@@ -117,6 +113,7 @@ export class AppComponent implements OnInit {
         }
         this.stateService.setLlmReady(data.llm_ready);
         this.stateService.setAudioReady(data.audio_ready);
+        this.stateService.setSearchReady(data.search_ready ?? null);
         this.stateService.setReady(data.llm_ready && data.audio_ready);
         if (!(data.llm_ready && data.audio_ready)) {
           this.router.navigate(['/settings']);

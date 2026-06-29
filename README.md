@@ -16,11 +16,11 @@ A full-stack web application for transcribing and translating subtitle files. Bu
 - **WhisperX Settings**: Select model size, compute device (CPU/CUDA), compute type, and batch size; load model into memory
 - **LLM Settings**: Configure the active LLM backend, including Claude/OpenAI API settings or llama.cpp GGUF settings for local inference
 
-### Context Page
-- **File Download/Upload**: Import/export context as JSON files, upload subtitle files for processing
-- **Character List**: Auto-generate character names and descriptions from subtitle files
-- **Synopsis**: Generate episode or scene synopsis (optional: include character list)
-- **Summary**: Generate high-level summary (optional: include character list)
+### Library Page
+- **Series Management**: Create and manage series entries with input/output languages and notes
+- **Characters**: Add, edit, and delete characters with personality (list of trait points), relationships (dict keyed by character name), and history fields
+- **Glossary**: Add, edit, and delete translation glossary terms with notes
+- **Update Library**: Upload a subtitle file to run a 6-task LLM + Tavily web search chain that proposes new characters, character updates, and new glossary terms; review and accept/reject each proposal individually
 
 ### Transcribe Page
 - **Transcribe Line**: Record audio from microphone with waveform visualization, transcribe to text using WhisperX
@@ -45,6 +45,7 @@ A full-stack web application for transcribing and translating subtitle files. Bu
 - [OpenAI API](https://platform.openai.com/) for translation and context generation
 - [DeepSeek API](https://platform.deepseek.com/) for translation and context generation
 - [llama.cpp](https://github.com/ggml-org/llama.cpp) via `llama-cpp-python` for local GGUF inference
+- [Tavily](https://tavily.com/) via `tavily-python` for web search during library updates
 - `pysubs2` for subtitle file parsing (.ass/.srt)
 
 ### Frontend
@@ -103,6 +104,7 @@ Settings (API keys, model names, temperatures, etc.) are stored as JSON files in
 | `backend/data/llm_llamacpp.json` | llama.cpp (local GGUF) |
 | `backend/data/audio_whisperx.json` | WhisperX |
 | `backend/data/audio_whisper.json` | Whisper |
+| `backend/data/search_tavily.json` | Tavily Web Search |
 
 ### 6. Using llama.cpp (Local LLM)
 
@@ -189,5 +191,5 @@ Once the two previous steps are completed, you can access the app by going to ht
 ## TODO
 
 - Add a way to choose a specific model per translate/context task instead of forcing all tasks to use the same globally loaded LLM.
-- Add some backend library thing to store series information that will automatically be updated when new translation files are read for that series
-- Update context 
+- **Translate File: integrate library context** — the translate file chain currently takes a raw context JSON. It should instead accept a `series_id`, load the relevant series from the library, run a `TaskSelectRelevantContext` task to pick the characters and glossary terms relevant to the subtitle file, and pass that structured context downstream to `TaskTranslateFile`.
+

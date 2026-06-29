@@ -12,8 +12,8 @@ import { Router } from '@angular/router';
 export class HomeComponent {
   constructor(private router: Router) {}
 
-  navigateToContext(): void {
-    this.router.navigate(['/context']);
+  navigateToLibrary(): void {
+    this.router.navigate(['/library']);
   }
 
   navigateToTranscribe(): void {

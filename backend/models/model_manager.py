@@ -5,6 +5,7 @@ from models.audio_whisperx import AudioWhisperX
 # from models.llm_claude import LLMClaude
 from models.llm_deepseek import LLMDeepSeek
 # from models.llm_llamacpp import LLMLlamaCpp
+from models.search_tavily import SearchTavily
 from interface.llm_interface import LLMInterface
 from interface.audio_model_interface import AudioModelInterface
 from utils.logger import setup_logger
@@ -21,10 +22,13 @@ class ModelManager:
 
         self._llm_client: Optional[LLMInterface] = None
         self._audio_client: Optional[AudioModelInterface] = None
+        self._search_client: Optional[SearchTavily] = None
         self.loading_audio_model = False
         self.loading_llm_model = False
+        self.loading_search_model = False
         self.llm_loading_error: Optional[str] = None
         self.audio_loading_error: Optional[str] = None
+        self.search_loading_error: Optional[str] = None
 
 
     @staticmethod
@@ -39,6 +43,9 @@ class ModelManager:
     def get_audio_client(self) -> Optional[AudioModelInterface]:
         return self._audio_client
 
+    def get_search_client(self) -> Optional[SearchTavily]:
+        return self._search_client
+
     def is_llm_running(self) -> bool:
         return bool(self._llm_client and self._llm_client.is_running())
 
@@ -50,6 +57,9 @@ class ModelManager:
 
     def is_audio_ready(self) -> bool:
         return bool(self._audio_client and self._audio_client.get_status() == "loaded")
+
+    def is_search_ready(self) -> bool:
+        return bool(self._search_client and self._search_client.get_status() == "loaded")
 
     def load_audio_model(self) -> bool:
         if self.loading_audio_model:
@@ -94,6 +104,30 @@ class ModelManager:
     def update_llm_settings(self, settings: dict):
         if settings and self._llm_client is not None:
             self._llm_client.configure(settings)
+
+    def load_search_model(self) -> bool:
+        if self.loading_search_model:
+            return False
+        try:
+            self.loading_search_model = True
+            if self._search_client is None:
+                self._search_client = SearchTavily()
+            self._search_client.initialize()
+            self.search_loading_error = None
+            logger.info("Search model loaded: provider=Tavily")
+            return True
+        except Exception as exc:
+            self.search_loading_error = str(exc)
+            logger.error("Search model load failed: %s", exc, exc_info=True)
+            return False
+        finally:
+            self.loading_search_model = False
+
+    def update_search_settings(self, settings: dict) -> None:
+        if settings:
+            if self._search_client is None:
+                self._search_client = SearchTavily()
+            self._search_client.configure(settings)
 
     def update_audio_settings(self, settings: dict):
         if settings and self._audio_client is not None:

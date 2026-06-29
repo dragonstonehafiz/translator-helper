@@ -1,0 +1,372 @@
+<div class="page-container">
+  <div class="header-container">
+    <button class="btn-back" (click)="goBack()" title="Back to Library">
+      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+    </button>
+    <h1>Library</h1>
+  </div>
+
+  <div class="form-section" *ngIf="isLoading">
+    <div class="loading-row">
+      <app-loading-text-indicator text="Loading series..."></app-loading-text-indicator>
+    </div>
+  </div>
+
+  <div class="form-section" *ngIf="!isLoading && series">
+
+    <!-- ── Series Info ────────────────────────────────────────────────────────── -->
+    <app-subsection title="Series">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" autocomplete="off" [(ngModel)]="editSeriesName">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Input Language</label>
+          <select [(ngModel)]="editSeriesInputLang">
+            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Output Language</label>
+          <select [(ngModel)]="editSeriesOutputLang">
+            <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea [(ngModel)]="editSeriesNotes" rows="3"></textarea>
+      </div>
+      <app-primary-button [fullWidth]="true" (click)="saveSeriesEdit()" [disabled]="!editSeriesName.trim() || isSavingSeriesEdit">Save Series</app-primary-button>
+    </app-subsection>
+
+    <app-tabs>
+
+      <!-- ── Characters Tab ────────────────────────────────────────────────── -->
+      <app-tab label="Characters">
+        <app-subsection title="Characters">
+          <app-primary-button [fullWidth]="true" (click)="openAddCharacterForm()">Add Character</app-primary-button>
+
+          <!-- Add character form (top-level, for new characters only) -->
+          <div class="inline-form" *ngIf="showAddCharacterForm">
+            <div class="form-group">
+              <label>Name</label>
+              <input type="text" autocomplete="off" [(ngModel)]="charName" placeholder="葛城リーリヤ">
+            </div>
+            <div class="form-group">
+              <label>Aliases (comma-separated)</label>
+              <input type="text" autocomplete="off" [(ngModel)]="charAliases" placeholder="リーリヤ, Lilja">
+            </div>
+            <div class="form-group">
+              <label>Personality</label>
+              <div class="list-entries">
+                <div class="list-entry" *ngFor="let p of charPersonality; let i = index">
+                  <input type="text" autocomplete="off" [(ngModel)]="charPersonality[i]">
+                  <div class="btn-danger"><app-primary-button (click)="removePersonalityEntry(i)">Delete</app-primary-button></div>
+                </div>
+              </div>
+              <div class="list-add-row">
+                <input type="text" autocomplete="off" [(ngModel)]="newPersonality" placeholder="Shy and quietly earnest, gains confidence through effort" (keydown.enter)="addPersonalityEntry()">
+                <app-primary-button (click)="addPersonalityEntry()">Add</app-primary-button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Relationships</label>
+              <div class="list-entries">
+                <ng-container *ngFor="let group of charRelationships; let gi = index">
+                  <div class="list-entry">
+                    <input type="text" autocomplete="off" [(ngModel)]="group.character" placeholder="Character name">
+                  </div>
+                  <div class="list-entry" *ngFor="let fact of group.facts; let fi = index">
+                    <input type="text" autocomplete="off" [(ngModel)]="group.facts[fi]" placeholder="Relationship detail">
+                    <div class="btn-danger"><app-primary-button (click)="removeRelationshipFact(gi, fi)">Delete</app-primary-button></div>
+                  </div>
+                </ng-container>
+              </div>
+              <div class="list-add-row two-input">
+                <input type="text" autocomplete="off" [(ngModel)]="newRelationshipCharacter" placeholder="Sumika Shiun">
+                <input type="text" autocomplete="off" [(ngModel)]="newRelationshipDetail" placeholder="Best friends; made a promise to become idols together" (keydown.enter)="addRelationshipEntry()">
+                <app-primary-button (click)="addRelationshipEntry()">Add</app-primary-button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>History</label>
+              <div class="list-entries">
+                <div class="list-entry" *ngFor="let h of charHistory; let i = index">
+                  <input type="text" autocomplete="off" [(ngModel)]="charHistory[i]">
+                  <div class="btn-danger"><app-primary-button (click)="removeHistoryEntry(i)">Delete</app-primary-button></div>
+                </div>
+              </div>
+              <div class="list-add-row">
+                <input type="text" autocomplete="off" [(ngModel)]="newHistory" placeholder="Born overseas to a Japanese father; moved to Japan to attend Hatsuboshi Gakuen" (keydown.enter)="addHistoryEntry()">
+                <app-primary-button (click)="addHistoryEntry()">Add</app-primary-button>
+              </div>
+            </div>
+            <div class="form-actions">
+              <app-primary-button [fullWidth]="true" (click)="saveCharacter()" [disabled]="!charName.trim() || isSavingCharacter">Save</app-primary-button>
+              <button class="btn-cancel" (click)="cancelCharacterForm()">Cancel</button>
+            </div>
+          </div>
+
+          <div class="empty-state" *ngIf="series.characters.length === 0 && !showAddCharacterForm">No characters yet.</div>
+          <div class="character-card" *ngFor="let char of series.characters">
+            <div class="character-card-header" (click)="toggleCharacter(char.id)">
+              <div class="character-card-name">
+                {{ char.name }}
+                <span class="aliases" *ngIf="char.aliases.length">· {{ char.aliases.join(', ') }}</span>
+              </div>
+              <div class="character-card-actions">
+                <app-primary-button (click)="$event.stopPropagation(); openEditCharacterForm(char)">Edit</app-primary-button>
+                <div class="btn-danger" (click)="$event.stopPropagation()">
+                  <app-primary-button (click)="deleteCharacter(char.id, char.name)">Delete</app-primary-button>
+                </div>
+                <span class="expand-icon">{{ expandedCharacterIds.has(char.id) ? '▲' : '▼' }}</span>
+              </div>
+            </div>
+            <!-- Read-only view -->
+            <div class="character-card-body" *ngIf="expandedCharacterIds.has(char.id) && editingCharacterId !== char.id">
+              <div class="char-field" *ngIf="char.personality?.length">
+                <strong>Personality:</strong>
+                <ul><li *ngFor="let p of char.personality">{{ p }}</li></ul>
+              </div>
+              <div class="char-field" *ngIf="getRelationshipEntries(char.relationships).length">
+                <strong>Relationships:</strong>
+                <ul>
+                  <li *ngFor="let entry of getRelationshipEntries(char.relationships)">
+                    <strong>{{ entry[0] }}</strong>
+                    <ul><li *ngFor="let fact of entry[1]">{{ fact }}</li></ul>
+                  </li>
+                </ul>
+              </div>
+              <div class="char-field" *ngIf="char.history.length">
+                <strong>History:</strong>
+                <ul><li *ngFor="let h of char.history">{{ h }}</li></ul>
+              </div>
+            </div>
+            <!-- Inline edit form -->
+            <div class="character-card-body inline-form" *ngIf="editingCharacterId === char.id">
+              <div class="form-group">
+                <label>Name</label>
+                <input type="text" autocomplete="off" [(ngModel)]="charName" placeholder="葛城リーリヤ">
+              </div>
+              <div class="form-group">
+                <label>Aliases (comma-separated)</label>
+                <input type="text" autocomplete="off" [(ngModel)]="charAliases" placeholder="リーリヤ, Lilja">
+              </div>
+              <div class="form-group">
+                <label>Personality</label>
+                <div class="list-entries">
+                  <div class="list-entry" *ngFor="let p of charPersonality; let i = index">
+                    <input type="text" autocomplete="off" [(ngModel)]="charPersonality[i]">
+                    <div class="btn-danger"><app-primary-button (click)="removePersonalityEntry(i)">Delete</app-primary-button></div>
+                  </div>
+                </div>
+                <div class="list-add-row">
+                  <input type="text" autocomplete="off" [(ngModel)]="newPersonality" placeholder="Shy and quietly earnest, gains confidence through effort" (keydown.enter)="addPersonalityEntry()">
+                  <app-primary-button (click)="addPersonalityEntry()">Add</app-primary-button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Relationships</label>
+                <div class="list-entries">
+                  <ng-container *ngFor="let group of charRelationships; let gi = index">
+                    <div class="list-entry">
+                      <input type="text" autocomplete="off" [(ngModel)]="group.character" placeholder="Character name">
+                    </div>
+                    <div class="list-entry" *ngFor="let fact of group.facts; let fi = index">
+                      <input type="text" autocomplete="off" [(ngModel)]="group.facts[fi]" placeholder="Relationship detail">
+                      <div class="btn-danger"><app-primary-button (click)="removeRelationshipFact(gi, fi)">Delete</app-primary-button></div>
+                    </div>
+                  </ng-container>
+                </div>
+                <div class="list-add-row two-input">
+                  <input type="text" autocomplete="off" [(ngModel)]="newRelationshipCharacter" placeholder="Sumika Shiun">
+                  <input type="text" autocomplete="off" [(ngModel)]="newRelationshipDetail" placeholder="Best friends; made a promise to become idols together" (keydown.enter)="addRelationshipEntry()">
+                  <app-primary-button (click)="addRelationshipEntry()">Add</app-primary-button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>History</label>
+                <div class="list-entries">
+                  <div class="list-entry" *ngFor="let h of charHistory; let i = index">
+                    <input type="text" autocomplete="off" [(ngModel)]="charHistory[i]">
+                    <div class="btn-danger"><app-primary-button (click)="removeHistoryEntry(i)">Delete</app-primary-button></div>
+                  </div>
+                </div>
+                <div class="list-add-row">
+                  <input type="text" autocomplete="off" [(ngModel)]="newHistory" placeholder="Born overseas to a Japanese father..." (keydown.enter)="addHistoryEntry()">
+                  <app-primary-button (click)="addHistoryEntry()">Add</app-primary-button>
+                </div>
+              </div>
+              <div class="form-actions">
+                <app-primary-button [fullWidth]="true" (click)="saveCharacter()" [disabled]="!charName.trim() || isSavingCharacter">Save</app-primary-button>
+                <button class="btn-cancel" (click)="cancelCharacterForm()">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </app-subsection>
+      </app-tab>
+
+      <!-- ── Glossary Tab ──────────────────────────────────────────────────── -->
+      <app-tab label="Glossary">
+        <app-subsection title="Glossary">
+          <app-primary-button [fullWidth]="true" (click)="openAddGlossaryForm()">Add Term</app-primary-button>
+
+          <!-- Add term form (top-level, for new terms only) -->
+          <div class="inline-form" *ngIf="showAddGlossaryForm">
+            <div class="form-group">
+              <label>Term (original language)</label>
+              <input type="text" autocomplete="off" [(ngModel)]="termTerm" placeholder="プロデューサー">
+            </div>
+            <div class="form-group">
+              <label>Translation</label>
+              <input type="text" autocomplete="off" [(ngModel)]="termTranslation" placeholder="Producer">
+            </div>
+            <div class="form-group">
+              <label>Notes</label>
+              <input type="text" autocomplete="off" [(ngModel)]="termNotes" placeholder="Title used by idols when addressing their producer.">
+            </div>
+            <div class="form-actions">
+              <app-primary-button [fullWidth]="true" (click)="saveTerm()" [disabled]="!termTerm.trim() || !termTranslation.trim() || isSavingTerm">Save</app-primary-button>
+              <button class="btn-cancel" (click)="cancelGlossaryForm()">Cancel</button>
+            </div>
+          </div>
+
+          <div class="empty-state" *ngIf="series.glossary.length === 0 && !showAddGlossaryForm">No glossary terms yet.</div>
+          <div class="glossary-row" *ngFor="let term of series.glossary">
+            <!-- Read-only row -->
+            <ng-container *ngIf="editingTermId !== term.id">
+              <div class="glossary-row-content">
+                <span class="glossary-term">{{ term.term }}</span>
+                <span class="glossary-arrow">→</span>
+                <span class="glossary-translation">{{ term.translation }}</span>
+                <span class="glossary-notes" *ngIf="term.notes">· {{ term.notes }}</span>
+              </div>
+              <div class="glossary-row-actions">
+                <app-primary-button (click)="openEditGlossaryForm(term)">Edit</app-primary-button>
+                <div class="btn-danger">
+                  <app-primary-button (click)="deleteTerm(term.id, term.term)">Delete</app-primary-button>
+                </div>
+              </div>
+            </ng-container>
+            <!-- Inline edit form -->
+            <div class="glossary-inline-edit" *ngIf="editingTermId === term.id">
+              <div class="form-group">
+                <label>Term (original language)</label>
+                <input type="text" autocomplete="off" [(ngModel)]="termTerm" placeholder="プロデューサー">
+              </div>
+              <div class="form-group">
+                <label>Translation</label>
+                <input type="text" autocomplete="off" [(ngModel)]="termTranslation" placeholder="Producer">
+              </div>
+              <div class="form-group">
+                <label>Notes</label>
+                <input type="text" autocomplete="off" [(ngModel)]="termNotes" placeholder="Title used by idols when addressing their producer.">
+              </div>
+              <div class="form-actions">
+                <app-primary-button [fullWidth]="true" (click)="saveTerm()" [disabled]="!termTerm.trim() || !termTranslation.trim() || isSavingTerm">Save</app-primary-button>
+                <button class="btn-cancel" (click)="cancelGlossaryForm()">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </app-subsection>
+      </app-tab>
+
+      <!-- ── Update Library Tab ────────────────────────────────────────────── -->
+      <app-tab label="Update Library">
+        <div class="form-section">
+        <app-subsection title="Update Library" tooltip="Upload a subtitle file to scan for new characters and terms. The LLM will compare against the existing library and web-search for information on unknown items, then propose additions for your review.">
+
+          <app-file-upload
+            accept=".ass,.srt"
+            placeholder="Upload Subtitle File"
+            subtext=".ass / .srt"
+            [selectedFiles]="updateSubtitleFile ? [updateSubtitleFile] : []"
+            (filesSelected)="onUpdateFileSelected($event)">
+          </app-file-upload>
+
+          <div class="search-not-ready" *ngIf="!searchReady">
+            Web search is not loaded. Load the Tavily API key in Settings before scanning.
+          </div>
+
+          <app-primary-button [fullWidth]="true" [disabled]="!updateSubtitleFile || isUpdatingLibrary || !searchReady" (click)="startLibraryUpdate()">
+            Scan and Update
+          </app-primary-button>
+
+
+
+        </app-subsection>
+
+        <app-subsection title="Proposals" *ngIf="proposals && !isUpdatingLibrary">
+
+          <div *ngIf="!proposals.new_characters.length && !proposals.updated_characters.length && !proposals.new_glossary.length && !proposals.updated_glossary.length" class="empty-state">
+            No new proposals from this scan.
+          </div>
+
+          <ng-container *ngIf="proposals.new_characters.length">
+            <h4>New Characters</h4>
+            <div class="proposal-card" *ngFor="let char of proposals.new_characters">
+              <div class="proposal-name">{{ char.name }}</div>
+              <div class="proposal-detail" *ngIf="char.personality?.length"><strong>Personality:</strong> {{ char.personality.join(' · ') }}</div>
+              <div class="proposal-detail" *ngIf="getRelationshipEntries(char.relationships).length"><strong>Relationships:</strong> {{ formatRelationships(char.relationships) }}</div>
+              <div class="proposal-detail" *ngIf="char.history?.length"><strong>History:</strong> {{ char.history.join(' · ') }}</div>
+              <div class="proposal-actions">
+                <app-primary-button (click)="acceptNewCharacter(char)">Accept</app-primary-button>
+                <button class="btn-cancel" (click)="rejectProposal(proposals!.new_characters, char)">Reject</button>
+              </div>
+            </div>
+          </ng-container>
+
+          <ng-container *ngIf="proposals.updated_characters.length">
+            <h4>Character Updates</h4>
+            <div class="proposal-card" *ngFor="let update of proposals.updated_characters">
+              <div class="proposal-name">
+                {{ getCharacterName(update.id) }}
+                <span class="proposal-field-tag">+ {{ update.field }}</span>
+              </div>
+              <div class="proposal-detail">{{ update.append }}</div>
+              <div class="proposal-actions">
+                <app-primary-button (click)="acceptCharacterUpdate(update)">Accept</app-primary-button>
+                <button class="btn-cancel" (click)="rejectProposal(proposals!.updated_characters, update)">Reject</button>
+              </div>
+            </div>
+          </ng-container>
+
+          <ng-container *ngIf="proposals.new_glossary.length">
+            <h4>New Glossary Terms</h4>
+            <div class="proposal-card" *ngFor="let term of proposals.new_glossary">
+              <div class="proposal-name">{{ term.term }} → {{ term.translation }}</div>
+              <div class="proposal-detail" *ngIf="term.notes">{{ term.notes }}</div>
+              <div class="proposal-actions">
+                <app-primary-button (click)="acceptNewGlossaryTerm(term)">Accept</app-primary-button>
+                <button class="btn-cancel" (click)="rejectProposal(proposals!.new_glossary, term)">Reject</button>
+              </div>
+            </div>
+          </ng-container>
+
+          <ng-container *ngIf="proposals.updated_glossary.length">
+            <h4>Glossary Updates</h4>
+            <div class="proposal-card" *ngFor="let update of proposals.updated_glossary">
+              <div class="proposal-name">
+                {{ getGlossaryTerm(update.id) }}
+                <span class="proposal-field-tag">{{ update.field }}</span>
+              </div>
+              <div class="proposal-detail">{{ update.value }}</div>
+              <div class="proposal-actions">
+                <app-primary-button (click)="acceptGlossaryUpdate(update)">Accept</app-primary-button>
+                <button class="btn-cancel" (click)="rejectProposal(proposals!.updated_glossary, update)">Reject</button>
+              </div>
+            </div>
+          </ng-container>
+
+        </app-subsection>
+        </div>
+
+      </app-tab>
+
+    </app-tabs>
+  </div>
+</div>

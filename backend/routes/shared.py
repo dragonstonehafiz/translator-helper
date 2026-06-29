@@ -15,9 +15,12 @@ from pydantic import BaseModel
 from models.model_manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
-from orchestrator.tasks.task_generate_character_list import TaskGenerateCharacterList
-from orchestrator.tasks.task_generate_summary import TaskGenerateSummary
-from orchestrator.tasks.task_generate_synopsis import TaskGenerateSynopsis
+from orchestrator.library.task_check_against_library import TaskCheckAgainstLibrary
+from orchestrator.library.task_deduplicate_proposals import TaskDeduplicateProposals
+from orchestrator.library.task_generate_library_proposals import TaskGenerateLibraryProposals
+from orchestrator.library.task_generate_search_queries import TaskGenerateSearchQueries
+from orchestrator.library.task_scan_subtitle_file import TaskScanSubtitleFile
+from orchestrator.library.task_web_search import TaskWebSearch
 from orchestrator.task_orchestrator import TaskOrchestrator
 from orchestrator.translate_file.task_plan_translation_batches import TaskPlanTranslationBatches
 from orchestrator.review_file.task_plan_translation_review_batches import TaskPlanTranslationReviewBatches
@@ -35,27 +38,30 @@ task_orchestrator = TaskOrchestrator.get_instance()
 result_handler = ResultHandler.get_instance()
 progress_handler = ProgressHandler.get_instance()
 
+LIBRARY_TASK_TYPES = {
+    TaskScanSubtitleFile.TASK_TYPE,
+    TaskCheckAgainstLibrary.TASK_TYPE,
+    TaskGenerateSearchQueries.TASK_TYPE,
+    TaskWebSearch.TASK_TYPE,
+    TaskGenerateLibraryProposals.TASK_TYPE,
+    TaskDeduplicateProposals.TASK_TYPE,
+}
 LLM_TASK_TYPES = {
     TaskTranslateLine.TASK_TYPE,
     TaskTranslateFile.TASK_TYPE,
-    TaskGenerateCharacterList.TASK_TYPE,
-    TaskGenerateSynopsis.TASK_TYPE,
-    TaskGenerateSummary.TASK_TYPE,
     TaskPlanTranslationBatches.TASK_TYPE,
     TaskPlanTranslationReviewBatches.TASK_TYPE,
     TaskReviewTranslatedBatches.TASK_TYPE,
     TaskRetranslateReviewedLines.TASK_TYPE,
     TaskSplitOversizedBatches.TASK_TYPE,
+    TaskScanSubtitleFile.TASK_TYPE,
+    TaskGenerateSearchQueries.TASK_TYPE,
+    TaskGenerateLibraryProposals.TASK_TYPE,
 }
 AUDIO_TASK_TYPES = {
     TaskTranscribeLine.TASK_TYPE,
     TaskTranscribeFile.TASK_TYPE,
 }
-CONTEXT_TASK_TYPES = [
-    TaskGenerateCharacterList.TASK_TYPE,
-    TaskGenerateSynopsis.TASK_TYPE,
-    TaskGenerateSummary.TASK_TYPE,
-]
 TRANSLATE_TASK_TYPES = [
     TaskTranslateLine.TASK_TYPE,
     TaskTranslateFile.TASK_TYPE,
@@ -70,12 +76,9 @@ class UpdateSettingsRequest(BaseModel):
     settings: dict
 
 
-class SaveContextRequest(BaseModel):
-    filename: str
-    context: dict
-
 
 def run_single_task(task, data: dict):
+    """Run a task through the orchestrator, writing any exception to ResultHandler as an error."""
     try:
         task_orchestrator.run_task(task, data)
     except Exception as exc:
@@ -83,44 +86,28 @@ def run_single_task(task, data: dict):
 
 
 def ensure_task_type(task_type: str, allowed_task_types: list[str] | set[str]) -> str:
+    """Validate that task_type is in the allowed set, raising 400 if not."""
     if task_type not in allowed_task_types:
         raise HTTPException(status_code=400, detail="Invalid task_type")
     return task_type
 
 
 def build_task_response(task_type: str) -> dict[str, Any]:
+    """
+    Build the polling response for a given task type.
+
+    If the orchestrator is running and the task has no result yet, the task is
+    in-progress (either queued or currently executing). Return the active task's
+    progress from ProgressHandler so the frontend always sees live status regardless
+    of which task in the chain is currently executing.
+    """
     record = result_handler.get(task_type)
     progress = progress_handler.get(task_type)
     active_task_type = task_orchestrator.get_active_task_type()
-    translate_chain_task_types = {
-        TaskPlanTranslationBatches.TASK_TYPE,
-        TaskSplitOversizedBatches.TASK_TYPE,
-        TaskTranslateFile.TASK_TYPE,
-    }
-    review_chain_task_types = {
-        TaskPlanTranslationReviewBatches.TASK_TYPE,
-        TaskReviewTranslatedBatches.TASK_TYPE,
-        TaskRetranslateReviewedLines.TASK_TYPE,
-    }
 
-    if (
-        task_type == TaskTranslateFile.TASK_TYPE
-        and task_orchestrator.is_running()
-        and active_task_type in translate_chain_task_types
-    ):
+    if task_orchestrator.is_running() and record is None:
         active_progress = progress_handler.get(active_task_type) if active_task_type else None
         return processing_response(task_result_data(task_type, progress=active_progress or progress))
-
-    if (
-        task_type == TaskRetranslateReviewedLines.TASK_TYPE
-        and task_orchestrator.is_running()
-        and active_task_type in review_chain_task_types
-    ):
-        active_progress = progress_handler.get(active_task_type) if active_task_type else None
-        return processing_response(task_result_data(task_type, progress=active_progress or progress))
-
-    if task_orchestrator.is_running() and active_task_type == task_type:
-        return processing_response(task_result_data(task_type, progress=progress))
 
     if record is None:
         return idle_response(task_result_data(task_type, progress=progress))
@@ -135,6 +122,7 @@ def build_task_response(task_type: str) -> dict[str, Any]:
 
 
 async def save_upload_to_temp(file: UploadFile, default_suffix: str = "") -> str:
+    """Save an uploaded file to a temp path and return the path."""
     suffix = os.path.splitext(file.filename)[1] or default_suffix
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
         tmp_file.write(await file.read())
@@ -142,6 +130,7 @@ async def save_upload_to_temp(file: UploadFile, default_suffix: str = "") -> str
 
 
 def parse_json_form(value: str, fallback: dict | None = None) -> dict:
+    """Parse a JSON string from a form field, returning fallback if empty."""
     if value:
         return json.loads(value)
     return fallback or {}

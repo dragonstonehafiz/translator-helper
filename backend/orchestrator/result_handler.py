@@ -47,6 +47,11 @@ class ResultHandler:
                 "error": error,
             }
 
+    def clear(self, task_type: str):
+        """Remove a stored result so the next poll returns idle."""
+        with self._lock:
+            self._records.pop(task_type, None)
+
     def get(self, task_type: str) -> Optional[dict[str, Any]]:
         with self._lock:
             record = self._records.get(task_type)

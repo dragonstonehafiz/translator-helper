@@ -20,3 +20,6 @@ pysubs2
 
 # Settings
 pydantic-settings
+
+# Web search
+tavily-python

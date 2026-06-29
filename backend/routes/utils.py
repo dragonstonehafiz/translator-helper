@@ -7,6 +7,7 @@ import os
 from fastapi import APIRouter, File, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
+from models.search_tavily import SearchTavily
 from utils.api_response import error_response, success_response
 
 from .shared import (
@@ -31,6 +32,7 @@ async def get_running_status():
         "running_audio": bool(running and active_task_type in AUDIO_TASK_TYPES),
         "loading_audio_model": model_manager.loading_audio_model,
         "loading_llm_model": model_manager.loading_llm_model,
+        "active_task_type": active_task_type,
     })
 
 
@@ -38,13 +40,17 @@ async def get_running_status():
 async def get_server_variables():
     llm_client = model_manager.get_llm_client()
     audio_client = model_manager.get_audio_client()
+    search_client = model_manager.get_search_client()
     return success_response({
         "audio": (audio_client.get_server_variables() if audio_client else []),
         "llm": (llm_client.get_server_variables() if llm_client else []),
+        "search": (search_client.get_server_variables() if search_client else []),
         "llm_ready": model_manager.is_llm_ready(),
         "audio_ready": model_manager.is_audio_ready(),
+        "search_ready": model_manager.is_search_ready(),
         "llm_loading_error": model_manager.llm_loading_error,
         "audio_loading_error": model_manager.audio_loading_error,
+        "search_loading_error": model_manager.search_loading_error,
     })
 
 
@@ -52,9 +58,11 @@ async def get_server_variables():
 async def get_settings_schema():
     audio_client = model_manager.get_audio_client()
     llm_client = model_manager.get_llm_client()
+    search_client = model_manager.get_search_client()
     audio_schema = audio_client.get_settings_schema() if audio_client else {}
     llm_schema = llm_client.get_settings_schema() if llm_client else {}
-    return success_response({"audio": audio_schema, "llm": llm_schema})
+    search_schema = SearchTavily().get_settings_schema()
+    return success_response({"audio": audio_schema, "llm": llm_schema, "search": search_schema})
 
 
 @router.post("/load-audio-model")
@@ -77,6 +85,17 @@ async def load_llm_model(request: UpdateSettingsRequest):
     if not loaded:
         return error_response(model_manager.llm_loading_error or "Failed to load LLM")
     return success_response(message="LLM loaded")
+
+
+@router.post("/load-search-model")
+async def load_search_model(request: UpdateSettingsRequest):
+    if model_manager.loading_search_model:
+        return error_response("Search model is already loading")
+    model_manager.update_search_settings(request.settings or {})
+    loaded = await run_in_threadpool(model_manager.load_search_model)
+    if not loaded:
+        return error_response(model_manager.search_loading_error or "Failed to load search model")
+    return success_response(message="Search model loaded")
 
 
 @router.post("/get-subtitle-file-info")

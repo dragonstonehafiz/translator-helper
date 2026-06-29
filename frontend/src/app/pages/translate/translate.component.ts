@@ -5,11 +5,10 @@ import { Subscription } from 'rxjs';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
 import { TextFieldComponent } from '../../components/text-field/text-field.component';
 import { TooltipIconComponent } from '../../components/tooltip-icon/tooltip-icon.component';
-import { ContextStatusComponent } from '../../components/context-status/context-status.component';
 import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
 import { LoadingTextIndicatorComponent } from '../../components/loading-text-indicator/loading-text-indicator.component';
 import { DownloadsListComponent } from '../../components/downloads-list/downloads-list.component';
-import { ApiService, TaskResultResponse } from '../../services/api.service';
+import { ApiService, SeriesSummary, TaskResultResponse } from '../../services/api.service';
 import { StateService, TASK_TYPES, TaskProgress } from '../../services/state.service';
 import { ConfirmationService } from '../../services/confirmation.service';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
@@ -21,7 +20,7 @@ import { ErrorDialogService } from '../../services/error-dialog.service';
 @Component({
   selector: 'app-translate',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, TooltipIconComponent, ContextStatusComponent, PrimaryButtonComponent, LoadingTextIndicatorComponent, DownloadsListComponent, FileUploadComponent, TabsComponent, TabComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, TextFieldComponent, TooltipIconComponent, PrimaryButtonComponent, LoadingTextIndicatorComponent, DownloadsListComponent, FileUploadComponent, TabsComponent, TabComponent],
   templateUrl: './translate.component.html',
   styleUrl: './translate.component.scss'
 })
@@ -32,17 +31,9 @@ export class TranslateComponent implements OnInit, OnDestroy {
     [TASK_TYPES.reviewTranslatedFile]: { current: 0, total: 1, status: 'Preparing translation review', eta_seconds: 0 },
   } as const;
 
-  // Context data
-  characterList = '';
-  synopsis = '';
-  summary = '';
-  additionalInstructions = '';
-
-  // Shared context selectors
-  useAdditionalInstructions = false;
-  useCharacterList = false;
-  useSynopsis = false;
-  useSummary = false;
+  // Series library
+  seriesList: SeriesSummary[] = [];
+  selectedSeriesId: string | null = null;
 
   // Translate Line
   lineInputLanguage = 'ja';
@@ -69,7 +60,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
   private lastShownTaskError: Record<string, string> = {};
   private subtitleFileSubscription?: Subscription;
   private translatedSubtitleFileSubscription?: Subscription;
-  private contentStateSubscription?: Subscription;
+  private selectedSeriesSubscription?: Subscription;
 
   languageOptions = LANGUAGE_OPTIONS;
 
@@ -81,12 +72,11 @@ export class TranslateComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.contentStateSubscription = this.stateService.contentState$.subscribe(state => {
-      this.characterList = state.characterList;
-      this.synopsis = state.synopsis;
-      this.summary = state.summary;
-      this.additionalInstructions = state.additionalInstructions;
+    this.selectedSeriesId = this.stateService.getSelectedSeriesId();
+    this.selectedSeriesSubscription = this.stateService.selectedSeriesId$.subscribe(id => {
+      this.selectedSeriesId = id;
     });
+    this.loadSeriesList();
     this.fileToTranslate = this.stateService.getActiveSubtitleFile();
     this.subtitleFileSubscription = this.stateService.activeSubtitleFile$.subscribe(file => {
       this.fileToTranslate = file;
@@ -105,7 +95,7 @@ export class TranslateComponent implements OnInit, OnDestroy {
     this.stopReviewPolling();
     this.subtitleFileSubscription?.unsubscribe();
     this.translatedSubtitleFileSubscription?.unsubscribe();
-    this.contentStateSubscription?.unsubscribe();
+    this.selectedSeriesSubscription?.unsubscribe();
   }
 
   private restoreTaskState(): void {
@@ -146,35 +136,23 @@ export class TranslateComponent implements OnInit, OnDestroy {
     this.stateService.setActiveTranslatedSubtitleFile(null);
   }
 
-updateAdditionalInstructions(): void {
-    this.stateService.setAdditionalInstructions(this.additionalInstructions);
+  onSeriesSelected(seriesId: string): void {
+    this.selectedSeriesId = seriesId || null;
+    this.stateService.setSelectedSeriesId(this.selectedSeriesId);
   }
 
-  updateCharacterList(): void {
-    this.stateService.setCharacterList(this.characterList);
+  private loadSeriesList(): void {
+    this.apiService.listSeries().subscribe({
+      next: (response) => {
+        this.seriesList = response.data?.series ?? [];
+      },
+      error: () => this.errorDialogService.show('Failed to load series list.')
+    });
   }
 
-  updateSynopsis(): void {
-    this.stateService.setSynopsis(this.synopsis);
-  }
-
-  updateSummary(): void {
-    this.stateService.setSummary(this.summary);
-  }
-
-  buildContext(
-    useAdditionalInstructions: boolean,
-    useCharacterList: boolean,
-    useSynopsis: boolean,
-    useSummary: boolean
-  ): any {
+  buildContext(): any {
     const context: any = {};
-    if (useAdditionalInstructions && this.additionalInstructions) {
-      context.additional_instructions = this.additionalInstructions;
-    }
-    if (useCharacterList && this.characterList) context.character_list = this.characterList;
-    if (useSynopsis && this.synopsis) context.synopsis = this.synopsis;
-    if (useSummary && this.summary) context.summary = this.summary;
+    if (this.selectedSeriesId) context.series_id = this.selectedSeriesId;
     return context;
   }
 
@@ -191,12 +169,7 @@ updateAdditionalInstructions(): void {
       isPolling: true,
     });
 
-    const context = this.buildContext(
-      this.useAdditionalInstructions,
-      this.useCharacterList,
-      this.useSynopsis,
-      this.useSummary
-    );
+    const context = this.buildContext();
 
     this.apiService.translateLine(
       this.lineTextToTranslate,
@@ -288,12 +261,7 @@ updateAdditionalInstructions(): void {
       isPolling: true,
     });
 
-    const context = this.buildContext(
-      this.useAdditionalInstructions,
-      this.useCharacterList,
-      this.useSynopsis,
-      this.useSummary
-    );
+    const context = this.buildContext();
 
     this.apiService.translateFile(
       this.fileToTranslate,
@@ -386,12 +354,7 @@ updateAdditionalInstructions(): void {
       isPolling: true,
     });
 
-    const context = this.buildContext(
-      this.useAdditionalInstructions,
-      this.useCharacterList,
-      this.useSynopsis,
-      this.useSummary
-    );
+    const context = this.buildContext();
 
     this.apiService.reviewTranslatedFile(
       this.fileToTranslate,

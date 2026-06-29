@@ -11,9 +11,10 @@ Translator Helper is a full-stack application for transcribing, translating, and
 - **Backend Models**: Concrete model implementations (see `backend/models/`)
   - `backend/models/model_manager.py` is model-focused (load/config/infer), not task-result orchestration
 - **Backend Routes**: Domain-specific route modules under `backend/routes/`
-  - `context.py`, `transcribe.py`, `translate.py`, `file_management.py`, and `utils.py`
-  - `shared.py` contains shared route helpers and singleton access
+  - `library.py`, `transcribe.py`, `translate.py`, `file_management.py`, `task_results.py`, and `utils.py`
+  - `shared.py` contains shared route helpers, singleton access, and `LIBRARY_TASK_TYPES` / `LLM_TASK_TYPES` / `AUDIO_TASK_TYPES` sets
   - `translate.py` owns the translate-file task chain setup and per-run translate-file log folder creation
+  - `library.py` owns the library update chain setup and per-run library-update log folder creation
 - **Backend Orchestrator**: Task execution and in-memory task state (see `backend/orchestrator/`)
   - `TaskOrchestrator`: runs one active task at a time (`is_running`)
   - `ResultHandler`: stores latest task output per task class (`task_type`)
@@ -30,6 +31,8 @@ Translator Helper is a full-stack application for transcribing, translating, and
 - **Backend Outputs**: Generated files and audit logs live under `backend/outputs/`
   - `translate-file-logs/<YYYYMMDD-HHMMSS-original_filename>/` stores per-file-translation batch planning JSON logs
   - `review-file-logs/<YYYYMMDD-HHMMSS-translated_filename>/` stores translated-file review and correction JSON logs
+  - `library-update-logs/<YYYYMMDD-HHMMSS-series_name>/` stores per-run library update chain JSON logs (01 through 06)
+  - `library/<series_id>/` stores `series.json`, `characters.json`, and `glossary.json` for each series
 
 ## Navigation
 
@@ -464,7 +467,7 @@ Use `message` for display text and `data` for structured payloads. Do not add ro
 
 **Health & Status**:
 - `GET /utils/running`: Check running operations status
-  - Returns `running_llm`, `running_audio`, `loading_llm_model`, and `loading_audio_model` under `data`
+  - Returns `running_llm`, `running_audio`, `loading_llm_model`, `loading_audio_model`, and `active_task_type` under `data`
 
 **Settings**:
 - `POST /utils/load-audio-model`: Load audio transcription model
@@ -495,14 +498,17 @@ status cards correctly. Values are returned as display-ready objects:
   "data": {
     "audio": [{ "key": "whisper_model", "label": "Model", "value": "..." }],
     "llm": [{ "key": "openai_model", "label": "Model", "value": "..." }],
+    "search": [{ "key": "tavily_api_key", "label": "API Key", "value": "..." }],
     "llm_ready": true,
     "audio_ready": true,
+    "search_ready": true,
     "llm_loading_error": null,
-    "audio_loading_error": null
+    "audio_loading_error": null,
+    "search_loading_error": null
   }
 }
 ```
-When no client is loaded yet, `audio` and `llm` are empty arrays (`[]`).
+When no client is loaded yet, `audio`, `llm`, and `search` are empty arrays (`[]`).
 
 The running-status endpoint returns:
 ```json
@@ -513,16 +519,28 @@ The running-status endpoint returns:
     "running_llm": false,
     "running_audio": false,
     "loading_llm_model": false,
-    "loading_audio_model": false
+    "loading_audio_model": false,
+    "active_task_type": null
   }
 }
 ```
 
-**Context Generation** (`backend/routes/context.py`):
-- `POST /context/generate-character-list`: Generate character list from subtitle file
-- `POST /context/generate-synopsis`: Generate synopsis from subtitle file
-- `POST /context/generate-high-level-summary`: Generate summary from subtitle file
-- `POST /context/save`: Save a context JSON file
+**Library** (`backend/routes/library.py`):
+- `GET /library/`: List all series (id, name, input_lang, output_lang, character_count, glossary_count)
+- `POST /library/`: Create a new series (body: name, input_lang, output_lang, notes)
+- `GET /library/{series_id}`: Get full series data including characters and glossary
+- `PATCH /library/{series_id}`: Update series-level fields (name, notes, languages)
+- `DELETE /library/{series_id}`: Delete series and all its files
+- `POST /library/{series_id}/characters`: Add a character
+- `PATCH /library/{series_id}/characters/{character_id}`: Update a character
+- `DELETE /library/{series_id}/characters/{character_id}`: Delete a character
+- `POST /library/{series_id}/glossary`: Add a glossary term
+- `PATCH /library/{series_id}/glossary/{term_id}`: Update a glossary term
+- `DELETE /library/{series_id}/glossary/{term_id}`: Delete a glossary term
+- `POST /library/{series_id}/update`: Start the 6-task library update chain (FormData: file)
+  - Chain: `TaskScanSubtitleFile` → `TaskCheckAgainstLibrary` → `TaskGenerateSearchQueries` → `TaskWebSearch` → `TaskGenerateLibraryProposals` → `TaskDeduplicateProposals`
+  - Poll via `GET /task-results/TaskDeduplicateProposals`
+  - Clears previous `TaskDeduplicateProposals` result before starting so stale results are not returned
 
 **Transcription** (`backend/routes/transcribe.py`):
 - `POST /transcribe/transcribe-line`: Transcribe audio file or recording to text
@@ -549,53 +567,58 @@ The running-status endpoint returns:
 
 ### Backend Tasks
 
-**TaskGenerateCharacterList** (`backend/orchestrator/task_generate_character_list.py`):
-- Purpose: Generate a character reference list from an uploaded subtitle file
-- Inputs:
-  - `file_path`
-  - `context`
-  - `input_lang`
-  - `output_lang`
-- Output payload:
-```json
-{
-  "type": "character_list",
-  "data": "..."
-}
-```
+**TaskScanSubtitleFile** (`backend/orchestrator/library/task_scan_subtitle_file.py`):
+- Purpose: LLM reads the full subtitle file and extracts character names, terms, and notable events
+- Inputs (from chain): `file_path`, `series`
+- Output: `{**data, "findings": {"characters": [...], "terms": [...], "events": [...]}}`
 - Progress: no granular backend progress
+- Writes: `01-scan-subtitle-file.json` to `log_dir`
 
-**TaskGenerateSynopsis** (`backend/orchestrator/task_generate_synopsis.py`):
-- Purpose: Generate a detailed synopsis from an uploaded subtitle file
-- Inputs:
-  - `file_path`
-  - `context`
-  - `input_lang`
-  - `output_lang`
-- Output payload:
-```json
-{
-  "type": "synopsis",
-  "data": "..."
-}
-```
+**TaskCheckAgainstLibrary** (`backend/orchestrator/library/task_check_against_library.py`):
+- Purpose: Compares scan findings against existing series library, splits into known vs unknown
+- Inputs (from chain): `findings`, `series`
+- Output: `{**data, "known": {...}, "unknown": {...}}`
 - Progress: no granular backend progress
+- Writes: `02-check-against-library.json` to `log_dir`
 
-**TaskGenerateSummary** (`backend/orchestrator/task_generate_summary.py`):
-- Purpose: Generate a shorter high-level summary from an uploaded subtitle file
-- Inputs:
-  - `file_path`
-  - `context`
-  - `input_lang`
-  - `output_lang`
-- Output payload:
-```json
-{
-  "type": "summary",
-  "data": "..."
-}
-```
+**TaskGenerateSearchQueries** (`backend/orchestrator/library/task_generate_search_queries.py`):
+- Purpose: LLM generates targeted Tavily search queries for each unknown character/term
+- Inputs (from chain): `unknown`, `series`
+- Output: `{**data, "search_queries": [{"subject": "...", "query": "..."}]}`
 - Progress: no granular backend progress
+- Writes: `03-generate-search-queries.json` to `log_dir`
+
+**TaskWebSearch** (`backend/orchestrator/library/task_web_search.py`):
+- Purpose: Runs search queries through Tavily and collects result snippets
+- Inputs (from chain): `search_queries`
+- Output: `{**data, "search_results": [{"subject": "...", "results": [...]}]}`
+- Progress: writes per-query progress
+- Writes: `04-web-search.json` to `log_dir`
+- Notes: if Tavily is not loaded, returns empty results and continues rather than aborting
+
+**TaskGenerateLibraryProposals** (`backend/orchestrator/library/task_generate_library_proposals.py`):
+- Purpose: LLM combines subtitle content, existing library, and search results into structured add/update proposals
+- Inputs (from chain): `file_path`, `series`, `known`, `search_results`, `log_dir`
+- Output: `{**data, "proposals": {"new_characters": [...], "updated_characters": [...], "new_glossary": [...], "updated_glossary": [...]}}`
+- Progress: single-step
+- Writes: `05-generate-library-proposals.json` to `log_dir`
+- Notes:
+  - `new_characters` schema: `name`, `aliases[]`, `personality: string[]`, `relationships: {[character]: string[]}`, `history: string[]` — no `appearance`
+  - `updated_characters` proposals: `{id, field, append}` for history/personality, `{id, field, character, append}` for relationships
+  - strips any `updated_characters` entries with invalid fields before passing downstream
+
+**TaskDeduplicateProposals** (`backend/orchestrator/library/task_deduplicate_proposals.py`):
+- Purpose: One LLM call per character per field to remove duplicate/redundant proposals before showing them to the user
+- Inputs (from chain): `proposals`, `series`, `log_dir`
+- Output: `{**data, "proposals": <deduped proposals>}`
+- Result stored: `{"proposals": <deduped proposals>}` — this is what the frontend receives on poll completion
+- Progress: writes per-group progress (personality per char, history per char, relationship per character name)
+- Writes: `06-deduplicate-proposals.json` to `log_dir` — structured as `updated_characters_dedup` (per group: `existing_in_library`, `proposed`, `kept`, `excluded`), `new_characters`, `new_glossary`
+- Notes:
+  - groups `updated_characters` by field and character, one LLM call per group
+  - each group in the log shows what was already in the library, what was proposed, what was kept, and what was excluded — all side by side
+  - falls back to keeping all proposals if an LLM call fails
+  - this is the **final task** in the library update chain — the frontend polls `TaskDeduplicateProposals`
 
 **TaskTranscribeLine** (`backend/orchestrator/task_transcribe_line.py`):
 - Purpose: Transcribe a short audio clip or recording to text
@@ -835,6 +858,10 @@ Additional backend warnings and fallback/audit events are written to `backend/ou
 Model load/unload and general backend lifecycle events are also written to `backend/outputs/translator-helper.log`.
 Frontend note: polling-time task errors are surfaced visibly to the user and not only stored in frontend task state.
 
+`build_task_response` in `shared.py` uses one rule for all chains: if the orchestrator is running and the polled task has no result yet, return processing with the currently active task's progress from `ProgressHandler`. No chain-specific if-blocks are needed. Do not add per-chain special cases — the orchestrator only runs one chain at a time so "running + no result" always means this task's chain is active.
+
+Before starting any background chain, call `result_handler.clear(FinalTask.TASK_TYPE)` in the route so the frontend does not immediately receive a stale complete result from a previous run.
+
 
 Translation progress (file translation) includes:
 - `current`
@@ -881,6 +908,7 @@ For file translations, `/task-results/TaskTranslateFile` reports status/progress
 - Prefer standalone components over NgModules
 - Use SCSS for component styling with encapsulation
 - Avoid backward-compat fallbacks during refactors; update call sites instead
+- **Docstrings are required** on all Python functions, classes, and methods — one concise line minimum. Do not leave functions undocumented.
 
 ### Component Creation
 - Always check if an existing reusable component can be used
@@ -906,12 +934,11 @@ For file translations, `/task-results/TaskTranslateFile` reports status/progress
 
 ### State Management
 - Use `StateService` for cross-component state
-  - `getState()`: Returns Observable with all saved context data (characterList, synopsis, summary)
-  - Individual getters: `getCharacterList()`, `getSynopsis()`, `getSummary()`
-  - Individual setters: `setCharacterList()`, `setSynopsis()`, `setSummary()`
-  - Task state is also tracked per backend task type using `getTaskState()`, `setTaskState()`, `clearTaskState()`, and `hasActiveTask()`
+  - Task state is tracked per backend task type using `getTaskState()`, `setTaskState()`, `clearTaskState()`, and `hasActiveTask()`
   - Task state shape is `taskType`, `status`, `result`, `message`, `progress`, `isPolling`
-  - Active subtitle state is shared across Context and Translate via `activeSubtitleFile$`, `setActiveSubtitleFile()`, `getActiveSubtitleFile()`
+  - `TASK_TYPES` in `state.service.ts` maps friendly names to backend task type strings — `updateLibrary` maps to `'TaskDeduplicateProposals'` (the final task in the library chain)
+  - `selectedSeriesId$` tracks the currently selected library series across components
+  - Active subtitle state is shared across Library and Translate via `activeSubtitleFile$`, `setActiveSubtitleFile()`, `getActiveSubtitleFile()`
   - Active translated subtitle state is shared via `activeTranslatedSubtitleFile$`, `setActiveTranslatedSubtitleFile()`, `getActiveTranslatedSubtitleFile()`
   - Subtitle file details are shared through `subtitleFileInfo$`, `subtitleFileInfoLoading$`, and `subtitleFileInfoError$`
   - Translated subtitle file details are shared through `translatedSubtitleFileInfo$`, `translatedSubtitleFileInfoLoading$`, and `translatedSubtitleFileInfoError$`
@@ -977,15 +1004,30 @@ Use `app-text-field` instead of creating a new textarea:
 2. Add method to `ApiService` in frontend
 3. Call from component using the service method
 
+### Adding a New Task to a Chain
+When adding a new task to an existing chain (e.g. library update, translate file):
+1. **Register it in `LIBRARY_TASK_TYPES` / `LLM_TASK_TYPES` / `AUDIO_TASK_TYPES`** in `backend/routes/shared.py` — if omitted, polls return 400 and the frontend silently fails
+2. **Return `{**data, ...}` from `run_task()`** — every task must spread the incoming data dict and add its own keys. Never return a bare dict with only the new keys or upstream data (series, log_dir, file_path, etc.) will be dropped and all downstream tasks will break
+3. **Call `result_handler.set_complete(self.task_type, {...})` with the full result payload** — the frontend polls the final task in the chain; if the final task writes nothing, the frontend gets no proposals/results
+4. **Write a numbered log JSON to `log_dir`** — all other tasks do this; match the pattern (e.g. `06-task-name.json`) so audit logs are complete
+5. **Clear the previous result before starting** — in the route that starts the chain, call `result_handler.clear(FinalTask.TASK_TYPE)` before adding the background task, otherwise the frontend will immediately receive the stale result from the previous run and stop polling
+
 ### Adding a Destructive Action
 1. Use `ConfirmationService` to ask the user to confirm before deleting or overwriting data
 2. Do not use the browser's native `confirm(...)`
 3. Keep the confirmation copy specific about what will happen (for example, deletion or overwrite)
 
+### Adding an Editable List (personality, history, relationships, etc.)
+- Use `.list-entry` for every row — one class for all list types, no per-field variants
+- Each row contains a full-width `<input>` with its own `2px solid #ddd` border and a delete button
+- Delete buttons use the standard `<div class="btn-danger"><app-primary-button>Delete</app-primary-button></div>` pattern — never custom ✕ buttons or `.btn-remove`
+- Do not add an outer border to `.list-entry` itself; the input carries the border
+
 ### Showing an Error
 1. Use `ErrorDialogService` to show user-visible errors or notices
 2. Do not use the browser's native `alert(...)`
 3. Keep the message specific about what failed and what the user should check when relevant
+4. **Never swallow errors silently** — every `error:` callback in an Observable subscription must show the error dialog. An empty `error: () => {}` is never acceptable.
  
 ## Quick Reference
 

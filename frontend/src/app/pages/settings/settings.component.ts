@@ -25,31 +25,38 @@ import { ErrorDialogService } from '../../services/error-dialog.service';
 export class SettingsComponent implements OnInit, OnDestroy {
   llmReady: boolean | null = null;
   audioReady: boolean | null = null;
+  searchReady: boolean | null = null;
 
   llmLoadingError: string | null = null;
   audioLoadingError: string | null = null;
+  searchLoadingError: string | null = null;
 
   loadingAudio = false;
   loadingLlm = false;
+  loadingSearch = false;
 
   llmDetails: Array<{ label: string; value: string }> = [];
   audioDetails: Array<{ label: string; value: string }> = [];
 
   audioSchema: SettingsSchema | null = null;
   llmSchema: SettingsSchema | null = null;
+  searchSchema: SettingsSchema | null = null;
   llmApiKeyRequired = false;
 
   settingsValues: {
     audio: Record<string, string | number | boolean>;
     llm: Record<string, string | number | boolean>;
+    search: Record<string, string | number | boolean>;
   } = {
     audio: {},
-    llm: {}
+    llm: {},
+    search: {}
   };
 
   private statusPollSub: Subscription | null = null;
   private lastShownLlmError: string | null = null;
   private lastShownAudioError: string | null = null;
+  private lastShownSearchError: string | null = null;
 
   constructor(
     private apiService: ApiService,
@@ -125,18 +132,25 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
         this.stateService.setLlmReady(response.data.llm_ready);
         this.stateService.setAudioReady(response.data.audio_ready);
+        this.stateService.setSearchReady(response.data.search_ready ?? null);
         this.stateService.setReady(response.data.llm_ready && response.data.audio_ready);
         this.llmReady = response.data.llm_ready;
         this.audioReady = response.data.audio_ready;
+        this.searchReady = response.data.search_ready ?? null;
         this.llmLoadingError = response.data.llm_loading_error ?? null;
         this.audioLoadingError = response.data.audio_loading_error ?? null;
+        this.searchLoadingError = response.data.search_loading_error ?? null;
         this.showLoadErrorIfNeeded('llm', this.llmLoadingError);
         this.showLoadErrorIfNeeded('audio', this.audioLoadingError);
+        this.showLoadErrorIfNeeded('search', this.searchLoadingError);
         if (response.data.llm_ready) {
           this.stateService.setLoadingLlm(false);
         }
         if (response.data.audio_ready) {
           this.stateService.setLoadingAudio(false);
+        }
+        if (response.data.search_ready) {
+          this.loadingSearch = false;
         }
 
         this.audioDetails = audioVars.map(item => ({
@@ -207,16 +221,18 @@ export class SettingsComponent implements OnInit, OnDestroy {
   private applySchema(schema: SettingsSchemaBundle): void {
     this.audioSchema = schema.audio;
     this.llmSchema = schema.llm;
+    this.searchSchema = schema.search ?? null;
     this.llmApiKeyRequired = Boolean(
       this.llmSchema?.fields.find(field => field.key === 'api_key')?.required
     );
 
     this.initializeSettingsValues('audio', this.audioSchema);
     this.initializeSettingsValues('llm', this.llmSchema);
+    this.initializeSettingsValues('search', this.searchSchema);
   }
 
 
-  private initializeSettingsValues(scope: 'audio' | 'llm', schema: SettingsSchema | null): void {
+  private initializeSettingsValues(scope: 'audio' | 'llm' | 'search', schema: SettingsSchema | null): void {
     if (!schema) return;
 
     schema.fields.forEach(field => {
@@ -224,6 +240,33 @@ export class SettingsComponent implements OnInit, OnDestroy {
         if (field.default !== undefined) {
           this.settingsValues[scope][field.key] = field.default;
         }
+      }
+    });
+  }
+
+  loadSearchModel(): void {
+    if (this.loadingSearch) return;
+
+    const apiKey = this.settingsValues.search['api_key'] as string | undefined;
+    if (!apiKey || !String(apiKey).trim()) {
+      this.errorDialogService.show('Please enter a Tavily API key');
+      return;
+    }
+
+    this.loadingSearch = true;
+    this.apiService.loadSearchModel({ ...this.settingsValues.search }).subscribe({
+      next: (response) => {
+        this.loadingSearch = false;
+        if (response.status === 'error') {
+          this.errorDialogService.show(response.message || 'Failed to load search model');
+          return;
+        }
+        this.loadServerVariables();
+      },
+      error: (error) => {
+        console.error('Failed to load search model:', error);
+        this.loadingSearch = false;
+        this.errorDialogService.show('Failed to load search model');
       }
     });
   }
@@ -302,22 +345,23 @@ export class SettingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  private showLoadErrorIfNeeded(scope: 'llm' | 'audio', message: string | null): void {
+  private showLoadErrorIfNeeded(scope: 'llm' | 'audio' | 'search', message: string | null): void {
     if (!message) {
-      if (scope === 'llm') {
-        this.lastShownLlmError = null;
-      } else {
-        this.lastShownAudioError = null;
-      }
+      if (scope === 'llm') this.lastShownLlmError = null;
+      else if (scope === 'audio') this.lastShownAudioError = null;
+      else this.lastShownSearchError = null;
       return;
     }
 
     if (scope === 'llm') {
       if (this.lastShownLlmError === message) return;
       this.lastShownLlmError = message;
-    } else {
+    } else if (scope === 'audio') {
       if (this.lastShownAudioError === message) return;
       this.lastShownAudioError = message;
+    } else {
+      if (this.lastShownSearchError === message) return;
+      this.lastShownSearchError = message;
     }
 
     this.errorDialogService.show(message);

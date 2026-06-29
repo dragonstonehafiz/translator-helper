@@ -1,7 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { ErrorDialogService } from './error-dialog.service';
 
 export type SettingsFieldType = 'select' | 'text' | 'password' | 'number' | 'boolean';
 export type TaskStatus = 'idle' | 'processing' | 'complete' | 'error';
@@ -29,6 +27,7 @@ export interface SettingsSchema {
 export interface SettingsSchemaBundle {
   audio: SettingsSchema | null;
   llm: SettingsSchema | null;
+  search: SettingsSchema | null;
 }
 
 export interface TaskProgress {
@@ -52,22 +51,6 @@ export interface StoredTaskState {
   isPolling: boolean;
 }
 
-export interface AppContentState {
-  characterList: string;
-  synopsis: string;
-  summary: string;
-  additionalInstructions: string;
-}
-
-export interface ContextFileData {
-  characterList?: string;
-  synopsis?: string;
-  summary?: string;
-  additionalInstructions?: string;
-  inputLanguage?: string;
-  outputLanguage?: string;
-}
-
 export interface SubtitleFileInfo {
   totalLines: string;
   characterCount: string;
@@ -75,9 +58,7 @@ export interface SubtitleFileInfo {
 }
 
 export const TASK_TYPES = {
-  generateCharacterList: 'TaskGenerateCharacterList',
-  generateSynopsis: 'TaskGenerateSynopsis',
-  generateSummary: 'TaskGenerateSummary',
+  updateLibrary: 'TaskDeduplicateProposals',
   translateLine: 'TaskTranslateLine',
   translateFile: 'TaskTranslateFile',
   reviewTranslatedFile: 'TaskRetranslateReviewedLines',
@@ -89,13 +70,14 @@ export const TASK_TYPES = {
   providedIn: 'root'
 })
 export class StateService {
-  private readonly baseUrl = 'http://localhost:8000';
   private isReadySubject = new BehaviorSubject<boolean>(false);
   public isReady$: Observable<boolean> = this.isReadySubject.asObservable();
   private llmReadySubject = new BehaviorSubject<boolean | null>(null);
   public llmReady$: Observable<boolean | null> = this.llmReadySubject.asObservable();
   private audioReadySubject = new BehaviorSubject<boolean | null>(null);
   public audioReady$: Observable<boolean | null> = this.audioReadySubject.asObservable();
+  private searchReadySubject = new BehaviorSubject<boolean | null>(null);
+  public searchReady$: Observable<boolean | null> = this.searchReadySubject.asObservable();
 
   private serverAudioVarsSubject = new BehaviorSubject<Array<{ key?: string; label?: string; value?: unknown }> | null>(null);
   public serverAudioVars$: Observable<Array<{ key?: string; label?: string; value?: unknown }> | null> = this.serverAudioVarsSubject.asObservable();
@@ -108,25 +90,8 @@ export class StateService {
   private loadingLlmSubject = new BehaviorSubject<boolean>(false);
   public loadingLlm$: Observable<boolean> = this.loadingLlmSubject.asObservable();
 
-  private contentStateSubject = new BehaviorSubject<AppContentState>({
-    characterList: '',
-    synopsis: '',
-    summary: '',
-    additionalInstructions: '',
-  });
-  public contentState$: Observable<AppContentState> = this.contentStateSubject.asObservable();
-
-  private characterListSubject = new BehaviorSubject<string>('');
-  public characterList$: Observable<string> = this.characterListSubject.asObservable();
-
-  private summarySubject = new BehaviorSubject<string>('');
-  public summary$: Observable<string> = this.summarySubject.asObservable();
-
-  private synopsisSubject = new BehaviorSubject<string>('');
-  public synopsis$: Observable<string> = this.synopsisSubject.asObservable();
-
-  private additionalInstructionsSubject = new BehaviorSubject<string>('');
-  public additionalInstructions$: Observable<string> = this.additionalInstructionsSubject.asObservable();
+  private selectedSeriesIdSubject = new BehaviorSubject<string | null>(null);
+  public selectedSeriesId$: Observable<string | null> = this.selectedSeriesIdSubject.asObservable();
 
   private activeSubtitleFileSubject = new BehaviorSubject<File | null>(null);
   public activeSubtitleFile$: Observable<File | null> = this.activeSubtitleFileSubject.asObservable();
@@ -157,14 +122,12 @@ export class StateService {
 
   private settingsSchemaSubject = new BehaviorSubject<SettingsSchemaBundle>({
     audio: null,
-    llm: null
+    llm: null,
+    search: null,
   });
   public settingsSchema$: Observable<SettingsSchemaBundle> = this.settingsSchemaSubject.asObservable();
 
-  constructor(
-    private http: HttpClient,
-    private errorDialogService: ErrorDialogService,
-  ) { }
+  constructor() { }
 
   setReady(ready: boolean): void {
     this.isReadySubject.next(ready);
@@ -188,6 +151,14 @@ export class StateService {
 
   getAudioReady(): boolean | null {
     return this.audioReadySubject.value;
+  }
+
+  setSearchReady(ready: boolean | null): void {
+    this.searchReadySubject.next(ready);
+  }
+
+  getSearchReady(): boolean | null {
+    return this.searchReadySubject.value;
   }
 
   setServerVariables(variables: {
@@ -216,47 +187,18 @@ export class StateService {
     this.loadingLlmSubject.next(loading);
   }
 
-  setCharacterList(list: string): void {
-    this.patchContentState({ characterList: list });
+  setSelectedSeriesId(seriesId: string | null): void {
+    this.selectedSeriesIdSubject.next(seriesId);
   }
 
-  getCharacterList(): string {
-    return this.characterListSubject.value;
-  }
-
-  setSummary(summary: string): void {
-    this.patchContentState({ summary });
-  }
-
-  getSummary(): string {
-    return this.summarySubject.value;
-  }
-
-  setSynopsis(synopsis: string): void {
-    this.patchContentState({ synopsis });
-  }
-
-  getSynopsis(): string {
-    return this.synopsisSubject.value;
-  }
-
-  setAdditionalInstructions(instructions: string): void {
-    this.patchContentState({ additionalInstructions: instructions });
-  }
-
-  getAdditionalInstructions(): string {
-    return this.additionalInstructionsSubject.value;
-  }
-
-  setContextState(context: Partial<AppContentState>): void {
-    this.patchContentState(context);
+  getSelectedSeriesId(): string | null {
+    return this.selectedSeriesIdSubject.value;
   }
 
   setActiveSubtitleFile(file: File | null): void {
     this.activeSubtitleFileSubject.next(file);
     this.setSubtitleFileInfo(null);
     this.setSubtitleFileInfoError('');
-    this.loadMatchingContextForSubtitle(file);
   }
 
   getActiveSubtitleFile(): File | null {
@@ -358,52 +300,12 @@ export class StateService {
     });
   }
 
-  getState(): Observable<AppContentState> {
-    return new Observable(observer => {
-      observer.next(this.contentStateSubject.value);
-      observer.complete();
-    });
-  }
-
   setSettingsSchema(schema: SettingsSchemaBundle): void {
     this.settingsSchemaSubject.next(schema);
   }
 
   getSettingsSchema(): SettingsSchemaBundle {
     return this.settingsSchemaSubject.value;
-  }
-
-  private patchContentState(patch: Partial<AppContentState>): void {
-    const next = { ...this.contentStateSubject.value, ...patch };
-    this.contentStateSubject.next(next);
-    this.characterListSubject.next(next.characterList);
-    this.synopsisSubject.next(next.synopsis);
-    this.summarySubject.next(next.summary);
-    this.additionalInstructionsSubject.next(next.additionalInstructions);
-  }
-
-  private loadMatchingContextForSubtitle(file: File | null): void {
-    if (!file) return;
-    const baseName = file.name.replace(/\.(ass|srt)$/i, '');
-    const contextFilename = `${baseName}.json`;
-    this.http.get<ContextFileData>(
-      `${this.baseUrl}/file-management/context-files/${encodeURIComponent(contextFilename)}`
-    ).subscribe({
-      next: (data) => {
-        const patch: Partial<AppContentState> = {};
-        if (data.additionalInstructions !== undefined) patch.additionalInstructions = data.additionalInstructions;
-        if (data.characterList !== undefined) patch.characterList = data.characterList;
-        if (data.synopsis !== undefined) patch.synopsis = data.synopsis;
-        if (data.summary !== undefined) patch.summary = data.summary;
-        this.setContextState(patch);
-      },
-      error: (error) => {
-        if (error.status !== 404) {
-          console.error('Error loading context file:', error);
-          this.errorDialogService.show('Failed to load context file.');
-        }
-      }
-    });
   }
 
   private createIdleTaskState(taskType: string): StoredTaskState {

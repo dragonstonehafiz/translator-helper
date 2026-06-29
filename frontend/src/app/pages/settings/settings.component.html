@@ -37,6 +37,19 @@
             <div>{{ audioLoadingError }}</div>
           </div>
         </div>
+
+        <div class="status-box" [class.ready]="searchReady === true" [class.not-ready]="searchReady === false" [class.not-connected]="searchReady === null">
+          <h3 class="component-name">Web Search</h3>
+          <div class="status-content">
+            <div class="status-indicator"></div>
+            <span class="status-text">
+              {{ searchReady === null ? 'Not Connected' : (searchReady ? 'Ready' : 'Not Ready') }}
+            </span>
+          </div>
+          <div class="status-details error-details" *ngIf="!searchReady && searchLoadingError">
+            <div>{{ searchLoadingError }}</div>
+          </div>
+        </div>
       </div>
     </app-subsection>
 
@@ -103,6 +116,34 @@
           </ng-container>
           <ng-template #noAudioSchema>
             <p class="no-schema-message">Transcription model schema not available. Check your server connection.</p>
+          </ng-template>
+        </app-subsection>
+      </app-tab>
+
+      <app-tab label="Web Search">
+        <app-subsection title="Web Search" tooltip="Tavily API key for web search used in the Library Update chain.">
+          <ng-container *ngIf="searchSchema; else noSearchSchema">
+            <div class="schema-grid">
+              <div class="form-group" *ngFor="let field of searchSchema.fields">
+                <div class="field-label">
+                  <label [for]="'search-' + field.key">{{ field.label }}</label>
+                  <app-tooltip-icon *ngIf="field.help" [tooltip]="field.help"></app-tooltip-icon>
+                </div>
+                <ng-container [ngSwitch]="field.type">
+                  <input *ngSwitchCase="'password'" type="password" [id]="'search-' + field.key" [(ngModel)]="settingsValues.search[field.key]" [placeholder]="field.placeholder" [disabled]="loadingSearch">
+                  <input *ngSwitchDefault type="text" [id]="'search-' + field.key" [(ngModel)]="settingsValues.search[field.key]" [placeholder]="field.placeholder" [disabled]="loadingSearch">
+                </ng-container>
+              </div>
+            </div>
+            <div class="load-button-spacing">
+              <app-primary-button [fullWidth]="true" (click)="loadSearchModel()" [disabled]="loadingSearch">
+                <span *ngIf="!loadingSearch">Load Web Search</span>
+                <span *ngIf="loadingSearch">Loading...</span>
+              </app-primary-button>
+            </div>
+          </ng-container>
+          <ng-template #noSearchSchema>
+            <p class="no-schema-message">Web search schema not available. Check your server connection.</p>
           </ng-template>
         </app-subsection>
       </app-tab>

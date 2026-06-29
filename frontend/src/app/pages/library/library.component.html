@@ -1,0 +1,65 @@
+<div class="page-container">
+  <div class="header-container">
+    <h1>Library</h1>
+  </div>
+
+  <div class="form-section">
+    <app-subsection title="Series">
+      <app-primary-button [fullWidth]="true" (click)="openCreateForm()">Add Series</app-primary-button>
+
+      <!-- Create Form -->
+      <div class="inline-form" *ngIf="showCreateForm">
+        <h3>New Series</h3>
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" [(ngModel)]="newSeriesName" placeholder="Attack on Titan">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Input Language</label>
+            <select [(ngModel)]="newSeriesInputLang">
+              <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Output Language</label>
+            <select [(ngModel)]="newSeriesOutputLang">
+              <option *ngFor="let lang of languageOptions" [value]="lang.code">{{ lang.name }} ({{ lang.code }})</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea [(ngModel)]="newSeriesNotes" rows="3" placeholder="General translation notes..."></textarea>
+        </div>
+        <div class="form-actions">
+          <app-primary-button [fullWidth]="true" (click)="createSeries()" [disabled]="!newSeriesName.trim() || isCreatingSeries">Create</app-primary-button>
+          <button class="btn-cancel" (click)="cancelCreateForm()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Series List -->
+      <div class="series-list" *ngIf="!isLoadingSeries">
+        <div class="empty-state" *ngIf="seriesList.length === 0 && !showCreateForm">
+          No series yet. Create one to get started.
+        </div>
+        <div class="series-card" *ngFor="let series of seriesList" (click)="openSeries(series.id)">
+          <div class="series-card-info">
+            <div class="series-card-name">{{ series.name }}</div>
+            <div class="series-card-meta">
+              {{ series.input_lang }} → {{ series.output_lang }} &nbsp;·&nbsp;
+              {{ series.character_count }} characters &nbsp;·&nbsp;
+              {{ series.glossary_count }} glossary terms
+            </div>
+          </div>
+          <div class="btn-danger" (click)="$event.stopPropagation()">
+            <app-primary-button (click)="deleteSeries(series.id, series.name)">Delete</app-primary-button>
+          </div>
+        </div>
+      </div>
+      <div *ngIf="isLoadingSeries" class="loading-row">
+        <app-loading-text-indicator text="Loading series..."></app-loading-text-indicator>
+      </div>
+    </app-subsection>
+  </div>
+</div>
