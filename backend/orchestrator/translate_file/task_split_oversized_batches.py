@@ -12,8 +12,7 @@ from orchestrator.result_handler import ResultHandler
 from utils.logger import setup_logger
 from prompts.translate_file import generate_split_batch_plan_prompt
 
-logger = setup_logger("task-timings")
-app_logger = setup_logger("translator-helper")
+logger = setup_logger()
 
 
 class TaskSplitOversizedBatches(BaseTask):
@@ -24,15 +23,13 @@ class TaskSplitOversizedBatches(BaseTask):
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
-        started = time.perf_counter()
-        status = "error"
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         progress_handler = ProgressHandler.get_instance()
         llm_client = model_manager.get_llm_client()
         if llm_client is None:
             result_handler.set_error(self.task_type, "LLM model not initialized")
-            return {}
+            raise RuntimeError("LLM model not initialized")
 
         data = self.get_data()
         batches = data.get("batches") or []
@@ -94,15 +91,12 @@ class TaskSplitOversizedBatches(BaseTask):
                 repaired_batches=repaired_batches,
             )
             result_handler.set_complete(self.task_type)
-            status = "complete"
             return payload
         except Exception as exc:
-            logger.error("Error splitting oversized translation batches: %s", exc, exc_info=True)
             result_handler.set_error(self.task_type, str(exc))
-            return {}
+            raise
         finally:
             llm_client.set_running(False)
-            logger.info("task=%s status=%s elapsed_seconds=%.3f", self.task_type, status, time.perf_counter() - started)
 
     def _load_indexed_lines(self, file_path: str) -> tuple[list[str], int]:
         subs = pysubs2.load(file_path)
@@ -227,7 +221,7 @@ class TaskSplitOversizedBatches(BaseTask):
                     f"{int(fallback_batch['start_index'])}-{int(fallback_batch['end_index'])}"
                     for fallback_batch in split_batches
                 )
-                app_logger.warning(
+                logger.warning(
                     "Oversized batch fallback: original=%s-%s deterministic_split=%s max_batch_size=%s failure=%s",
                     start_index,
                     end_index,

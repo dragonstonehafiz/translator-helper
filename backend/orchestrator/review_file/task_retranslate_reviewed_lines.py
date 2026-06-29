@@ -1,6 +1,5 @@
 import json
 import os
-import time
 from pathlib import Path
 
 import pysubs2
@@ -10,9 +9,6 @@ from models.model_manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from prompts.review_file import generate_line_retranslation_prompt
-from utils.logger import setup_logger
-
-logger = setup_logger("task-timings")
 
 
 class TaskRetranslateReviewedLines(BaseTask):
@@ -23,8 +19,6 @@ class TaskRetranslateReviewedLines(BaseTask):
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
-        started = time.perf_counter()
-        status = "error"
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         progress_handler = ProgressHandler.get_instance()
@@ -118,15 +112,12 @@ class TaskRetranslateReviewedLines(BaseTask):
                 "output_filename": Path(output_path).name,
             }
             result_handler.set_complete(self.task_type, payload)
-            status = "complete"
             return payload
         except Exception as exc:
-            logger.error("Error retranslating reviewed subtitle lines: %s", exc, exc_info=True)
             result_handler.set_error(self.task_type, str(exc))
-            return {}
+            raise
         finally:
             llm_client.set_running(False)
-            logger.info("task=%s status=%s elapsed_seconds=%.3f", self.task_type, status, time.perf_counter() - started)
 
     def _build_retranslation_prompt(self, index: int, original_line, translated_line, reason: str) -> str:
         original_speaker = original_line.name.strip() if original_line.name else "Unknown"

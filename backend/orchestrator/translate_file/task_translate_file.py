@@ -15,8 +15,7 @@ from prompts.translate import generate_translate_sub_prompt
 from prompts.translate_file import generate_translate_batch_prompt
 from utils.logger import setup_logger
 
-logger = setup_logger("task-timings")
-app_logger = setup_logger("translator-helper")
+logger = setup_logger()
 
 
 class TaskTranslateFile(BaseTask):
@@ -27,15 +26,13 @@ class TaskTranslateFile(BaseTask):
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
-        started = time.perf_counter()
-        status = "error"
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         progress_handler = ProgressHandler.get_instance()
         llm_client = model_manager.get_llm_client()
         if llm_client is None:
             result_handler.set_error(self.task_type, "LLM model not initialized")
-            return {}
+            raise RuntimeError("LLM model not initialized")
 
         data = self.get_data()
         batches = data.get("batches") or []
@@ -114,12 +111,10 @@ class TaskTranslateFile(BaseTask):
             )
 
             result_handler.set_complete(self.task_type)
-            status = "complete"
             return {}
         except Exception as exc:
-            logger.error("Error translating subtitle file: %s", exc, exc_info=True)
             result_handler.set_error(self.task_type, str(exc))
-            return {}
+            raise
         finally:
             llm_client.set_running(False)
             if file_path:
@@ -127,7 +122,6 @@ class TaskTranslateFile(BaseTask):
                     os.remove(file_path)
                 except Exception:
                     pass
-            logger.info("task=%s status=%s elapsed_seconds=%.3f", self.task_type, status, time.perf_counter() - started)
 
     def _build_batch_ranges(self, subs, batches: list[dict], batch_size: int) -> list[tuple[int, int]]:
         total_lines = len(subs)
@@ -224,7 +218,7 @@ class TaskTranslateFile(BaseTask):
                             failure=str(malformed_error),
                         )
                     )
-                    app_logger.warning(
+                    logger.warning(
                         "Batch translation format failure; splitting batch=%s/%s span=%s-%s size=%s failure=%s",
                         batch_number,
                         total_batches,
@@ -259,7 +253,7 @@ class TaskTranslateFile(BaseTask):
                         failure=str(malformed_error),
                     )
                 )
-                app_logger.warning(
+                logger.warning(
                     "Batch translation fallback to per-line mode; batch=%s/%s span=%s-%s size=%s failure=%s",
                     batch_number,
                     total_batches,

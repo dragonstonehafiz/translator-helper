@@ -1,6 +1,5 @@
 import json
 import re
-import time
 from pathlib import Path
 
 import pysubs2
@@ -10,9 +9,6 @@ from models.model_manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from prompts.review_file import generate_batch_review_prompt
-from utils.logger import setup_logger
-
-logger = setup_logger("task-timings")
 
 
 class TaskReviewTranslatedBatches(BaseTask):
@@ -23,8 +19,6 @@ class TaskReviewTranslatedBatches(BaseTask):
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
-        started = time.perf_counter()
-        status = "error"
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         progress_handler = ProgressHandler.get_instance()
@@ -140,14 +134,12 @@ class TaskReviewTranslatedBatches(BaseTask):
                 corrections=corrections,
             )
             result_handler.set_complete(self.task_type)
-            status = "complete"
             return payload
         except Exception as exc:
             result_handler.set_error(self.task_type, str(exc))
             raise
         finally:
             llm_client.set_running(False)
-            logger.info("task=%s status=%s elapsed_seconds=%.3f", self.task_type, status, time.perf_counter() - started)
 
     def _build_indexed_lines(self, subs, start_index: int, end_index: int) -> list[str]:
         lines = []

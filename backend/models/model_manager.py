@@ -59,17 +59,14 @@ class ModelManager:
             self.loading_audio_model = True
             if self._audio_client is None:
                 self._audio_client = AudioWhisperX()
+            logger.info("Loading audio model: provider=%s model=%s", type(self._audio_client).__name__, self._audio_client.get_model())
             self._audio_client.initialize()
             self.audio_loading_error = None
-            logger.info(
-                "Whisper model loaded: model='%s', device='%s'",
-                self._audio_client.get_model(),
-                self._audio_client.get_device(),
-            )
+            logger.info("Audio model loaded: provider=%s model=%s device=%s", type(self._audio_client).__name__, self._audio_client.get_model(), self._audio_client.get_device())
             return True
         except Exception as exc:
             self.audio_loading_error = str(exc)
-            logger.error("Error loading Whisper model: %s", exc, exc_info=True)
+            logger.error("Audio model load failed: provider=%s error=%s", type(self._audio_client).__name__ if self._audio_client else "unknown", exc, exc_info=True)
             return False
         finally:
             self.loading_audio_model = False
@@ -82,17 +79,14 @@ class ModelManager:
             self.loading_llm_model = True
             if self._llm_client is None:
                 self._llm_client = LLMDeepSeek()
+            logger.info("Loading LLM model: provider=%s model=%s", type(self._llm_client).__name__, self._llm_client.get_model())
             self._llm_client.initialize()
             self.llm_loading_error = None
-            logger.info(
-                "LLM loaded: model='%s', temperature=%s",
-                self._llm_client.get_model(),
-                self._llm_client.get_temperature(),
-            )
+            logger.info("LLM model loaded: provider=%s model=%s temperature=%s", type(self._llm_client).__name__, self._llm_client.get_model(), self._llm_client.get_temperature())
             return True
         except Exception as exc:
             self.llm_loading_error = str(exc)
-            logger.error("Error loading LLM model: %s", exc, exc_info=True)
+            logger.error("LLM model load failed: provider=%s error=%s", type(self._llm_client).__name__ if self._llm_client else "unknown", exc, exc_info=True)
             return False
         finally:
             self.loading_llm_model = False

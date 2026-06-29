@@ -14,7 +14,6 @@ from orchestrator.review_file.task_review_translated_batches import TaskReviewTr
 from orchestrator.translate_file.task_split_oversized_batches import TaskSplitOversizedBatches
 from orchestrator.translate_file.task_translate_file import TaskTranslateFile
 from orchestrator.tasks.task_translate_line import TaskTranslateLine
-from utils.logger import setup_logger
 from utils.api_response import error_response, processing_response
 
 from .shared import (
@@ -29,7 +28,6 @@ from .shared import (
 )
 
 router = APIRouter(prefix="/translate")
-logger = setup_logger()
 
 
 def _safe_log_filename(filename: str) -> str:
@@ -63,7 +61,6 @@ def run_translation_file_chain(data: dict):
         task_orchestrator.add_task(TaskTranslateFile())
         task_orchestrator.run_tasks(initial_data=data)
     except Exception as exc:
-        logger.error("Task execution failed (%s): %s", final_task_type, exc, exc_info=True)
         result_handler.set_error(final_task_type, str(exc))
 
 
@@ -96,7 +93,6 @@ def run_review_translated_file_chain(data: dict):
         task_orchestrator.add_task(TaskRetranslateReviewedLines())
         task_orchestrator.run_tasks(initial_data=data)
     except Exception as exc:
-        logger.error("Task execution failed (%s): %s", final_task_type, exc, exc_info=True)
         result_handler.set_error(final_task_type, str(exc))
     finally:
         for temp_path in temp_paths:

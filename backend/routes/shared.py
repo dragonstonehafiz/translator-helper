@@ -29,9 +29,6 @@ from orchestrator.tasks.task_transcribe_line import TaskTranscribeLine
 from orchestrator.translate_file.task_translate_file import TaskTranslateFile
 from orchestrator.tasks.task_translate_line import TaskTranslateLine
 from utils.api_response import complete_response, error_response, idle_response, processing_response, task_result_data
-from utils.logger import setup_logger
-
-logger = setup_logger()
 
 model_manager = ModelManager.get_instance()
 task_orchestrator = TaskOrchestrator.get_instance()
@@ -82,7 +79,6 @@ def run_single_task(task, data: dict):
     try:
         task_orchestrator.run_task(task, data)
     except Exception as exc:
-        logger.error("Task execution failed (%s): %s", task.task_type, exc, exc_info=True)
         result_handler.set_error(task.task_type, str(exc))
 
 

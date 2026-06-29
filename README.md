@@ -190,3 +190,6 @@ Once the two previous steps are completed, you can access the app by going to ht
 
 - Add a way to choose a specific model per translate/context task instead of forcing all tasks to use the same globally loaded LLM.
 - Add some backend library thing to store series information that will automatically be updated when new translation files are read for that series
+- Update frontend UI for translate and context pages so it is easier to follow.
+- Add a tab functionality to the frontend (this is specifically for translate page since everything is sorta there together)
+- Update context 

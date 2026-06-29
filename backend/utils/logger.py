@@ -5,13 +5,15 @@ Logging configuration for Translator Helper backend.
 import logging
 from pathlib import Path
 
+from utils.config import OUTPUTS_DIR
+
 SHARED_LOG_FILENAME = "translator-helper.log"
 
 
 def setup_logger(
     name: str = "translator-helper",
     level: int = logging.INFO,
-    log_dir: str = "outputs"
+    log_dir: Path | None = None
 ) -> logging.Logger:
     """
     Set up and return a configured logger that writes to a file.
@@ -33,8 +35,8 @@ def setup_logger(
         return logger
     
     # Create logs directory
-    log_path = Path(log_dir)
-    log_path.mkdir(exist_ok=True)
+    log_path = log_dir if log_dir is not None else OUTPUTS_DIR
+    log_path.mkdir(parents=True, exist_ok=True)
     
     # Route all backend logs into one shared file while keeping logger names in the entry text.
     file_handler = logging.FileHandler(
