@@ -8,18 +8,21 @@ import os
 from fastapi import APIRouter, BackgroundTasks, File, Form, UploadFile
 
 from orchestrator.translate_file.task_plan_translation_batches import TaskPlanTranslationBatches
+from orchestrator.translate_file.task_select_library_context import TaskSelectLibraryContext
 from orchestrator.review_file.task_plan_translation_review_batches import TaskPlanTranslationReviewBatches
 from orchestrator.review_file.task_retranslate_reviewed_lines import TaskRetranslateReviewedLines
 from orchestrator.review_file.task_review_translated_batches import TaskReviewTranslatedBatches
+from orchestrator.review_file.task_select_library_context_for_review import TaskSelectLibraryContextForReview
 from orchestrator.translate_file.task_split_oversized_batches import TaskSplitOversizedBatches
 from orchestrator.translate_file.task_translate_file import TaskTranslateFile
 from orchestrator.tasks.task_translate_line import TaskTranslateLine
 from utils.api_response import error_response, processing_response
 
+from utils.library import load_series
+
 from .shared import (
     OUTPUTS_DIR,
     model_manager,
-    parse_json_form,
     progress_handler,
     result_handler,
     run_single_task,
@@ -58,6 +61,7 @@ def run_translation_file_chain(data: dict):
         task_orchestrator.clear_tasks()
         task_orchestrator.add_task(TaskPlanTranslationBatches())
         task_orchestrator.add_task(TaskSplitOversizedBatches())
+        task_orchestrator.add_task(TaskSelectLibraryContext())
         task_orchestrator.add_task(TaskTranslateFile())
         task_orchestrator.run_tasks(initial_data=data)
     except Exception as exc:
@@ -89,6 +93,7 @@ def run_review_translated_file_chain(data: dict):
         )
         task_orchestrator.clear_tasks()
         task_orchestrator.add_task(TaskPlanTranslationReviewBatches())
+        task_orchestrator.add_task(TaskSelectLibraryContextForReview())
         task_orchestrator.add_task(TaskReviewTranslatedBatches())
         task_orchestrator.add_task(TaskRetranslateReviewedLines())
         task_orchestrator.run_tasks(initial_data=data)
@@ -137,10 +142,10 @@ async def api_translate_line(
 async def api_translate_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    context: str = Form("{}"),
     input_lang: str = Form("ja"),
     output_lang: str = Form("en"),
     batch_size: int = Form(3),
+    series_id: str = Form(""),
 ):
     if task_orchestrator.is_running():
         return error_response("Translation is already running")
@@ -148,17 +153,23 @@ async def api_translate_file(
         return error_response("LLM not loaded")
 
     try:
-        context_dict = parse_json_form(context)
         tmp_file_path = await save_upload_to_temp(file)
+        series = None
+        if series_id:
+            try:
+                series = load_series(series_id)
+            except Exception:
+                pass
         background_tasks.add_task(
             run_translation_file_chain,
             {
                 "file_path": tmp_file_path,
                 "original_filename": file.filename,
-                "context": context_dict,
+                "context": {},
                 "input_lang": input_lang,
                 "output_lang": output_lang,
                 "batch_size": batch_size,
+                "series": series,
             },
         )
         return processing_response({"task_type": TaskTranslateFile.TASK_TYPE}, "Translation started")
@@ -171,10 +182,10 @@ async def api_review_translated_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     translated_file: UploadFile = File(...),
-    context: str = Form("{}"),
     input_lang: str = Form("ja"),
     output_lang: str = Form("en"),
     batch_size: int = Form(50),
+    series_id: str = Form(""),
 ):
     if task_orchestrator.is_running():
         return error_response("Translation review is already running")
@@ -182,9 +193,14 @@ async def api_review_translated_file(
         return error_response("LLM not loaded")
 
     try:
-        context_dict = parse_json_form(context)
         tmp_file_path = await save_upload_to_temp(file)
         tmp_translated_file_path = await save_upload_to_temp(translated_file)
+        series = None
+        if series_id:
+            try:
+                series = load_series(series_id)
+            except Exception:
+                pass
         background_tasks.add_task(
             run_review_translated_file_chain,
             {
@@ -192,10 +208,11 @@ async def api_review_translated_file(
                 "translated_file_path": tmp_translated_file_path,
                 "original_filename": file.filename,
                 "translated_filename": translated_file.filename,
-                "context": context_dict,
+                "context": {},
                 "input_lang": input_lang,
                 "output_lang": output_lang,
                 "batch_size": batch_size,
+                "series": series,
             },
         )
         return processing_response({"task_type": TaskRetranslateReviewedLines.TASK_TYPE}, "Translation review started")

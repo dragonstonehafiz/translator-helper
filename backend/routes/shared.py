@@ -23,6 +23,8 @@ from orchestrator.library.task_scan_subtitle_file import TaskScanSubtitleFile
 from orchestrator.library.task_web_search import TaskWebSearch
 from orchestrator.task_orchestrator import TaskOrchestrator
 from orchestrator.translate_file.task_plan_translation_batches import TaskPlanTranslationBatches
+from orchestrator.translate_file.task_select_library_context import TaskSelectLibraryContext
+from orchestrator.review_file.task_select_library_context_for_review import TaskSelectLibraryContextForReview
 from orchestrator.review_file.task_plan_translation_review_batches import TaskPlanTranslationReviewBatches
 from orchestrator.review_file.task_retranslate_reviewed_lines import TaskRetranslateReviewedLines
 from orchestrator.review_file.task_review_translated_batches import TaskReviewTranslatedBatches
@@ -50,6 +52,8 @@ LLM_TASK_TYPES = {
     TaskTranslateLine.TASK_TYPE,
     TaskTranslateFile.TASK_TYPE,
     TaskPlanTranslationBatches.TASK_TYPE,
+    TaskSelectLibraryContext.TASK_TYPE,
+    TaskSelectLibraryContextForReview.TASK_TYPE,
     TaskPlanTranslationReviewBatches.TASK_TYPE,
     TaskReviewTranslatedBatches.TASK_TYPE,
     TaskRetranslateReviewedLines.TASK_TYPE,

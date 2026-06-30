@@ -158,5 +158,5 @@ class TaskRetranslateReviewedLines(BaseTask):
             "corrected_count": len(correction_logs),
             "corrections": correction_logs,
         }
-        with open(output_dir / "03-retranslate-reviewed-lines.json", "w", encoding="utf-8") as file_handle:
+        with open(output_dir / "04-retranslate-reviewed-lines.json", "w", encoding="utf-8") as file_handle:
             json.dump(log_payload, file_handle, ensure_ascii=False, indent=2)

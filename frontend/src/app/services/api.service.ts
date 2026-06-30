@@ -216,21 +216,21 @@ export class ApiService {
     return this.http.post<ApiResponse<TaskStartData>>(`${this.baseUrl}/translate/translate-line`, formData);
   }
 
-  translateFile(file: File, context: any, inputLang: string, outputLang: string, batchSize: number): Observable<ApiResponse<TaskStartData>> {
+  translateFile(file: File, seriesId: string, inputLang: string, outputLang: string, batchSize: number): Observable<ApiResponse<TaskStartData>> {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('context', JSON.stringify(context));
+    formData.append('series_id', seriesId);
     formData.append('input_lang', inputLang);
     formData.append('output_lang', outputLang);
     formData.append('batch_size', batchSize.toString());
     return this.http.post<ApiResponse<TaskStartData>>(`${this.baseUrl}/translate/translate-file`, formData);
   }
 
-  reviewTranslatedFile(originalFile: File, translatedFile: File, context: any, inputLang: string, outputLang: string, batchSize: number): Observable<ApiResponse<TaskStartData>> {
+  reviewTranslatedFile(originalFile: File, translatedFile: File, seriesId: string, inputLang: string, outputLang: string, batchSize: number): Observable<ApiResponse<TaskStartData>> {
     const formData = new FormData();
     formData.append('file', originalFile);
     formData.append('translated_file', translatedFile);
-    formData.append('context', JSON.stringify(context));
+    formData.append('series_id', seriesId);
     formData.append('input_lang', inputLang);
     formData.append('output_lang', outputLang);
     formData.append('batch_size', batchSize.toString());

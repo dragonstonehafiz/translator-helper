@@ -132,6 +132,8 @@ class TaskReviewTranslatedBatches(BaseTask):
                 correction_count=len(corrections),
                 batch_logs=batch_logs,
                 corrections=corrections,
+                original_subs=original_subs,
+                translated_subs=translated_subs,
             )
             result_handler.set_complete(self.task_type)
             return payload
@@ -213,9 +215,22 @@ class TaskReviewTranslatedBatches(BaseTask):
         correction_count: int,
         batch_logs: list[dict],
         corrections: list[dict[str, int | str]],
+        original_subs=None,
+        translated_subs=None,
     ):
         if not log_dir:
             return
+
+        enriched_corrections = []
+        for c in corrections:
+            idx = int(c["index"])
+            entry = dict(c)
+            if original_subs is not None and translated_subs is not None:
+                orig_line = original_subs[idx - 1]
+                trans_line = translated_subs[idx - 1]
+                entry["original"] = orig_line.text.strip()
+                entry["translated"] = trans_line.text.strip()
+            enriched_corrections.append(entry)
 
         output_dir = Path(log_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -224,9 +239,9 @@ class TaskReviewTranslatedBatches(BaseTask):
             "batch_count": batch_count,
             "correction_count": correction_count,
             "batches": batch_logs,
-            "corrections": corrections,
+            "corrections": enriched_corrections,
         }
-        with open(output_dir / "02-review-translated-batches.json", "w", encoding="utf-8") as file_handle:
+        with open(output_dir / "03-review-translated-batches.json", "w", encoding="utf-8") as file_handle:
             json.dump(log_payload, file_handle, ensure_ascii=False, indent=2)
 
     def _build_failure_log(
@@ -276,7 +291,7 @@ class TaskReviewTranslatedBatches(BaseTask):
 
         output_dir = Path(log_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / "02-review-translated-batch-failures.json"
+        output_path = output_dir / "03-review-translated-batch-failures.json"
         log_payload = {
             "task_type": self.task_type,
             "failure_count": len(failure_logs),

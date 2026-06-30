@@ -69,16 +69,7 @@ class TaskSplitOversizedBatches(BaseTask):
                 progress_handler=progress_handler,
             )
             self._validate_final_batches(repaired_batches, total_lines, batch_size)
-            payload = {
-                "batches": repaired_batches,
-                "file_path": file_path,
-                "original_filename": original_filename,
-                "context": context,
-                "input_lang": input_lang,
-                "output_lang": output_lang,
-                "batch_size": batch_size,
-                "log_dir": log_dir,
-            }
+            payload = {**data, "batches": repaired_batches}
             self._write_split_log(
                 log_dir=log_dir,
                 original_filename=str(original_filename or ""),

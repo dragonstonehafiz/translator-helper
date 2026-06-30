@@ -111,21 +111,27 @@
           title="Review Translation"
           tooltip="Review the active translated subtitle file against the original and correct flagged lines">
 
-          <app-file-upload
-            accept=".ass,.srt"
-            placeholder="Upload Original Subtitle File"
-            subtext=".ass / .srt"
-            [selectedFiles]="fileToTranslate ? [fileToTranslate] : []"
-            (filesSelected)="onSubtitleFileSelected($event)">
-          </app-file-upload>
+          <div class="upload-group">
+            <p class="upload-label">Original File</p>
+            <app-file-upload
+              accept=".ass,.srt"
+              placeholder="Upload Original Subtitle File"
+              subtext=".ass / .srt"
+              [selectedFiles]="fileToTranslate ? [fileToTranslate] : []"
+              (filesSelected)="onSubtitleFileSelected($event)">
+            </app-file-upload>
+          </div>
 
-          <app-file-upload
-            accept=".ass,.srt"
-            placeholder="Upload Translated Subtitle File"
-            subtext=".ass / .srt"
-            [selectedFiles]="translatedFileToReview ? [translatedFileToReview] : []"
-            (filesSelected)="onTranslatedSubtitleFileSelected($event)">
-          </app-file-upload>
+          <div class="upload-group">
+            <p class="upload-label">Translated File</p>
+            <app-file-upload
+              accept=".ass,.srt"
+              placeholder="Upload Translated Subtitle File"
+              subtext=".ass / .srt"
+              [selectedFiles]="translatedFileToReview ? [translatedFileToReview] : []"
+              (filesSelected)="onTranslatedSubtitleFileSelected($event)">
+            </app-file-upload>
+          </div>
 
           <div class="form-row">
             <div class="form-group">

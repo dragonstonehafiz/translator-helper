@@ -150,12 +150,6 @@ export class TranslateComponent implements OnInit, OnDestroy {
     });
   }
 
-  buildContext(): any {
-    const context: any = {};
-    if (this.selectedSeriesId) context.series_id = this.selectedSeriesId;
-    return context;
-  }
-
   translateLine(): void {
     if (!this.lineTextToTranslate || this.isTranslatingLine || this.stateService.hasActiveTask()) return;
 
@@ -169,11 +163,9 @@ export class TranslateComponent implements OnInit, OnDestroy {
       isPolling: true,
     });
 
-    const context = this.buildContext();
-
     this.apiService.translateLine(
       this.lineTextToTranslate,
-      context,
+      {},
       this.lineInputLanguage,
       this.lineOutputLanguage
     ).subscribe({
@@ -261,11 +253,9 @@ export class TranslateComponent implements OnInit, OnDestroy {
       isPolling: true,
     });
 
-    const context = this.buildContext();
-
     this.apiService.translateFile(
       this.fileToTranslate,
-      context,
+      this.selectedSeriesId ?? '',
       this.fileInputLanguage,
       this.fileOutputLanguage,
       this.batchSize
@@ -354,12 +344,10 @@ export class TranslateComponent implements OnInit, OnDestroy {
       isPolling: true,
     });
 
-    const context = this.buildContext();
-
     this.apiService.reviewTranslatedFile(
       this.fileToTranslate,
       this.translatedFileToReview,
-      context,
+      this.selectedSeriesId ?? '',
       this.fileInputLanguage,
       this.fileOutputLanguage,
       this.batchSize

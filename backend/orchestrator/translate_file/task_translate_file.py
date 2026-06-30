@@ -404,7 +404,7 @@ class TaskTranslateFile(BaseTask):
 
         output_dir = Path(log_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / "03-translate-file-batch-failures.json"
+        output_path = output_dir / "04-translate-file-batch-failures.json"
         log_payload = {
             "task_type": self.task_type,
             "failure_count": len(failure_logs),
