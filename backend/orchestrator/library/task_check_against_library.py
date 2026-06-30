@@ -9,13 +9,17 @@ from prompts.library import check_against_library_prompt
 
 
 class TaskCheckAgainstLibrary(BaseTask):
+    """Library update chain task (slot 02): classify scan findings as known (already in library) or unknown (needs research)."""
+
     TASK_TYPE = "TaskCheckAgainstLibrary"
 
     @property
     def task_type(self) -> str:
+        """Return the task type identifier."""
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
+        """Ask the LLM to classify findings against the existing library and pass known/unknown sets forward."""
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         progress_handler = ProgressHandler.get_instance()
@@ -60,6 +64,7 @@ class TaskCheckAgainstLibrary(BaseTask):
             llm_client.set_running(False)
 
     def _parse_result(self, raw: str) -> dict:
+        """Parse the LLM's {known, unknown} classification JSON; raises ValueError on malformed output."""
         text = raw.strip()
         start = text.find("{")
         end = text.rfind("}") + 1
@@ -84,6 +89,7 @@ class TaskCheckAgainstLibrary(BaseTask):
             raise ValueError(f"TaskCheckAgainstLibrary: failed to parse LLM output as JSON. Raw output:\n{raw}") from exc
 
     def _write_log(self, log_dir: str, raw: str, findings: dict, known: dict, unknown: dict) -> None:
+        """Write raw output and classification results to 02-check-against-library.json in the run's log directory."""
         path = os.path.join(log_dir, "02-check-against-library.json")
         with open(path, "w", encoding="utf-8") as f:
             json.dump({"raw_output": raw, "findings": findings, "known": known, "unknown": unknown}, f, ensure_ascii=False, indent=2)

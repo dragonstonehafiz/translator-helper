@@ -10,13 +10,17 @@ from utils.utils import load_sub_data
 
 
 class TaskScanSubtitleFile(BaseTask):
+    """Library update chain task (slot 01): scan the subtitle file for character names, terms, and events."""
+
     TASK_TYPE = "TaskScanSubtitleFile"
 
     @property
     def task_type(self) -> str:
+        """Return the task type identifier."""
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
+        """Send the subtitle transcript to the LLM to extract characters, terms, and events, then pass findings forward."""
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         progress_handler = ProgressHandler.get_instance()
@@ -61,6 +65,7 @@ class TaskScanSubtitleFile(BaseTask):
             llm_client.set_running(False)
 
     def _parse_findings(self, raw: str) -> dict:
+        """Parse the LLM's JSON findings into {characters, terms, events} lists; raises ValueError on malformed output."""
         text = raw.strip()
         start = text.find("{")
         end = text.rfind("}") + 1
@@ -77,6 +82,7 @@ class TaskScanSubtitleFile(BaseTask):
             raise ValueError(f"TaskScanSubtitleFile: failed to parse LLM output as JSON. Raw output:\n{raw}") from exc
 
     def _write_log(self, log_dir: str, raw: str, findings: dict) -> None:
+        """Write raw LLM output and parsed findings to 01-scan-subtitle-file.json in the run's log directory."""
         path = os.path.join(log_dir, "01-scan-subtitle-file.json")
         with open(path, "w", encoding="utf-8") as f:
             json.dump({"raw_output": raw, "findings": findings}, f, ensure_ascii=False, indent=2)

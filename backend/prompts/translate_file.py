@@ -3,6 +3,7 @@ def generate_translate_batch_prompt(
     input_lang: str = "ja",
     target_lang: str = "en",
 ) -> str:
+    """Return the system prompt for batch subtitle translation."""
     context = context or {}
     context_lines = []
     for key, value in context.items():
@@ -61,6 +62,7 @@ def generate_batch_plan_prompt(
     input_lang: str = "ja",
     output_lang: str = "en",
 ) -> str:
+    """Return the system prompt for planning subtitle batches from a full transcript."""
     context = context or {}
     context_sections = []
     for key, value in context.items():
@@ -123,6 +125,7 @@ def generate_split_batch_plan_prompt(
     max_batch_size: int = 50,
     original_reason: str = "",
 ) -> str:
+    """Return the system prompt for splitting an oversized batch into smaller consecutive sub-batches."""
     context = context or {}
     context_sections = []
     for key, value in context.items():

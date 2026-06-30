@@ -11,7 +11,10 @@ CONFIG_FILE = os.path.join(DATA_DIR, "search_tavily.json")
 
 
 class SearchTavily:
+    """Tavily web search client used by the library update chain to gather reference information for unknown terms."""
+
     def __init__(self):
+        """Load saved API key from disk or write an empty default config."""
         self._api_key = ""
         self._status = "not_loaded"
         self._client = None
@@ -26,6 +29,7 @@ class SearchTavily:
                 json.dump({"api_key": ""}, f, indent=2)
 
     def configure(self, settings: dict) -> None:
+        """Apply the api_key from settings and persist to the config file."""
         if not settings:
             return
         if "api_key" in settings:
@@ -35,6 +39,7 @@ class SearchTavily:
             json.dump({"api_key": self._api_key}, f, indent=2)
 
     def initialize(self) -> None:
+        """Validate the API key by sending a test search; sets status to 'loaded' or 'error'."""
         try:
             from tavily import TavilyClient
             if not self._api_key:
@@ -49,6 +54,7 @@ class SearchTavily:
             raise
 
     def search(self, query: str, max_results: int = 5) -> list[str]:
+        """Run a Tavily web search and return a list of result content snippets."""
         if self._client is None:
             raise RuntimeError("Tavily client not initialized.")
         results = self._client.search(query, max_results=max_results)
@@ -60,9 +66,11 @@ class SearchTavily:
         return snippets
 
     def get_status(self) -> str:
+        """Return the current load status: 'not_loaded', 'loaded', or 'error'."""
         return self._status
 
     def get_settings_schema(self) -> dict:
+        """Return the settings schema describing the API key field for the settings UI."""
         return {
             "provider": "search_tavily",
             "title": "Tavily Web Search",
@@ -78,4 +86,5 @@ class SearchTavily:
         }
 
     def get_server_variables(self) -> list[dict]:
+        """Return the current status as a key-value pair for the server-variables status endpoint."""
         return [{"key": "tavily_status", "label": "Status", "value": self._status}]

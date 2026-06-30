@@ -12,13 +12,17 @@ from prompts.translate_file import generate_batch_plan_prompt
 
 
 class TaskPlanTranslationBatches(BaseTask):
+    """Chain task (slot 01): ask the LLM to group subtitle lines into semantically coherent translation batches."""
+
     TASK_TYPE = "TaskPlanTranslationBatches"
 
     @property
     def task_type(self) -> str:
+        """Return the task type identifier."""
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
+        """Load the subtitle file, call the LLM to plan batches, validate the result, and pass batches forward in the data dict."""
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         progress_handler = ProgressHandler.get_instance()
@@ -88,6 +92,7 @@ class TaskPlanTranslationBatches(BaseTask):
             llm_client.set_running(False)
 
     def _load_indexed_lines(self, file_path: str) -> tuple[list[str], int]:
+        """Load a subtitle file and return lines formatted as '1. Speaker: text' plus the total line count."""
         subs = pysubs2.load(file_path)
         indexed_lines: list[str] = []
         for index, line in enumerate(subs, start=1):
@@ -108,6 +113,7 @@ class TaskPlanTranslationBatches(BaseTask):
         total_lines: int,
         batches: list[dict[str, int | str]],
     ):
+        """Write the batch plan as 01-plan-translation-batches.json in the run's log directory."""
         if not log_dir:
             return
 
@@ -132,6 +138,7 @@ class TaskPlanTranslationBatches(BaseTask):
         expected_start: int,
         expected_end: int,
     ) -> list[dict[str, int | str]]:
+        """Parse and validate the LLM's JSON batch plan, ensuring contiguous coverage from expected_start to expected_end."""
         json_payload = self._extract_json_payload(raw_output)
         parsed = json.loads(json_payload)
         batches = parsed.get("batches")
@@ -169,6 +176,7 @@ class TaskPlanTranslationBatches(BaseTask):
         return normalized_batches
 
     def _build_lines_prompt(self, indexed_lines: list[str]) -> str:
+        """Wrap indexed subtitle lines in an XML-style block for the LLM prompt."""
         transcript = "\n".join(indexed_lines)
         return f"""
         <SUBTITLE_LINES>
@@ -177,6 +185,7 @@ class TaskPlanTranslationBatches(BaseTask):
         """.strip()
 
     def _extract_json_payload(self, raw_output: str) -> str:
+        """Extract the first JSON object from the LLM's raw output, stripping any markdown code fences."""
         cleaned = raw_output.strip()
         fenced_match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", cleaned, re.DOTALL)
         if fenced_match:

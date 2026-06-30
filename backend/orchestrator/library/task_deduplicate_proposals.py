@@ -12,13 +12,17 @@ logger = setup_logger("translator-helper")
 
 
 class TaskDeduplicateProposals(BaseTask):
+    """Library update chain task (slot 06/final): filter updated_character proposals to remove entries already in the library."""
+
     TASK_TYPE = "TaskDeduplicateProposals"
 
     @property
     def task_type(self) -> str:
+        """Return the task type identifier."""
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
+        """Group updated_characters by field and character, call the LLM per group to filter duplicates, store the final proposals."""
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         progress_handler = ProgressHandler.get_instance()
@@ -144,6 +148,7 @@ class TaskDeduplicateProposals(BaseTask):
         }, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def _dedup_call(self, model_manager, field: str, existing: list, proposals_list: list, label_key: str) -> list[int]:
+        """Ask the LLM which proposed entries are genuinely new (not captured by existing entries) and return their 0-based indices; keeps all on failure."""
         existing_text = "\n".join(f"- {e}" for e in existing) if existing else "(none)"
         proposed_lines = "\n".join(f"{i + 1}. {p[label_key]}" for i, p in enumerate(proposals_list))
         prompt = f"=== EXISTING {field.upper()} ENTRIES ===\n{existing_text}\n\n=== PROPOSED ADDITIONS ===\n{proposed_lines}"

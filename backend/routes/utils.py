@@ -25,6 +25,7 @@ router = APIRouter(prefix="/utils")
 
 @router.get("/running")
 async def get_running_status():
+    """Return whether LLM or audio tasks are currently running and which task type is active."""
     active_task_type = task_orchestrator.get_active_task_type()
     running = task_orchestrator.is_running()
     return success_response({
@@ -38,6 +39,7 @@ async def get_running_status():
 
 @router.get("/server-variables")
 async def get_server_variables():
+    """Return runtime variables and readiness flags for all loaded model backends."""
     llm_client = model_manager.get_llm_client()
     audio_client = model_manager.get_audio_client()
     search_client = model_manager.get_search_client()
@@ -56,6 +58,7 @@ async def get_server_variables():
 
 @router.get("/settings-schema")
 async def get_settings_schema():
+    """Return the settings schemas for all model backends (audio, LLM, search)."""
     audio_client = model_manager.get_audio_client()
     llm_client = model_manager.get_llm_client()
     search_client = model_manager.get_search_client()
@@ -67,6 +70,7 @@ async def get_settings_schema():
 
 @router.post("/load-audio-model")
 async def load_audio_model(request: UpdateSettingsRequest):
+    """Apply audio settings and load the audio model; returns an error if it is already loading."""
     if model_manager.loading_audio_model:
         return error_response("Audio model is already loading")
     model_manager.update_audio_settings(request.settings or {})
@@ -78,6 +82,7 @@ async def load_audio_model(request: UpdateSettingsRequest):
 
 @router.post("/load-llm-model")
 async def load_llm_model(request: UpdateSettingsRequest):
+    """Apply LLM settings and load the LLM; returns an error if it is already loading."""
     if model_manager.loading_llm_model:
         return error_response("LLM is already loading")
     model_manager.update_llm_settings(request.settings or {})
@@ -89,6 +94,7 @@ async def load_llm_model(request: UpdateSettingsRequest):
 
 @router.post("/load-search-model")
 async def load_search_model(request: UpdateSettingsRequest):
+    """Apply search settings and load the Tavily search model; returns an error if it is already loading."""
     if model_manager.loading_search_model:
         return error_response("Search model is already loading")
     model_manager.update_search_settings(request.settings or {})
@@ -100,6 +106,7 @@ async def load_search_model(request: UpdateSettingsRequest):
 
 @router.post("/get-subtitle-file-info")
 async def api_get_subtitle_file_info(file: UploadFile = File(...)):
+    """Upload a subtitle file and return dialogue statistics (line count, character count, average length)."""
     allowed_extensions = {".ass", ".srt"}
     filename_lower = file.filename.lower()
     if not any(filename_lower.endswith(ext) for ext in allowed_extensions):

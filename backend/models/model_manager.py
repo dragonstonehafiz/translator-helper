@@ -14,9 +14,12 @@ logger = setup_logger("translator-helper")
 
 
 class ModelManager:
+    """Singleton that owns the lifecycle of the LLM, audio, and search clients and exposes unified infer/transcribe helpers."""
+
     _instance: Optional["ModelManager"] = None
 
     def __init__(self):
+        """Initialize internal client slots and loading-state flags; use get_instance() instead."""
         if ModelManager._instance is not None:
             raise RuntimeError("ModelManager: Please use get_instance()")
 
@@ -30,38 +33,47 @@ class ModelManager:
         self.audio_loading_error: Optional[str] = None
         self.search_loading_error: Optional[str] = None
 
-
     @staticmethod
     def get_instance() -> "ModelManager":
+        """Return the singleton ModelManager, creating it on first call."""
         if ModelManager._instance is None:
             ModelManager._instance = ModelManager()
         return ModelManager._instance
 
     def get_llm_client(self) -> Optional[LLMInterface]:
+        """Return the current LLM client, or None if not yet loaded."""
         return self._llm_client
 
     def get_audio_client(self) -> Optional[AudioModelInterface]:
+        """Return the current audio client, or None if not yet loaded."""
         return self._audio_client
 
     def get_search_client(self) -> Optional[SearchTavily]:
+        """Return the current Tavily search client, or None if not yet loaded."""
         return self._search_client
 
     def is_llm_running(self) -> bool:
+        """Return True if the LLM client is currently executing an inference call."""
         return bool(self._llm_client and self._llm_client.is_running())
 
     def is_audio_running(self) -> bool:
+        """Return True if the audio client is currently executing a transcription call."""
         return bool(self._audio_client and self._audio_client.is_running())
 
     def is_llm_ready(self) -> bool:
+        """Return True if the LLM client is loaded and ready to accept inference calls."""
         return bool(self._llm_client and self._llm_client.get_status() == "loaded")
 
     def is_audio_ready(self) -> bool:
+        """Return True if the audio client is loaded and ready to accept transcription calls."""
         return bool(self._audio_client and self._audio_client.get_status() == "loaded")
 
     def is_search_ready(self) -> bool:
+        """Return True if the Tavily search client is loaded and ready."""
         return bool(self._search_client and self._search_client.get_status() == "loaded")
 
     def load_audio_model(self) -> bool:
+        """Initialize the audio model; returns True on success, False if already loading or on error."""
         if self.loading_audio_model:
             return False
 
@@ -82,6 +94,7 @@ class ModelManager:
             self.loading_audio_model = False
 
     def load_llm_model(self) -> bool:
+        """Initialize the LLM model; returns True on success, False if already loading or on error."""
         if self.loading_llm_model:
             return False
 
@@ -102,10 +115,12 @@ class ModelManager:
             self.loading_llm_model = False
 
     def update_llm_settings(self, settings: dict):
+        """Apply settings dict to the current LLM client if one is loaded."""
         if settings and self._llm_client is not None:
             self._llm_client.configure(settings)
 
     def load_search_model(self) -> bool:
+        """Initialize the Tavily search client; returns True on success, False if already loading or on error."""
         if self.loading_search_model:
             return False
         try:
@@ -124,12 +139,14 @@ class ModelManager:
             self.loading_search_model = False
 
     def update_search_settings(self, settings: dict) -> None:
+        """Apply settings dict to the search client, creating a SearchTavily instance if none exists."""
         if settings:
             if self._search_client is None:
                 self._search_client = SearchTavily()
             self._search_client.configure(settings)
 
     def update_audio_settings(self, settings: dict):
+        """Apply settings dict to the current audio client if one is loaded."""
         if settings and self._audio_client is not None:
             self._audio_client.configure(settings)
 
@@ -140,6 +157,7 @@ class ModelManager:
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
     ):
+        """Delegate an inference call to the loaded LLM client; raises RuntimeError if not initialized."""
         if self._llm_client is None:
             raise RuntimeError("LLM client not initialized.")
         return self._llm_client.infer(
@@ -150,11 +168,13 @@ class ModelManager:
         )
 
     def audio_transcribe_line(self, file_path: str, language: str):
+        """Transcribe a single audio clip to text; raises RuntimeError if audio client is not initialized."""
         if self._audio_client is None:
             raise RuntimeError("Audio client not initialized.")
         return self._audio_client.transcribe_line(file_path, language)
 
     def audio_transcribe_file(self, file_path: str, language: str, original_filename: str):
+        """Transcribe a full audio file to an ASS subtitle file saved under outputs/transcribe-sub-files/; raises RuntimeError if audio client is not initialized."""
         if self._audio_client is None:
             raise RuntimeError("Audio client not initialized.")
 

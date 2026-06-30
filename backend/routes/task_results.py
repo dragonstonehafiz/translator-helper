@@ -13,5 +13,6 @@ TASK_RESULT_TYPES = LIBRARY_TASK_TYPES | set(TRANSLATE_TASK_TYPES) | set(AUDIO_T
 
 @router.get("/{task_type}")
 async def get_task_result(task_type: str):
+    """Poll the current status and result for a task type; returns 400 if the task type is not registered."""
     ensure_task_type(task_type, TASK_RESULT_TYPES)
     return build_task_response(task_type)

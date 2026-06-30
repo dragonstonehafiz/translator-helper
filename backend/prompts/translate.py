@@ -3,6 +3,7 @@ def generate_translate_sub_prompt(
     input_lang: str = "ja",
     target_lang: str = "en",
 ) -> str:
+    """Return the system prompt for single-line subtitle translation."""
     context = context or {}
     context_lines = []
     for key, value in context.items():

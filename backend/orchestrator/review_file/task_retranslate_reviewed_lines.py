@@ -12,13 +12,17 @@ from prompts.review_file import generate_line_retranslation_prompt
 
 
 class TaskRetranslateReviewedLines(BaseTask):
+    """Review chain task (slot 04/final): retranslate each flagged line using its review reason, save the corrected file."""
+
     TASK_TYPE = "TaskRetranslateReviewedLines"
 
     @property
     def task_type(self) -> str:
+        """Return the task type identifier."""
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
+        """Iterate over corrections, retranslate each flagged line, save the corrected ASS file, and mark the chain complete."""
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         progress_handler = ProgressHandler.get_instance()
@@ -120,6 +124,7 @@ class TaskRetranslateReviewedLines(BaseTask):
             llm_client.set_running(False)
 
     def _build_retranslation_prompt(self, index: int, original_line, translated_line, reason: str) -> str:
+        """Build the user-turn prompt containing the line index, original, current translation, and review reason."""
         original_speaker = original_line.name.strip() if original_line.name else "Unknown"
         translated_speaker = translated_line.name.strip() if translated_line.name else "Unknown"
         return f"""
@@ -130,6 +135,7 @@ class TaskRetranslateReviewedLines(BaseTask):
         """.strip()
 
     def _save_corrected_file(self, translated_subs, translated_filename: str) -> str:
+        """Save the corrected subtitle file as <original_stem>.corrected.ass under outputs/sub-files/ and return the path."""
         safe_name = os.path.basename(translated_filename) or "translated.ass"
         path = Path(safe_name)
         suffix = path.suffix or ".ass"
@@ -147,6 +153,7 @@ class TaskRetranslateReviewedLines(BaseTask):
         output_path: str,
         correction_logs: list[dict],
     ):
+        """Write the per-line correction audit as 04-retranslate-reviewed-lines.json in the run's log directory."""
         if not log_dir:
             return
 

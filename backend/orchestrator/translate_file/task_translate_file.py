@@ -19,13 +19,17 @@ logger = setup_logger()
 
 
 class TaskTranslateFile(BaseTask):
+    """Chain task (slot 04/final): translate all planned batches and save the result as an ASS subtitle file."""
+
     TASK_TYPE = "TaskTranslateFile"
 
     @property
     def task_type(self) -> str:
+        """Return the task type identifier."""
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
+        """Translate each batch with retry/split fallback, normalize quotes, save the output file, and mark the chain complete."""
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         progress_handler = ProgressHandler.get_instance()
@@ -124,6 +128,7 @@ class TaskTranslateFile(BaseTask):
                     pass
 
     def _build_batch_ranges(self, subs, batches: list[dict], batch_size: int) -> list[tuple[int, int]]:
+        """Convert planned batch dicts to (start, end) index tuples; falls back to fixed-size slicing if no batches provided."""
         total_lines = len(subs)
         if batches:
             return [
@@ -147,6 +152,7 @@ class TaskTranslateFile(BaseTask):
         log_dir: str = "",
         progress_callback=None,
     ):
+        """Translate subtitle lines in batches, splitting on format errors and falling back to per-line translation if needed."""
         processed = 0
         total_lines = len(subs)
         total_batches = len(batch_ranges)
@@ -289,6 +295,7 @@ class TaskTranslateFile(BaseTask):
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> list[str]:
+        """Send a batch of subtitle lines to the LLM and return the translated lines split by newline."""
         system_prompt = generate_translate_batch_prompt(
             context=context,
             input_lang=input_lang,
@@ -312,6 +319,7 @@ class TaskTranslateFile(BaseTask):
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> str:
+        """Translate a single subtitle line using the single-line prompt (used as a per-line fallback)."""
         system_prompt = generate_translate_sub_prompt(
             context=context,
             input_lang=input_lang,
@@ -325,6 +333,7 @@ class TaskTranslateFile(BaseTask):
         ).strip()
 
     def _build_batch_lines(self, batch) -> list[str]:
+        """Format subtitle events as numbered lines with speaker and duration for the LLM batch prompt."""
         batch_lines: list[str] = []
         for i, line in enumerate(batch, start=1):
             speaker = line.name.strip() if line.name else "Line"
@@ -338,9 +347,11 @@ class TaskTranslateFile(BaseTask):
         return batch_lines
 
     def _is_rate_limit_error(self, exc: Exception) -> bool:
+        """Return True if the exception is an OpenAI or Anthropic rate limit error (triggers a retry sleep)."""
         return isinstance(exc, (OpenAIRateLimitError, AnthropicRateLimitError))
 
     def _normalize_translated_subtitles(self, subs):
+        """Strip matching outer quote/asterisk pairs from every subtitle line (LLMs sometimes wrap output in quotes)."""
         quote_pairs = {
             '"': '"',
             "'": "'",
@@ -376,6 +387,7 @@ class TaskTranslateFile(BaseTask):
         actual_lines: list[str] | None,
         failure: str,
     ) -> dict:
+        """Build a structured failure log entry recording the batch span, expected/actual output, and error message."""
         return {
             "phase": phase,
             "batch": {
@@ -399,6 +411,7 @@ class TaskTranslateFile(BaseTask):
         }
 
     def _write_failure_log(self, log_dir: str, failure_logs: list[dict]):
+        """Write batch failure entries to 04-translate-file-batch-failures.json; skips if there are no failures."""
         if not log_dir or not failure_logs:
             return
 

@@ -6,13 +6,17 @@ from orchestrator.result_handler import ResultHandler
 
 
 class TaskTranscribeFile(BaseTask):
+    """Standalone task: transcribe a full audio file to an ASS subtitle file saved under outputs/transcribe-sub-files/."""
+
     TASK_TYPE = "TaskTranscribeFile"
 
     @property
     def task_type(self) -> str:
+        """Return the task type identifier."""
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
+        """Transcribe data['file_path'] to a subtitle file and store a complete result with no payload; cleans up the temp file after completion."""
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         audio_client = model_manager.get_audio_client()

@@ -4,6 +4,7 @@ Prompts for library update chain tasks.
 
 
 def scan_subtitle_file_prompt(series_name: str, input_lang: str, output_lang: str, known_names: list[str], known_terms: list[str]) -> str:
+    """Return the system prompt for extracting characters, terms, and events from a subtitle file."""
     known_names_str = ", ".join(known_names) if known_names else "none"
     known_terms_str = ", ".join(known_terms) if known_terms else "none"
     return f"""You are an expert at analyzing subtitle files for anime and other media.
@@ -31,6 +32,7 @@ Be thorough but focused — only include things that are genuinely series-specif
 
 
 def check_against_library_prompt(series_name: str, known_names: list[str], known_terms: list[str]) -> str:
+    """Return the system prompt for classifying subtitle scan findings as known or unknown against the library."""
     known_names_str = ", ".join(known_names) if known_names else "none"
     known_terms_str = ", ".join(known_terms) if known_terms else "none"
     return f"""You are classifying findings from a subtitle scan for the series "{series_name}" against an existing library.
@@ -62,6 +64,7 @@ Respond ONLY with a valid JSON object in this exact format with no markdown, no 
 
 
 def generate_search_queries_prompt(series_name: str) -> str:
+    """Return the system prompt for generating targeted web search queries for unknown characters and terms."""
     return f"""You are helping build a reference library for the series "{series_name}".
 
 You will be given a list of unknown characters, terms, and events that were found in a subtitle file but are not yet in the series library.
@@ -81,6 +84,7 @@ Generate one query per unknown item. Keep queries concise and specific."""
 
 
 def generate_library_proposals_prompt(series_name: str, input_lang: str, output_lang: str) -> str:
+    """Return the system prompt for generating structured library proposals (new/updated characters and glossary terms)."""
     return f"""You are building a structured reference library for the series "{series_name}" (source language: {input_lang}, translation language: {output_lang}).
 
 You will be given:
@@ -155,6 +159,7 @@ Only propose genuinely useful additions. Do not duplicate information already in
 
 
 def deduplicate_proposals_prompt(field: str) -> str:
+    """Return the system prompt for filtering proposed library additions to only genuinely new entries."""
     return f"""You are reviewing proposed additions to a character library for the field "{field}".
 
 You will be given:

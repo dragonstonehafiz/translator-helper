@@ -16,13 +16,17 @@ logger = setup_logger()
 
 
 class TaskSplitOversizedBatches(BaseTask):
+    """Chain task (slot 02): find batches that exceed batch_size and re-split them using the LLM, with deterministic fallback."""
+
     TASK_TYPE = "TaskSplitOversizedBatches"
 
     @property
     def task_type(self) -> str:
+        """Return the task type identifier."""
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
+        """Identify oversized batches, call the LLM to split each one, validate, and pass the repaired batch list forward."""
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         progress_handler = ProgressHandler.get_instance()
@@ -90,6 +94,7 @@ class TaskSplitOversizedBatches(BaseTask):
             llm_client.set_running(False)
 
     def _load_indexed_lines(self, file_path: str) -> tuple[list[str], int]:
+        """Load a subtitle file and return lines formatted as '1. Speaker: text' plus the total line count."""
         subs = pysubs2.load(file_path)
         indexed_lines: list[str] = []
         for index, line in enumerate(subs, start=1):
@@ -112,6 +117,7 @@ class TaskSplitOversizedBatches(BaseTask):
         oversized_batches: list[dict[str, int | str]],
         repaired_batches: list[dict[str, int | str]],
     ):
+        """Write the oversized-batch split audit as 02-split-oversized-batches.json in the run's log directory."""
         if not log_dir:
             return
 
@@ -138,6 +144,7 @@ class TaskSplitOversizedBatches(BaseTask):
         batches: list[dict[str, int | str]],
         max_batch_size: int,
     ) -> list[dict[str, int | str]]:
+        """Return the subset of batches whose line span exceeds max_batch_size, annotated with their size."""
         oversized_batches: list[dict[str, int | str]] = []
         for batch in batches:
             start_index = int(batch["start_index"])
@@ -167,6 +174,7 @@ class TaskSplitOversizedBatches(BaseTask):
         model_manager: ModelManager,
         progress_handler: ProgressHandler,
     ) -> list[dict[str, int | str]]:
+        """Replace each oversized batch with LLM-split sub-batches, falling back to deterministic splitting on failure."""
         oversized_lookup = {
             (int(batch["start_index"]), int(batch["end_index"])): batch for batch in oversized_batches
         }
@@ -241,6 +249,7 @@ class TaskSplitOversizedBatches(BaseTask):
         max_batch_size: int,
         expected_start: int = 1,
     ):
+        """Raise ValueError if the batch list is non-contiguous, out of range, or still contains oversized batches."""
         if not batches:
             raise ValueError("Batch planner output must contain a non-empty 'batches' array.")
 
@@ -277,6 +286,7 @@ class TaskSplitOversizedBatches(BaseTask):
         max_batch_size: int,
         original_reason: str,
     ) -> list[dict[str, int | str]]:
+        """Deterministically split a line span into equal-sized batches without calling the LLM."""
         fallback_batches: list[dict[str, int | str]] = []
         current_start = start_index
         total_parts = ((end_index - start_index + 1) + max_batch_size - 1) // max_batch_size
@@ -301,6 +311,7 @@ class TaskSplitOversizedBatches(BaseTask):
         expected_end: int,
         max_batch_size: int,
     ) -> list[dict[str, int | str]]:
+        """Parse the LLM split-batch JSON and validate contiguity, range, and per-batch size constraints."""
         json_payload = self._extract_json_payload(raw_output)
         parsed = json.loads(json_payload)
         batches = parsed.get("batches")
@@ -343,6 +354,7 @@ class TaskSplitOversizedBatches(BaseTask):
         return normalized_batches
 
     def _build_lines_prompt(self, indexed_lines: list[str]) -> str:
+        """Wrap indexed subtitle lines in an XML-style block for the LLM prompt."""
         transcript = "\n".join(indexed_lines)
         return f"""
         <SUBTITLE_LINES>
@@ -351,6 +363,7 @@ class TaskSplitOversizedBatches(BaseTask):
         """.strip()
 
     def _extract_json_payload(self, raw_output: str) -> str:
+        """Extract the first JSON object from the LLM's raw output, stripping any markdown code fences."""
         cleaned = raw_output.strip()
         fenced_match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", cleaned, re.DOTALL)
         if fenced_match:

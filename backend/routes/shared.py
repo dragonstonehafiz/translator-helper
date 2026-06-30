@@ -76,6 +76,7 @@ OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
 
 
 class UpdateSettingsRequest(BaseModel):
+    """Request body for model settings update endpoints."""
     provider: str
     settings: dict
 
@@ -165,6 +166,7 @@ def analyze_subtitle_file(file_path: str):
 
 
 def get_files_dir(folder: str) -> Path:
+    """Resolve and return the output subdirectory for `folder`, raising 400 on invalid names."""
     if not folder or not all(ch.isalnum() or ch in "-_" for ch in folder):
         raise HTTPException(status_code=400, detail="Invalid folder name")
     output_dir = OUTPUTS_DIR / folder
@@ -173,6 +175,7 @@ def get_files_dir(folder: str) -> Path:
 
 
 def build_file_list(output_dir: Path) -> list[dict]:
+    """Return a list of file metadata dicts for all files in `output_dir`, sorted by modification time descending."""
     files = []
     for entry in output_dir.iterdir():
         if entry.is_file():

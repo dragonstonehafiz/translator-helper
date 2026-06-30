@@ -16,12 +16,14 @@ router = APIRouter(prefix="/file-management")
 
 @router.get("/{folder}")
 async def list_files(folder: str):
+    """Return a list of all files in the given output subdirectory."""
     output_dir = get_files_dir(folder)
     return success_response({"files": build_file_list(output_dir)})
 
 
 @router.get("/{folder}/{filename}")
 async def download_file(folder: str, filename: str):
+    """Download a file from an output subdirectory; returns 404 if not found or outside the folder."""
     output_dir = get_files_dir(folder).resolve()
     safe_name = os.path.basename(filename)
     file_path = (output_dir / safe_name).resolve()
@@ -32,6 +34,7 @@ async def download_file(folder: str, filename: str):
 
 @router.delete("/{folder}/{filename}")
 async def delete_file(folder: str, filename: str):
+    """Delete a file from an output subdirectory; returns 404 if not found or outside the folder."""
     output_dir = get_files_dir(folder).resolve()
     safe_name = os.path.basename(filename)
     file_path = (output_dir / safe_name).resolve()

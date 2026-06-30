@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 
 
 class LLMInterface(ABC):
+    """Abstract interface that all LLM backend implementations must satisfy."""
+
     def _get_config_path(self, filename: str) -> str:
         """Return the absolute path to backend/data/<filename>."""
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", filename)

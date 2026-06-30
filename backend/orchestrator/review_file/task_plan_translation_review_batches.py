@@ -3,13 +3,17 @@ from orchestrator.translate_file.task_plan_translation_batches import TaskPlanTr
 
 
 class TaskPlanTranslationReviewBatches(TaskPlanTranslationBatches):
+    """Review chain task (slot 01): plan translation batches for review, then forward translated_file_path into the data dict."""
+
     TASK_TYPE = "TaskPlanTranslationReviewBatches"
 
     @property
     def task_type(self) -> str:
+        """Return the task type identifier."""
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
+        """Delegate to the parent batch planner and inject translated_file_path and translated_filename into the result."""
         data = self.get_data()
         payload = super().run_task()
         if not payload:

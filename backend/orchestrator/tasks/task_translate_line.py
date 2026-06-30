@@ -5,13 +5,17 @@ from prompts.translate import generate_translate_sub_prompt
 
 
 class TaskTranslateLine(BaseTask):
+    """Standalone task: translate a single subtitle line from input_lang to output_lang using the LLM."""
+
     TASK_TYPE = "TaskTranslateLine"
 
     @property
     def task_type(self) -> str:
+        """Return the task type identifier."""
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
+        """Translate data['text'] and return a result dict with the translated text; final task so it stores a complete result."""
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
 

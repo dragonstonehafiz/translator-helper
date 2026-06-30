@@ -1,4 +1,5 @@
 def build_context_block(context: dict | None = None) -> str:
+    """Format a context dict as a flat bullet list for inclusion in a prompt."""
     context = context or {}
     context_lines = []
     for key, value in context.items():
@@ -7,6 +8,7 @@ def build_context_block(context: dict | None = None) -> str:
 
 
 def build_context_sections(context: dict | None = None) -> str:
+    """Format a context dict as markdown H3 sections for inclusion in a prompt."""
     context = context or {}
     context_sections = []
     for key, value in context.items():

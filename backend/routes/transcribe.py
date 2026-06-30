@@ -24,6 +24,7 @@ async def api_transcribe_line(
     file: UploadFile = File(...),
     language: str = Form(...),
 ):
+    """Upload an audio file and start a single-line transcription task in the background."""
     if task_orchestrator.is_running():
         return error_response("Transcription is already running")
     if not model_manager.is_audio_ready():
@@ -47,6 +48,7 @@ async def api_transcribe_file(
     file: UploadFile = File(...),
     language: str = Form(...),
 ):
+    """Upload an audio file and start a full-file transcription task in the background."""
     if task_orchestrator.is_running():
         return error_response("Transcription is already running")
     if not model_manager.is_audio_ready():

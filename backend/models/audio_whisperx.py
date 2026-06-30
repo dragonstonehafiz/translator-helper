@@ -17,9 +17,12 @@ logging.getLogger("pyannote").setLevel(logging.WARNING)
 
 
 class AudioWhisperX(AudioModelInterface):
+    """Audio transcription backend using WhisperX for word-aligned subtitle generation."""
+
     CONFIG_FILE = "audio_whisperx.json"
 
     def __init__(self):
+        """Load saved config from disk or write defaults; sets up model name, device, compute type, and batch size."""
         self._model_name = "medium"
         self._device = "cpu"
         self._compute_type = "float32"
@@ -41,6 +44,7 @@ class AudioWhisperX(AudioModelInterface):
             self._save_config()
 
     def _save_config(self):
+        """Persist the current model_name, device, compute_type, and batch_size to the config JSON file."""
         _data_path = self._get_config_path(self.CONFIG_FILE)
         os.makedirs(os.path.dirname(_data_path), exist_ok=True)
         with open(_data_path, "w", encoding="utf-8") as _f:
@@ -52,6 +56,7 @@ class AudioWhisperX(AudioModelInterface):
             }, _f, indent=2)
 
     def configure(self, settings: dict):
+        """Apply model_name, device, compute_type, and/or batch_size from settings and persist to the config file."""
         if not settings:
             return
         if "model_name" in settings:
@@ -65,6 +70,7 @@ class AudioWhisperX(AudioModelInterface):
         self._save_config()
 
     def get_settings_schema(self) -> dict:
+        """Return the settings schema describing model, device, compute type, and batch size fields for the settings UI."""
         return {
             "provider": "audio_whisperx",
             "title": "WhisperX",
@@ -120,6 +126,7 @@ class AudioWhisperX(AudioModelInterface):
         }
 
     def initialize(self):
+        """Load the WhisperX model onto the configured device; sets status to 'loaded' or 'error'."""
         try:
             self._model = self._build_model()
             self._status = "loaded"
@@ -128,11 +135,13 @@ class AudioWhisperX(AudioModelInterface):
             raise
 
     def change_model(self, model_name: str):
+        """Switch to a different Whisper model size and reload if a model is already in memory."""
         self._model_name = model_name
         if self._model is not None:
             self._model = self._build_model()
 
     def transcribe_line(self, audio_path: str, language: str) -> str:
+        """Transcribe the first segment of an audio file to a plain text string."""
         if not os.path.isfile(audio_path):
             return "File not detected. Did you put the right path?"
         model = self._model or self._build_model()
@@ -145,6 +154,7 @@ class AudioWhisperX(AudioModelInterface):
         return segments[0]["text"].strip()
 
     def transcribe_file(self, audio_path: str, language: str) -> pysubs2.SSAFile:
+        """Transcribe an audio file into a pysubs2.SSAFile with word-aligned timestamps via WhisperX alignment."""
         if not os.path.isfile(audio_path):
             return "File not detected. Did you put the right path?"
         model = self._model or self._build_model()
@@ -191,32 +201,41 @@ class AudioWhisperX(AudioModelInterface):
         return subs
 
     def shutdown(self):
+        """Release the model reference and reset status to 'not_loaded'."""
         self._model = None
         self._status = "not_loaded"
 
     def get_status(self) -> str:
+        """Return the current load status: 'not_loaded', 'loaded', or 'error'."""
         return self._status
 
     def get_model(self) -> str:
+        """Return the current Whisper model size name."""
         return self._model_name
 
     def is_running(self) -> bool:
+        """Return True if a transcription call is currently in progress."""
         return self._running
 
     def set_running(self, running: bool):
+        """Set the running flag; called by tasks before and after transcription to prevent concurrent use."""
         self._running = running
 
     def set_device(self, device: str):
+        """Set the device string (e.g. 'cpu', 'cuda:0') used for model inference."""
         self._device = device
 
     def get_device(self) -> str:
+        """Return the current device string."""
         return self._device
 
     def get_available_devices(self) -> dict:
+        """Return a dict of human-readable device labels to torch device strings for the settings UI."""
         from utils.utils import get_device_map
         return get_device_map()
 
     def get_server_variables(self) -> list[dict]:
+        """Return model name, device, and compute type as key-value pairs for the server-variables status endpoint."""
         return [
             {"key": "whisperx_model", "label": "Model", "value": self._model_name},
             {"key": "device", "label": "Device", "value": self._device},
@@ -224,6 +243,7 @@ class AudioWhisperX(AudioModelInterface):
         ]
 
     def _build_model(self):
+        """Load and return a WhisperX model instance for the configured model name, device, and compute type."""
         try:
             import torch
             if torch.cuda.is_available():

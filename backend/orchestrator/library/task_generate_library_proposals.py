@@ -10,13 +10,17 @@ from utils.utils import load_sub_data
 
 
 class TaskGenerateLibraryProposals(BaseTask):
+    """Library update chain task (slot 05): generate structured proposals for new/updated characters and glossary terms."""
+
     TASK_TYPE = "TaskGenerateLibraryProposals"
 
     @property
     def task_type(self) -> str:
+        """Return the task type identifier."""
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
+        """Build the LLM prompt from subtitle, library, and search results, then parse and return structured proposals."""
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         progress_handler = ProgressHandler.get_instance()
@@ -72,6 +76,7 @@ class TaskGenerateLibraryProposals(BaseTask):
             llm_client.set_running(False)
 
     def _parse_proposals(self, raw: str) -> dict:
+        """Parse the LLM's proposals JSON and filter updated_characters to only valid field names; raises ValueError on malformed output."""
         text = raw.strip()
         start = text.find("{")
         end = text.rfind("}") + 1
@@ -94,6 +99,7 @@ class TaskGenerateLibraryProposals(BaseTask):
             raise ValueError(f"TaskGenerateLibraryProposals: failed to parse LLM output as JSON. Raw output:\n{raw}") from exc
 
     def _write_log(self, log_dir: str, raw: str, proposals: dict) -> None:
+        """Write raw output and parsed proposals to 05-generate-library-proposals.json in the run's log directory."""
         path = os.path.join(log_dir, "05-generate-library-proposals.json")
         with open(path, "w", encoding="utf-8") as f:
             json.dump({"raw_output": raw, "proposals": proposals}, f, ensure_ascii=False, indent=2)

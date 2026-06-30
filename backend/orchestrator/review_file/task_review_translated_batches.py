@@ -12,13 +12,17 @@ from prompts.review_file import generate_batch_review_prompt
 
 
 class TaskReviewTranslatedBatches(BaseTask):
+    """Review chain task (slot 03): compare original and translated subtitle batches and collect correction indices."""
+
     TASK_TYPE = "TaskReviewTranslatedBatches"
 
     @property
     def task_type(self) -> str:
+        """Return the task type identifier."""
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
+        """Review each batch with the LLM, parse correction entries, and pass a merged corrections list forward."""
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         progress_handler = ProgressHandler.get_instance()
@@ -144,6 +148,7 @@ class TaskReviewTranslatedBatches(BaseTask):
             llm_client.set_running(False)
 
     def _build_indexed_lines(self, subs, start_index: int, end_index: int) -> list[str]:
+        """Return subtitle events in the given 1-based index range formatted as '1. Speaker: text'."""
         lines = []
         for index in range(start_index, end_index + 1):
             line = subs[index - 1]
@@ -153,6 +158,7 @@ class TaskReviewTranslatedBatches(BaseTask):
         return lines
 
     def _build_review_prompt(self, original_lines: list[str], translated_lines: list[str]) -> str:
+        """Build the user-turn prompt pairing original and translated subtitle lines for the LLM reviewer."""
         return f"""
         <ORIGINAL_LINES>
         {chr(10).join(original_lines)}
@@ -169,6 +175,7 @@ class TaskReviewTranslatedBatches(BaseTask):
         start_index: int,
         end_index: int,
     ) -> list[dict[str, int | str]]:
+        """Parse and validate the LLM's correction JSON, ensuring indices are within the reviewed batch span."""
         json_payload = self._extract_json_payload(raw_output)
         try:
             parsed = json.loads(json_payload)
@@ -198,6 +205,7 @@ class TaskReviewTranslatedBatches(BaseTask):
         return normalized
 
     def _extract_json_payload(self, raw_output: str) -> str:
+        """Extract the first JSON object from the LLM's raw output, stripping any markdown code fences."""
         cleaned = raw_output.strip()
         fenced_match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", cleaned, re.DOTALL)
         if fenced_match:
@@ -218,6 +226,7 @@ class TaskReviewTranslatedBatches(BaseTask):
         original_subs=None,
         translated_subs=None,
     ):
+        """Write the review results as 03-review-translated-batches.json, enriching corrections with original and translated text."""
         if not log_dir:
             return
 
@@ -255,6 +264,7 @@ class TaskReviewTranslatedBatches(BaseTask):
         raw_output: str,
         failure: str,
     ) -> dict:
+        """Build a structured failure log entry recording the batch span, inputs, raw model output, and error."""
         return {
             "batch": {
                 "number": batch_number,
@@ -286,6 +296,7 @@ class TaskReviewTranslatedBatches(BaseTask):
         }
 
     def _write_failure_log(self, log_dir: str, failure_logs: list[dict]):
+        """Write review failure entries to 03-review-translated-batch-failures.json; skips if there are no failures."""
         if not log_dir or not failure_logs:
             return
 

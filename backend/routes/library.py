@@ -38,6 +38,7 @@ router = APIRouter(prefix="/library")
 # ── Pydantic models ────────────────────────────────────────────────────────────
 
 class CreateSeriesRequest(BaseModel):
+    """Request body for creating a new series."""
     name: str
     input_lang: str = "ja"
     output_lang: str = "en"
@@ -45,6 +46,7 @@ class CreateSeriesRequest(BaseModel):
 
 
 class UpdateSeriesRequest(BaseModel):
+    """Request body for patching series metadata; omitted fields are left unchanged."""
     name: str | None = None
     input_lang: str | None = None
     output_lang: str | None = None
@@ -52,6 +54,7 @@ class UpdateSeriesRequest(BaseModel):
 
 
 class CharacterRequest(BaseModel):
+    """Request body for adding a new character to a series."""
     name: str
     aliases: list[str] = []
     personality: list[str] = []
@@ -60,6 +63,7 @@ class CharacterRequest(BaseModel):
 
 
 class UpdateCharacterRequest(BaseModel):
+    """Request body for patching a character; omitted fields are left unchanged."""
     name: str | None = None
     aliases: list[str] | None = None
     personality: list[str] | None = None
@@ -68,12 +72,14 @@ class UpdateCharacterRequest(BaseModel):
 
 
 class GlossaryTermRequest(BaseModel):
+    """Request body for adding a new glossary term to a series."""
     term: str
     translation: str
     notes: str = ""
 
 
 class UpdateGlossaryTermRequest(BaseModel):
+    """Request body for patching a glossary term; omitted fields are left unchanged."""
     term: str | None = None
     translation: str | None = None
     notes: str | None = None
@@ -83,6 +89,7 @@ class UpdateGlossaryTermRequest(BaseModel):
 
 @router.get("/")
 async def list_series():
+    """Return a summary list of all series in the library."""
     ids = list_series_ids()
     result = []
     for series_id in ids:
@@ -103,6 +110,7 @@ async def list_series():
 
 @router.post("/")
 async def create_series(request: CreateSeriesRequest):
+    """Create a new series and return the full series object."""
     existing = set(list_series_ids())
     series_id = unique_slug(request.name, existing)
     series = {
@@ -120,12 +128,14 @@ async def create_series(request: CreateSeriesRequest):
 
 @router.get("/{series_id}")
 async def get_series(series_id: str):
+    """Return the full series object including characters and glossary."""
     series = load_series(series_id)
     return success_response(series)
 
 
 @router.patch("/{series_id}")
 async def update_series(series_id: str, request: UpdateSeriesRequest):
+    """Patch the series metadata and return the updated series object."""
     series = load_series(series_id)
     if request.name is not None:
         series["name"] = request.name
@@ -141,6 +151,7 @@ async def update_series(series_id: str, request: UpdateSeriesRequest):
 
 @router.delete("/{series_id}")
 async def delete_series(series_id: str):
+    """Delete a series and all its associated files from the library."""
     series_dir = get_series_dir(series_id)
     if not series_dir.exists():
         return error_response(f"Series '{series_id}' not found")
@@ -152,6 +163,7 @@ async def delete_series(series_id: str):
 
 @router.post("/{series_id}/characters")
 async def add_character(series_id: str, request: CharacterRequest):
+    """Add a new character to the series and return the updated series object."""
     series = load_series(series_id)
     existing_ids = {c["id"] for c in series.get("characters", [])}
     char_id = unique_slug(request.name, existing_ids)
@@ -170,6 +182,7 @@ async def add_character(series_id: str, request: CharacterRequest):
 
 @router.patch("/{series_id}/characters/{character_id}")
 async def update_character(series_id: str, character_id: str, request: UpdateCharacterRequest):
+    """Patch a character's fields and return the updated series object."""
     series = load_series(series_id)
     char = find_character(series, character_id)
     if char is None:
@@ -190,6 +203,7 @@ async def update_character(series_id: str, character_id: str, request: UpdateCha
 
 @router.delete("/{series_id}/characters/{character_id}")
 async def delete_character(series_id: str, character_id: str):
+    """Remove a character from the series and return the updated series object."""
     series = load_series(series_id)
     original_len = len(series.get("characters", []))
     series["characters"] = [c for c in series.get("characters", []) if c["id"] != character_id]
@@ -203,6 +217,7 @@ async def delete_character(series_id: str, character_id: str):
 
 @router.post("/{series_id}/glossary")
 async def add_glossary_term(series_id: str, request: GlossaryTermRequest):
+    """Add a new glossary term to the series and return the updated series object."""
     series = load_series(series_id)
     existing_ids = {t["id"] for t in series.get("glossary", [])}
     term_id = unique_slug(request.term, existing_ids)
@@ -219,6 +234,7 @@ async def add_glossary_term(series_id: str, request: GlossaryTermRequest):
 
 @router.patch("/{series_id}/glossary/{term_id}")
 async def update_glossary_term(series_id: str, term_id: str, request: UpdateGlossaryTermRequest):
+    """Patch a glossary term's fields and return the updated series object."""
     series = load_series(series_id)
     term = find_glossary_term(series, term_id)
     if term is None:
@@ -235,6 +251,7 @@ async def update_glossary_term(series_id: str, term_id: str, request: UpdateGlos
 
 @router.delete("/{series_id}/glossary/{term_id}")
 async def delete_glossary_term(series_id: str, term_id: str):
+    """Remove a glossary term from the series and return the updated series object."""
     series = load_series(series_id)
     original_len = len(series.get("glossary", []))
     series["glossary"] = [t for t in series.get("glossary", []) if t["id"] != term_id]
@@ -247,6 +264,7 @@ async def delete_glossary_term(series_id: str, term_id: str):
 # ── Library Update Chain ───────────────────────────────────────────────────────
 
 def _run_library_update_chain(data: dict):
+    """Run the 6-task library update chain in a background thread; records errors to ResultHandler on failure."""
     try:
         task_orchestrator.clear_tasks()
         task_orchestrator.add_task(TaskScanSubtitleFile())
@@ -266,6 +284,7 @@ async def start_library_update(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
 ):
+    """Upload a subtitle file and start the library update chain for the given series."""
     if not model_manager.is_llm_ready():
         return error_response("LLM not loaded")
     if task_orchestrator.is_running():

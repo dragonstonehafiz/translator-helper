@@ -9,13 +9,17 @@ from prompts.library import generate_search_queries_prompt
 
 
 class TaskGenerateSearchQueries(BaseTask):
+    """Library update chain task (slot 03): generate targeted web search queries for each unknown character/term."""
+
     TASK_TYPE = "TaskGenerateSearchQueries"
 
     @property
     def task_type(self) -> str:
+        """Return the task type identifier."""
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
+        """Ask the LLM to generate search queries for all unknowns, or skip and return empty list if there are none."""
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         progress_handler = ProgressHandler.get_instance()
@@ -65,6 +69,7 @@ class TaskGenerateSearchQueries(BaseTask):
             llm_client.set_running(False)
 
     def _parse_queries(self, raw: str) -> list[dict]:
+        """Parse the LLM's JSON array of {subject, query} objects; raises ValueError on malformed output."""
         text = raw.strip()
         start = text.find("[")
         end = text.rfind("]") + 1
@@ -77,6 +82,7 @@ class TaskGenerateSearchQueries(BaseTask):
             raise ValueError(f"TaskGenerateSearchQueries: failed to parse LLM output as JSON. Raw output:\n{raw}") from exc
 
     def _write_log(self, log_dir: str, raw: str, queries: list) -> None:
+        """Write raw output and generated queries to 03-generate-search-queries.json in the run's log directory."""
         path = os.path.join(log_dir, "03-generate-search-queries.json")
         with open(path, "w", encoding="utf-8") as f:
             json.dump({"raw_output": raw, "search_queries": queries}, f, ensure_ascii=False, indent=2)

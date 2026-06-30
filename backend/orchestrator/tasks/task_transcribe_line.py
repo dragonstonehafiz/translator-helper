@@ -6,13 +6,17 @@ from orchestrator.result_handler import ResultHandler
 
 
 class TaskTranscribeLine(BaseTask):
+    """Standalone task: transcribe a single audio clip to text using the audio model."""
+
     TASK_TYPE = "TaskTranscribeLine"
 
     @property
     def task_type(self) -> str:
+        """Return the task type identifier."""
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
+        """Transcribe data['file_path'] and return a result dict with the transcript text; cleans up the temp file after completion."""
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         audio_client = model_manager.get_audio_client()

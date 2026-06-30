@@ -1,4 +1,5 @@
 def _format_context(context: dict | None = None) -> str:
+    """Format a context dict as a markdown section block for inclusion in prompts."""
     context = context or {}
     context_sections = []
     for key, value in context.items():
@@ -13,6 +14,7 @@ def generate_batch_review_prompt(
     input_lang: str = "ja",
     output_lang: str = "en",
 ) -> str:
+    """Return the system prompt for reviewing a batch of translated subtitle lines against their originals."""
     context_text = _format_context(context)
 
     return f"""
@@ -79,6 +81,7 @@ def generate_line_retranslation_prompt(
     input_lang: str = "ja",
     output_lang: str = "en",
 ) -> str:
+    """Return the system prompt for correcting a single subtitle line based on a review reason."""
     context_text = _format_context(context)
 
     return f"""

@@ -11,13 +11,17 @@ logger = setup_logger("translator-helper")
 
 
 class TaskWebSearch(BaseTask):
+    """Library update chain task (slot 04): execute each generated search query via Tavily and collect result snippets."""
+
     TASK_TYPE = "TaskWebSearch"
 
     @property
     def task_type(self) -> str:
+        """Return the task type identifier."""
         return self.TASK_TYPE
 
     def run_task(self) -> dict:
+        """Run all search queries; skips if no queries or if search is not loaded; raises on search failure."""
         model_manager = ModelManager.get_instance()
         result_handler = ResultHandler.get_instance()
         progress_handler = ProgressHandler.get_instance()
@@ -74,6 +78,7 @@ class TaskWebSearch(BaseTask):
             raise
 
     def _write_log(self, log_dir: str, search_results: list) -> None:
+        """Write search results to 04-web-search.json in the run's log directory."""
         path = os.path.join(log_dir, "04-web-search.json")
         with open(path, "w", encoding="utf-8") as f:
             json.dump({"search_results": search_results}, f, ensure_ascii=False, indent=2)

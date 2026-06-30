@@ -23,6 +23,7 @@ from utils.library import load_series
 from .shared import (
     OUTPUTS_DIR,
     model_manager,
+    parse_json_form,
     progress_handler,
     result_handler,
     run_single_task,
@@ -34,6 +35,7 @@ router = APIRouter(prefix="/translate")
 
 
 def _safe_log_filename(filename: str) -> str:
+    """Sanitize a filename for use in a log directory name by replacing non-alphanumeric characters."""
     original_filename = os.path.basename(str(filename or "subtitles")).strip() or "subtitles"
     return "".join(
         char if char.isalnum() or char in "._-" else "_" for char in original_filename
@@ -41,6 +43,7 @@ def _safe_log_filename(filename: str) -> str:
 
 
 def run_translation_file_chain(data: dict):
+    """Run the 4-task file translation chain in a background thread; records errors to ResultHandler on failure."""
     final_task_type = TaskTranslateFile.TASK_TYPE
     try:
         data = dict(data)
@@ -69,6 +72,7 @@ def run_translation_file_chain(data: dict):
 
 
 def run_review_translated_file_chain(data: dict):
+    """Run the 4-task review chain in a background thread; cleans up temp files afterward and records errors on failure."""
     final_task_type = TaskRetranslateReviewedLines.TASK_TYPE
     temp_paths = []
     try:
@@ -116,6 +120,7 @@ async def api_translate_line(
     input_lang: str = Form("ja"),
     output_lang: str = Form("en"),
 ):
+    """Start a single-line translation task in the background."""
     if task_orchestrator.is_running():
         return error_response("Translation is already running")
     if not model_manager.is_llm_ready():
@@ -147,6 +152,7 @@ async def api_translate_file(
     batch_size: int = Form(3),
     series_id: str = Form(""),
 ):
+    """Upload a subtitle file and start the file translation chain in the background."""
     if task_orchestrator.is_running():
         return error_response("Translation is already running")
     if not model_manager.is_llm_ready():
@@ -187,6 +193,7 @@ async def api_review_translated_file(
     batch_size: int = Form(50),
     series_id: str = Form(""),
 ):
+    """Upload original and translated subtitle files and start the review chain in the background."""
     if task_orchestrator.is_running():
         return error_response("Translation review is already running")
     if not model_manager.is_llm_ready():
