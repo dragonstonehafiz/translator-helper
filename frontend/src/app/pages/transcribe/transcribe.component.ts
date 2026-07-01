@@ -9,6 +9,8 @@ import { TextFieldComponent } from '../../components/text-field/text-field.compo
 import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
 import { DownloadsListComponent } from '../../components/downloads-list/downloads-list.component';
 import { WaveformPlayerComponent } from '../../components/waveform-player/waveform-player.component';
+import { TabsComponent } from '../../components/tabs/tabs.component';
+import { TabComponent } from '../../components/tabs/tab.component';
 import { ApiService, TaskResultResponse } from '../../services/api.service';
 import { StateService, TASK_TYPES, TaskProgress } from '../../services/state.service';
 import { ConfirmationService } from '../../services/confirmation.service';
@@ -21,7 +23,8 @@ import { ErrorDialogService } from '../../services/error-dialog.service';
     CommonModule, FormsModule,
     SubsectionComponent, FileUploadComponent, TextFieldComponent,
     TooltipIconComponent, LoadingTextIndicatorComponent,
-    PrimaryButtonComponent, DownloadsListComponent, WaveformPlayerComponent
+    PrimaryButtonComponent, DownloadsListComponent, WaveformPlayerComponent,
+    TabsComponent, TabComponent
   ],
   templateUrl: './transcribe.component.html',
   styleUrl: './transcribe.component.scss'

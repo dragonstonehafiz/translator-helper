@@ -431,7 +431,7 @@ Canvas-based audio waveform with playback and optional selection/trimming.
 ### Global layout/form classes (`frontend/src/styles.scss`)
 These are defined once globally — never redefine them in a page's `.scss` file, only add page-specific overrides on top (e.g. a page can add `gap` to its own `.form-group` selector to tweak spacing without redeclaring the whole rule):
 - `.header-container` — centered flex row with 15px gap, 20px bottom margin, styles a nested `h1`
-- `.form-section` — flex column, 24px gap. Use `.form-section--loose` modifier (40px gap) for pages with fewer, larger subsections (currently `settings`, `transcribe`)
+- `.form-section` — flex column, 24px gap. Use `.form-section--loose` modifier (40px gap) for pages with fewer, larger subsections (currently `settings`)
 - `.form-row` — flex row, 20px gap, for side-by-side `.form-group`s
 - `.form-group` — flex column, 8px gap, styles `label` and `input`/`select`/`textarea` (padding, border, focus color)
 - `.empty-state` / `.loading-row` — centered placeholder text for empty/loading list states
