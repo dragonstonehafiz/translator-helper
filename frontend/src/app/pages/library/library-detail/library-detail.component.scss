@@ -120,16 +120,14 @@
   gap: 16px;
 }
 
-.char-field {
+.char-tab-list {
   font-size: 0.95rem;
   color: #444;
   line-height: 1.6;
+  margin: 0 0 0 18px;
+  padding: 0;
 
-  ul {
-    margin: 6px 0 0 18px;
-    padding: 0;
-    li { margin-bottom: 4px; }
-  }
+  li { margin-bottom: 4px; }
 }
 
 // ── Glossary ───────────────────────────────────────────────────────────────
@@ -172,6 +170,9 @@
 }
 
 // ── Relationship / history list entries ────────────────────────────────────
+// Every row — existing entry or the trailing add-row — is a .list-entry, so
+// they share identical spacing and input styling regardless of which button
+// (Delete or Add) it ends in.
 
 .list-entries {
   display: flex;
@@ -197,14 +198,6 @@
 
     &:focus { outline: none; border-color: #667eea; }
   }
-}
-
-
-.list-add-row {
-  display: flex;
-  gap: 8px;
-
-  input { flex: 1; }
 
   &.two-input input:first-child { max-width: 180px; flex: 0 0 180px; }
 }

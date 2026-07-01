@@ -472,10 +472,12 @@ No per-page SCSS needed for `.page-container`.
 - Keep confirmation copy specific about what will be deleted/overwritten
 
 ### Editable Lists (personality, history, relationships)
-- Use `.list-entry` for every row — one class for all list types
-- Each row: full-width `<input>` with `2px solid #ddd` border + delete button
+- Use `.list-entry` for every row, **including the trailing "add new" row** — one class for all rows in a `.list-entries` container, so existing rows and the add-row share identical spacing/input styling instead of drifting apart under separate classes
+- Each row: full-width `<input>` with `2px solid #ddd` border + a trailing button (`Delete` on existing rows, `Add` on the trailing row)
 - Delete: `<app-primary-button variant="danger">Delete</app-primary-button>` — never custom ✕ buttons or `.btn-remove`
 - No outer border on `.list-entry` itself
+- Two-input rows (e.g. relationship character + detail) use `.list-entry.two-input` — do not introduce a separate row class for this variant
+- On `library-detail`, Personality/Relationships/History are grouped as nested `app-tabs` inside the character add/edit form and the read-only card body (see `app-tabs` nesting note above) rather than stacked `form-group` sections
 
 ### Shared Utilities
 - **`LANGUAGE_OPTIONS`** (`shared/language-options.ts`): Use for all language dropdowns — never duplicate the list in a component

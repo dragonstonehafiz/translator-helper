@@ -60,51 +60,50 @@
               <label>Aliases (comma-separated)</label>
               <input type="text" autocomplete="off" [(ngModel)]="charAliases" placeholder="リーリヤ, Lilja">
             </div>
-            <div class="form-group">
-              <label>Personality</label>
-              <div class="list-entries">
-                <div class="list-entry" *ngFor="let p of charPersonality; let i = index">
-                  <input type="text" autocomplete="off" [(ngModel)]="charPersonality[i]">
-                  <app-primary-button variant="danger" (click)="removePersonalityEntry(i)">Delete</app-primary-button>
-                </div>
-              </div>
-              <div class="list-add-row">
-                <input type="text" autocomplete="off" [(ngModel)]="newPersonality" placeholder="Shy and quietly earnest, gains confidence through effort" (keydown.enter)="addPersonalityEntry()">
-                <app-primary-button (click)="addPersonalityEntry()">Add</app-primary-button>
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Relationships</label>
-              <div class="list-entries">
-                <ng-container *ngFor="let group of charRelationships; let gi = index">
+            <app-tabs>
+              <app-tab label="Personality">
+                <div class="list-entries">
+                  <div class="list-entry" *ngFor="let p of charPersonality; let i = index">
+                    <input type="text" autocomplete="off" [(ngModel)]="charPersonality[i]">
+                    <app-primary-button variant="danger" (click)="removePersonalityEntry(i)">Delete</app-primary-button>
+                  </div>
                   <div class="list-entry">
-                    <input type="text" autocomplete="off" [(ngModel)]="group.character" placeholder="Character name">
+                    <input type="text" autocomplete="off" [(ngModel)]="newPersonality" placeholder="Shy and quietly earnest, gains confidence through effort" (keydown.enter)="addPersonalityEntry()">
+                    <app-primary-button (click)="addPersonalityEntry()">Add</app-primary-button>
                   </div>
-                  <div class="list-entry" *ngFor="let fact of group.facts; let fi = index">
-                    <input type="text" autocomplete="off" [(ngModel)]="group.facts[fi]" placeholder="Relationship detail">
-                    <app-primary-button variant="danger" (click)="removeRelationshipFact(gi, fi)">Delete</app-primary-button>
-                  </div>
-                </ng-container>
-              </div>
-              <div class="list-add-row two-input">
-                <input type="text" autocomplete="off" [(ngModel)]="newRelationshipCharacter" placeholder="Sumika Shiun">
-                <input type="text" autocomplete="off" [(ngModel)]="newRelationshipDetail" placeholder="Best friends; made a promise to become idols together" (keydown.enter)="addRelationshipEntry()">
-                <app-primary-button (click)="addRelationshipEntry()">Add</app-primary-button>
-              </div>
-            </div>
-            <div class="form-group">
-              <label>History</label>
-              <div class="list-entries">
-                <div class="list-entry" *ngFor="let h of charHistory; let i = index">
-                  <input type="text" autocomplete="off" [(ngModel)]="charHistory[i]">
-                  <app-primary-button variant="danger" (click)="removeHistoryEntry(i)">Delete</app-primary-button>
                 </div>
-              </div>
-              <div class="list-add-row">
-                <input type="text" autocomplete="off" [(ngModel)]="newHistory" placeholder="Born overseas to a Japanese father; moved to Japan to attend Hatsuboshi Gakuen" (keydown.enter)="addHistoryEntry()">
-                <app-primary-button (click)="addHistoryEntry()">Add</app-primary-button>
-              </div>
-            </div>
+              </app-tab>
+              <app-tab label="Relationships">
+                <div class="list-entries">
+                  <ng-container *ngFor="let group of charRelationships; let gi = index">
+                    <div class="list-entry">
+                      <input type="text" autocomplete="off" [(ngModel)]="group.character" placeholder="Character name">
+                    </div>
+                    <div class="list-entry" *ngFor="let fact of group.facts; let fi = index">
+                      <input type="text" autocomplete="off" [(ngModel)]="group.facts[fi]" placeholder="Relationship detail">
+                      <app-primary-button variant="danger" (click)="removeRelationshipFact(gi, fi)">Delete</app-primary-button>
+                    </div>
+                  </ng-container>
+                  <div class="list-entry two-input">
+                    <input type="text" autocomplete="off" [(ngModel)]="newRelationshipCharacter" placeholder="Sumika Shiun">
+                    <input type="text" autocomplete="off" [(ngModel)]="newRelationshipDetail" placeholder="Best friends; made a promise to become idols together" (keydown.enter)="addRelationshipEntry()">
+                    <app-primary-button (click)="addRelationshipEntry()">Add</app-primary-button>
+                  </div>
+                </div>
+              </app-tab>
+              <app-tab label="History">
+                <div class="list-entries">
+                  <div class="list-entry" *ngFor="let h of charHistory; let i = index">
+                    <input type="text" autocomplete="off" [(ngModel)]="charHistory[i]">
+                    <app-primary-button variant="danger" (click)="removeHistoryEntry(i)">Delete</app-primary-button>
+                  </div>
+                  <div class="list-entry">
+                    <input type="text" autocomplete="off" [(ngModel)]="newHistory" placeholder="Born overseas to a Japanese father; moved to Japan to attend Hatsuboshi Gakuen" (keydown.enter)="addHistoryEntry()">
+                    <app-primary-button (click)="addHistoryEntry()">Add</app-primary-button>
+                  </div>
+                </div>
+              </app-tab>
+            </app-tabs>
             <div class="form-actions">
               <app-primary-button [fullWidth]="true" (click)="saveCharacter()" [disabled]="!charName.trim() || isSavingCharacter">Save</app-primary-button>
               <app-secondary-button (click)="cancelCharacterForm()">Cancel</app-secondary-button>
@@ -126,23 +125,25 @@
             </div>
             <!-- Read-only view -->
             <div class="character-card-body" *ngIf="expandedCharacterIds.has(char.id) && editingCharacterId !== char.id">
-              <div class="char-field" *ngIf="char.personality?.length">
-                <strong>Personality:</strong>
-                <ul><li *ngFor="let p of char.personality">{{ p }}</li></ul>
-              </div>
-              <div class="char-field" *ngIf="getRelationshipEntries(char.relationships).length">
-                <strong>Relationships:</strong>
-                <ul>
-                  <li *ngFor="let entry of getRelationshipEntries(char.relationships)">
-                    <strong>{{ entry[0] }}</strong>
-                    <ul><li *ngFor="let fact of entry[1]">{{ fact }}</li></ul>
-                  </li>
-                </ul>
-              </div>
-              <div class="char-field" *ngIf="char.history.length">
-                <strong>History:</strong>
-                <ul><li *ngFor="let h of char.history">{{ h }}</li></ul>
-              </div>
+              <app-tabs>
+                <app-tab label="Personality">
+                  <div class="empty-state" *ngIf="!char.personality?.length">No personality traits yet.</div>
+                  <ul class="char-tab-list"><li *ngFor="let p of char.personality">{{ p }}</li></ul>
+                </app-tab>
+                <app-tab label="Relationships">
+                  <div class="empty-state" *ngIf="!getRelationshipEntries(char.relationships).length">No relationships yet.</div>
+                  <ul class="char-tab-list">
+                    <li *ngFor="let entry of getRelationshipEntries(char.relationships)">
+                      <strong>{{ entry[0] }}</strong>
+                      <ul class="char-tab-list"><li *ngFor="let fact of entry[1]">{{ fact }}</li></ul>
+                    </li>
+                  </ul>
+                </app-tab>
+                <app-tab label="History">
+                  <div class="empty-state" *ngIf="!char.history.length">No history yet.</div>
+                  <ul class="char-tab-list"><li *ngFor="let h of char.history">{{ h }}</li></ul>
+                </app-tab>
+              </app-tabs>
             </div>
             <!-- Inline edit form -->
             <div class="character-card-body inline-form" *ngIf="editingCharacterId === char.id">
@@ -154,51 +155,50 @@
                 <label>Aliases (comma-separated)</label>
                 <input type="text" autocomplete="off" [(ngModel)]="charAliases" placeholder="リーリヤ, Lilja">
               </div>
-              <div class="form-group">
-                <label>Personality</label>
-                <div class="list-entries">
-                  <div class="list-entry" *ngFor="let p of charPersonality; let i = index">
-                    <input type="text" autocomplete="off" [(ngModel)]="charPersonality[i]">
-                    <app-primary-button variant="danger" (click)="removePersonalityEntry(i)">Delete</app-primary-button>
-                  </div>
-                </div>
-                <div class="list-add-row">
-                  <input type="text" autocomplete="off" [(ngModel)]="newPersonality" placeholder="Shy and quietly earnest, gains confidence through effort" (keydown.enter)="addPersonalityEntry()">
-                  <app-primary-button (click)="addPersonalityEntry()">Add</app-primary-button>
-                </div>
-              </div>
-              <div class="form-group">
-                <label>Relationships</label>
-                <div class="list-entries">
-                  <ng-container *ngFor="let group of charRelationships; let gi = index">
+              <app-tabs>
+                <app-tab label="Personality">
+                  <div class="list-entries">
+                    <div class="list-entry" *ngFor="let p of charPersonality; let i = index">
+                      <input type="text" autocomplete="off" [(ngModel)]="charPersonality[i]">
+                      <app-primary-button variant="danger" (click)="removePersonalityEntry(i)">Delete</app-primary-button>
+                    </div>
                     <div class="list-entry">
-                      <input type="text" autocomplete="off" [(ngModel)]="group.character" placeholder="Character name">
+                      <input type="text" autocomplete="off" [(ngModel)]="newPersonality" placeholder="Shy and quietly earnest, gains confidence through effort" (keydown.enter)="addPersonalityEntry()">
+                      <app-primary-button (click)="addPersonalityEntry()">Add</app-primary-button>
                     </div>
-                    <div class="list-entry" *ngFor="let fact of group.facts; let fi = index">
-                      <input type="text" autocomplete="off" [(ngModel)]="group.facts[fi]" placeholder="Relationship detail">
-                      <app-primary-button variant="danger" (click)="removeRelationshipFact(gi, fi)">Delete</app-primary-button>
-                    </div>
-                  </ng-container>
-                </div>
-                <div class="list-add-row two-input">
-                  <input type="text" autocomplete="off" [(ngModel)]="newRelationshipCharacter" placeholder="Sumika Shiun">
-                  <input type="text" autocomplete="off" [(ngModel)]="newRelationshipDetail" placeholder="Best friends; made a promise to become idols together" (keydown.enter)="addRelationshipEntry()">
-                  <app-primary-button (click)="addRelationshipEntry()">Add</app-primary-button>
-                </div>
-              </div>
-              <div class="form-group">
-                <label>History</label>
-                <div class="list-entries">
-                  <div class="list-entry" *ngFor="let h of charHistory; let i = index">
-                    <input type="text" autocomplete="off" [(ngModel)]="charHistory[i]">
-                    <app-primary-button variant="danger" (click)="removeHistoryEntry(i)">Delete</app-primary-button>
                   </div>
-                </div>
-                <div class="list-add-row">
-                  <input type="text" autocomplete="off" [(ngModel)]="newHistory" placeholder="Born overseas to a Japanese father..." (keydown.enter)="addHistoryEntry()">
-                  <app-primary-button (click)="addHistoryEntry()">Add</app-primary-button>
-                </div>
-              </div>
+                </app-tab>
+                <app-tab label="Relationships">
+                  <div class="list-entries">
+                    <ng-container *ngFor="let group of charRelationships; let gi = index">
+                      <div class="list-entry">
+                        <input type="text" autocomplete="off" [(ngModel)]="group.character" placeholder="Character name">
+                      </div>
+                      <div class="list-entry" *ngFor="let fact of group.facts; let fi = index">
+                        <input type="text" autocomplete="off" [(ngModel)]="group.facts[fi]" placeholder="Relationship detail">
+                        <app-primary-button variant="danger" (click)="removeRelationshipFact(gi, fi)">Delete</app-primary-button>
+                      </div>
+                    </ng-container>
+                    <div class="list-entry two-input">
+                      <input type="text" autocomplete="off" [(ngModel)]="newRelationshipCharacter" placeholder="Sumika Shiun">
+                      <input type="text" autocomplete="off" [(ngModel)]="newRelationshipDetail" placeholder="Best friends; made a promise to become idols together" (keydown.enter)="addRelationshipEntry()">
+                      <app-primary-button (click)="addRelationshipEntry()">Add</app-primary-button>
+                    </div>
+                  </div>
+                </app-tab>
+                <app-tab label="History">
+                  <div class="list-entries">
+                    <div class="list-entry" *ngFor="let h of charHistory; let i = index">
+                      <input type="text" autocomplete="off" [(ngModel)]="charHistory[i]">
+                      <app-primary-button variant="danger" (click)="removeHistoryEntry(i)">Delete</app-primary-button>
+                    </div>
+                    <div class="list-entry">
+                      <input type="text" autocomplete="off" [(ngModel)]="newHistory" placeholder="Born overseas to a Japanese father..." (keydown.enter)="addHistoryEntry()">
+                      <app-primary-button (click)="addHistoryEntry()">Add</app-primary-button>
+                    </div>
+                  </div>
+                </app-tab>
+              </app-tabs>
               <div class="form-actions">
                 <app-primary-button [fullWidth]="true" (click)="saveCharacter()" [disabled]="!charName.trim() || isSavingCharacter">Save</app-primary-button>
                 <app-secondary-button (click)="cancelCharacterForm()">Cancel</app-secondary-button>
