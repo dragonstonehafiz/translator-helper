@@ -65,7 +65,7 @@
               <div class="list-entries">
                 <div class="list-entry" *ngFor="let p of charPersonality; let i = index">
                   <input type="text" autocomplete="off" [(ngModel)]="charPersonality[i]">
-                  <div class="btn-danger"><app-primary-button (click)="removePersonalityEntry(i)">Delete</app-primary-button></div>
+                  <app-primary-button variant="danger" (click)="removePersonalityEntry(i)">Delete</app-primary-button>
                 </div>
               </div>
               <div class="list-add-row">
@@ -82,7 +82,7 @@
                   </div>
                   <div class="list-entry" *ngFor="let fact of group.facts; let fi = index">
                     <input type="text" autocomplete="off" [(ngModel)]="group.facts[fi]" placeholder="Relationship detail">
-                    <div class="btn-danger"><app-primary-button (click)="removeRelationshipFact(gi, fi)">Delete</app-primary-button></div>
+                    <app-primary-button variant="danger" (click)="removeRelationshipFact(gi, fi)">Delete</app-primary-button>
                   </div>
                 </ng-container>
               </div>
@@ -97,7 +97,7 @@
               <div class="list-entries">
                 <div class="list-entry" *ngFor="let h of charHistory; let i = index">
                   <input type="text" autocomplete="off" [(ngModel)]="charHistory[i]">
-                  <div class="btn-danger"><app-primary-button (click)="removeHistoryEntry(i)">Delete</app-primary-button></div>
+                  <app-primary-button variant="danger" (click)="removeHistoryEntry(i)">Delete</app-primary-button>
                 </div>
               </div>
               <div class="list-add-row">
@@ -107,7 +107,7 @@
             </div>
             <div class="form-actions">
               <app-primary-button [fullWidth]="true" (click)="saveCharacter()" [disabled]="!charName.trim() || isSavingCharacter">Save</app-primary-button>
-              <button class="btn-cancel" (click)="cancelCharacterForm()">Cancel</button>
+              <app-secondary-button (click)="cancelCharacterForm()">Cancel</app-secondary-button>
             </div>
           </div>
 
@@ -120,9 +120,7 @@
               </div>
               <div class="character-card-actions">
                 <app-primary-button (click)="$event.stopPropagation(); openEditCharacterForm(char)">Edit</app-primary-button>
-                <div class="btn-danger" (click)="$event.stopPropagation()">
-                  <app-primary-button (click)="deleteCharacter(char.id, char.name)">Delete</app-primary-button>
-                </div>
+                <app-primary-button variant="danger" (click)="$event.stopPropagation(); deleteCharacter(char.id, char.name)">Delete</app-primary-button>
                 <span class="expand-icon">{{ expandedCharacterIds.has(char.id) ? '▲' : '▼' }}</span>
               </div>
             </div>
@@ -161,7 +159,7 @@
                 <div class="list-entries">
                   <div class="list-entry" *ngFor="let p of charPersonality; let i = index">
                     <input type="text" autocomplete="off" [(ngModel)]="charPersonality[i]">
-                    <div class="btn-danger"><app-primary-button (click)="removePersonalityEntry(i)">Delete</app-primary-button></div>
+                    <app-primary-button variant="danger" (click)="removePersonalityEntry(i)">Delete</app-primary-button>
                   </div>
                 </div>
                 <div class="list-add-row">
@@ -178,7 +176,7 @@
                     </div>
                     <div class="list-entry" *ngFor="let fact of group.facts; let fi = index">
                       <input type="text" autocomplete="off" [(ngModel)]="group.facts[fi]" placeholder="Relationship detail">
-                      <div class="btn-danger"><app-primary-button (click)="removeRelationshipFact(gi, fi)">Delete</app-primary-button></div>
+                      <app-primary-button variant="danger" (click)="removeRelationshipFact(gi, fi)">Delete</app-primary-button>
                     </div>
                   </ng-container>
                 </div>
@@ -193,7 +191,7 @@
                 <div class="list-entries">
                   <div class="list-entry" *ngFor="let h of charHistory; let i = index">
                     <input type="text" autocomplete="off" [(ngModel)]="charHistory[i]">
-                    <div class="btn-danger"><app-primary-button (click)="removeHistoryEntry(i)">Delete</app-primary-button></div>
+                    <app-primary-button variant="danger" (click)="removeHistoryEntry(i)">Delete</app-primary-button>
                   </div>
                 </div>
                 <div class="list-add-row">
@@ -203,7 +201,7 @@
               </div>
               <div class="form-actions">
                 <app-primary-button [fullWidth]="true" (click)="saveCharacter()" [disabled]="!charName.trim() || isSavingCharacter">Save</app-primary-button>
-                <button class="btn-cancel" (click)="cancelCharacterForm()">Cancel</button>
+                <app-secondary-button (click)="cancelCharacterForm()">Cancel</app-secondary-button>
               </div>
             </div>
           </div>
@@ -231,7 +229,7 @@
             </div>
             <div class="form-actions">
               <app-primary-button [fullWidth]="true" (click)="saveTerm()" [disabled]="!termTerm.trim() || !termTranslation.trim() || isSavingTerm">Save</app-primary-button>
-              <button class="btn-cancel" (click)="cancelGlossaryForm()">Cancel</button>
+              <app-secondary-button (click)="cancelGlossaryForm()">Cancel</app-secondary-button>
             </div>
           </div>
 
@@ -247,9 +245,7 @@
               </div>
               <div class="glossary-row-actions">
                 <app-primary-button (click)="openEditGlossaryForm(term)">Edit</app-primary-button>
-                <div class="btn-danger">
-                  <app-primary-button (click)="deleteTerm(term.id, term.term)">Delete</app-primary-button>
-                </div>
+                <app-primary-button variant="danger" (click)="deleteTerm(term.id, term.term)">Delete</app-primary-button>
               </div>
             </ng-container>
             <!-- Inline edit form -->
@@ -268,7 +264,7 @@
               </div>
               <div class="form-actions">
                 <app-primary-button [fullWidth]="true" (click)="saveTerm()" [disabled]="!termTerm.trim() || !termTranslation.trim() || isSavingTerm">Save</app-primary-button>
-                <button class="btn-cancel" (click)="cancelGlossaryForm()">Cancel</button>
+                <app-secondary-button (click)="cancelGlossaryForm()">Cancel</app-secondary-button>
               </div>
             </div>
           </div>
@@ -315,7 +311,7 @@
               <div class="proposal-detail" *ngIf="char.history?.length"><strong>History:</strong> {{ char.history.join(' · ') }}</div>
               <div class="proposal-actions">
                 <app-primary-button (click)="acceptNewCharacter(char)">Accept</app-primary-button>
-                <button class="btn-cancel" (click)="rejectProposal(proposals!.new_characters, char)">Reject</button>
+                <app-secondary-button (click)="rejectProposal(proposals!.new_characters, char)">Reject</app-secondary-button>
               </div>
             </div>
           </ng-container>
@@ -330,7 +326,7 @@
               <div class="proposal-detail">{{ update.append }}</div>
               <div class="proposal-actions">
                 <app-primary-button (click)="acceptCharacterUpdate(update)">Accept</app-primary-button>
-                <button class="btn-cancel" (click)="rejectProposal(proposals!.updated_characters, update)">Reject</button>
+                <app-secondary-button (click)="rejectProposal(proposals!.updated_characters, update)">Reject</app-secondary-button>
               </div>
             </div>
           </ng-container>
@@ -342,7 +338,7 @@
               <div class="proposal-detail" *ngIf="term.notes">{{ term.notes }}</div>
               <div class="proposal-actions">
                 <app-primary-button (click)="acceptNewGlossaryTerm(term)">Accept</app-primary-button>
-                <button class="btn-cancel" (click)="rejectProposal(proposals!.new_glossary, term)">Reject</button>
+                <app-secondary-button (click)="rejectProposal(proposals!.new_glossary, term)">Reject</app-secondary-button>
               </div>
             </div>
           </ng-container>
@@ -357,7 +353,7 @@
               <div class="proposal-detail">{{ update.value }}</div>
               <div class="proposal-actions">
                 <app-primary-button (click)="acceptGlossaryUpdate(update)">Accept</app-primary-button>
-                <button class="btn-cancel" (click)="rejectProposal(proposals!.updated_glossary, update)">Reject</button>
+                <app-secondary-button (click)="rejectProposal(proposals!.updated_glossary, update)">Reject</app-secondary-button>
               </div>
             </div>
           </ng-container>

@@ -1,6 +1,7 @@
 <button
   class="primary-btn"
   [class.full-width]="fullWidth"
+  [class.danger]="variant === 'danger'"
   [attr.type]="type"
   [disabled]="disabled">
   <ng-content></ng-content>

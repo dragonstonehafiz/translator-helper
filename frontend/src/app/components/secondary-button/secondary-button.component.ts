@@ -2,15 +2,13 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'app-primary-button',
+  selector: 'app-secondary-button',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './primary-button.component.html',
-  styleUrl: './primary-button.component.scss'
+  templateUrl: './secondary-button.component.html',
+  styleUrl: './secondary-button.component.scss'
 })
-export class PrimaryButtonComponent {
+export class SecondaryButtonComponent {
   @Input() disabled = false;
-  @Input() fullWidth = false;
   @Input() type: 'button' | 'submit' | 'reset' = 'button';
-  @Input() variant: 'primary' | 'danger' = 'primary';
 }

@@ -302,9 +302,23 @@ Animated pulsing text for loading/recording states.
 
 ```html
 <app-primary-button [disabled]="isBusy" [fullWidth]="true">Run Action</app-primary-button>
+<app-primary-button variant="danger" (click)="deleteItem()">Delete</app-primary-button>
 ```
 
-- `disabled` (default: false), `fullWidth` (default: false), `type` (default: "button")
+- `disabled` (default: false), `fullWidth` (default: false), `type` (default: "button"), `variant` (default: `"primary"`, or `"danger"` for the red gradient delete styling)
+
+---
+
+### app-secondary-button
+**Location**: `frontend/src/app/components/secondary-button/`
+
+Plain bordered button for secondary/cancel actions — the counterpart to `app-primary-button`.
+
+```html
+<app-secondary-button (click)="cancel()">Cancel</app-secondary-button>
+```
+
+- `disabled` (default: false), `type` (default: "button")
 
 ---
 
@@ -414,6 +428,14 @@ Canvas-based audio waveform with playback and optional selection/trimming.
 - **Page Padding**: `padding: 80px 20px 40px`
 - **Responsive**: Desktop-only, no mobile
 
+### Global layout/form classes (`frontend/src/styles.scss`)
+These are defined once globally — never redefine them in a page's `.scss` file, only add page-specific overrides on top (e.g. a page can add `gap` to its own `.form-group` selector to tweak spacing without redeclaring the whole rule):
+- `.header-container` — centered flex row with 15px gap, 20px bottom margin, styles a nested `h1`
+- `.form-section` — flex column, 24px gap. Use `.form-section--loose` modifier (40px gap) for pages with fewer, larger subsections (currently `settings`, `transcribe`)
+- `.form-row` — flex row, 20px gap, for side-by-side `.form-group`s
+- `.form-group` — flex column, 8px gap, styles `label` and `input`/`select`/`textarea` (padding, border, focus color)
+- `.empty-state` / `.loading-row` — centered placeholder text for empty/loading list states
+
 ### Form Elements
 - Inputs/Selects: 12px padding, `2px solid #ddd` border, 8px border-radius
 - Focus: border changes to `#667eea`
@@ -452,7 +474,7 @@ No per-page SCSS needed for `.page-container`.
 ### Editable Lists (personality, history, relationships)
 - Use `.list-entry` for every row — one class for all list types
 - Each row: full-width `<input>` with `2px solid #ddd` border + delete button
-- Delete: `<div class="btn-danger"><app-primary-button>Delete</app-primary-button></div>` — never custom ✕ buttons or `.btn-remove`
+- Delete: `<app-primary-button variant="danger">Delete</app-primary-button>` — never custom ✕ buttons or `.btn-remove`
 - No outer border on `.list-entry` itself
 
 ### Shared Utilities

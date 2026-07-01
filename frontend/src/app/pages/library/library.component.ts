@@ -7,13 +7,14 @@ import { ConfirmationService } from '../../services/confirmation.service';
 import { ErrorDialogService } from '../../services/error-dialog.service';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
 import { PrimaryButtonComponent } from '../../components/primary-button/primary-button.component';
+import { SecondaryButtonComponent } from '../../components/secondary-button/secondary-button.component';
 import { LoadingTextIndicatorComponent } from '../../components/loading-text-indicator/loading-text-indicator.component';
 import { LANGUAGE_OPTIONS } from '../../shared/language-options';
 
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [CommonModule, FormsModule, SubsectionComponent, PrimaryButtonComponent, LoadingTextIndicatorComponent],
+  imports: [CommonModule, FormsModule, SubsectionComponent, PrimaryButtonComponent, SecondaryButtonComponent, LoadingTextIndicatorComponent],
   templateUrl: './library.component.html',
   styleUrl: './library.component.scss'
 })

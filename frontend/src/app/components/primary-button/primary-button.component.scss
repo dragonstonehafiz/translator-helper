@@ -31,3 +31,12 @@
 .primary-btn.full-width {
   width: 100%;
 }
+
+.primary-btn.danger {
+  background: linear-gradient(135deg, #d64545 0%, #b31f1f 100%);
+  box-shadow: none;
+
+  &:hover:not(:disabled) {
+    box-shadow: 0 4px 12px rgba(214, 69, 69, 0.35);
+  }
+}

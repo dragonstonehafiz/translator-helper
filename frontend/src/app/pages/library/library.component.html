@@ -34,7 +34,7 @@
         </div>
         <div class="form-actions">
           <app-primary-button [fullWidth]="true" (click)="createSeries()" [disabled]="!newSeriesName.trim() || isCreatingSeries">Create</app-primary-button>
-          <button class="btn-cancel" (click)="cancelCreateForm()">Cancel</button>
+          <app-secondary-button (click)="cancelCreateForm()">Cancel</app-secondary-button>
         </div>
       </div>
 
@@ -52,9 +52,7 @@
               {{ series.glossary_count }} glossary terms
             </div>
           </div>
-          <div class="btn-danger" (click)="$event.stopPropagation()">
-            <app-primary-button (click)="deleteSeries(series.id, series.name)">Delete</app-primary-button>
-          </div>
+          <app-primary-button variant="danger" (click)="$event.stopPropagation(); deleteSeries(series.id, series.name)">Delete</app-primary-button>
         </div>
       </div>
       <div *ngIf="isLoadingSeries" class="loading-row">

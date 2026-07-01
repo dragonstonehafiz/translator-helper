@@ -9,6 +9,7 @@ import { ConfirmationService } from '../../../services/confirmation.service';
 import { ErrorDialogService } from '../../../services/error-dialog.service';
 import { SubsectionComponent } from '../../../components/subsection/subsection.component';
 import { PrimaryButtonComponent } from '../../../components/primary-button/primary-button.component';
+import { SecondaryButtonComponent } from '../../../components/secondary-button/secondary-button.component';
 import { FileUploadComponent } from '../../../components/file-upload/file-upload.component';
 import { LoadingTextIndicatorComponent } from '../../../components/loading-text-indicator/loading-text-indicator.component';
 import { TabsComponent } from '../../../components/tabs/tabs.component';
@@ -18,7 +19,7 @@ import { LANGUAGE_OPTIONS } from '../../../shared/language-options';
 @Component({
   selector: 'app-library-detail',
   standalone: true,
-  imports: [CommonModule, KeyValuePipe, FormsModule, SubsectionComponent, PrimaryButtonComponent, FileUploadComponent, LoadingTextIndicatorComponent, TabsComponent, TabComponent],
+  imports: [CommonModule, KeyValuePipe, FormsModule, SubsectionComponent, PrimaryButtonComponent, SecondaryButtonComponent, FileUploadComponent, LoadingTextIndicatorComponent, TabsComponent, TabComponent],
   templateUrl: './library-detail.component.html',
   styleUrl: './library-detail.component.scss'
 })

@@ -1,31 +1,3 @@
-.form-section {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.header-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 15px;
-  margin-bottom: 20px;
-
-  h1 {
-    font-size: 2.5rem;
-    color: #333;
-    margin: 0;
-  }
-}
-
-.form-section {
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-}
-
-
-
 .status-row {
   display: flex;
   gap: 30px;
@@ -143,32 +115,12 @@
 }
 
 .form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-
   label {
     font-size: 1rem;
-    font-weight: 600;
-    color: #333;
   }
 
-  input, select {
-    padding: 12px 15px;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: border-color 0.3s ease;
-    background-color: white;
-
-    &:focus {
-      outline: none;
-      border-color: #667eea;
-    }
-
-    &::placeholder {
-      color: #999;
-    }
+  input::placeholder {
+    color: #999;
   }
 
   input[type="range"] {

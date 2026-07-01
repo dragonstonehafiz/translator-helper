@@ -155,21 +155,23 @@
       </app-tab>
 
       <app-tab label="Downloads">
-        <app-subsection
-          *ngFor="let section of downloadSections"
-          [title]="section.title"
-          [tooltip]="section.tooltip">
+        <div class="form-section">
+          <app-subsection
+            *ngFor="let section of downloadSections"
+            [title]="section.title"
+            [tooltip]="section.tooltip">
 
-          <app-downloads-list
-            [files]="section.files"
-            [isLoading]="section.isLoading"
-            [error]="section.error"
-            [deletingFilename]="section.deletingFilename"
-            (refresh)="refreshDownloadSection(section)"
-            (download)="downloadFile(section, $event)"
-            (delete)="deleteFile(section, $event)">
-          </app-downloads-list>
-        </app-subsection>
+            <app-downloads-list
+              [files]="section.files"
+              [isLoading]="section.isLoading"
+              [error]="section.error"
+              [deletingFilename]="section.deletingFilename"
+              (refresh)="refreshDownloadSection(section)"
+              (download)="downloadFile(section, $event)"
+              (delete)="deleteFile(section, $event)">
+            </app-downloads-list>
+          </app-subsection>
+        </div>
       </app-tab>
     </app-tabs>
   </div>
