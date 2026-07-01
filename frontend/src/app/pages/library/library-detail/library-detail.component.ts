@@ -427,6 +427,8 @@ export class LibraryDetailComponent implements OnInit, OnDestroy {
     if (taskState.status === 'processing' || taskState.isPolling) {
       this.isUpdatingLibrary = true;
       this.startPolling();
+    } else if (taskState.status === 'complete') {
+      this.proposals = (taskState.result as any)?.proposals ?? null;
     }
   }
 
