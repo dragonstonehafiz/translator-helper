@@ -156,17 +156,18 @@
 
       <app-tab label="Downloads">
         <app-subsection
-          title="Downloads"
-          tooltip="Translated and corrected subtitle files">
+          *ngFor="let section of downloadSections"
+          [title]="section.title"
+          [tooltip]="section.tooltip">
 
           <app-downloads-list
-            [files]="availableDownloads"
-            [isLoading]="isFetchingDownloads"
-            [error]="downloadError"
-            [deletingFilename]="deletingDownload"
-            (refresh)="refreshDownloads()"
-            (download)="downloadTranslatedFile($event)"
-            (delete)="deleteTranslatedFile($event)">
+            [files]="section.files"
+            [isLoading]="section.isLoading"
+            [error]="section.error"
+            [deletingFilename]="section.deletingFilename"
+            (refresh)="refreshDownloadSection(section)"
+            (download)="downloadFile(section, $event)"
+            (delete)="deleteFile(section, $event)">
           </app-downloads-list>
         </app-subsection>
       </app-tab>

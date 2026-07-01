@@ -166,10 +166,11 @@ def analyze_subtitle_file(file_path: str):
 
 
 def get_files_dir(folder: str) -> Path:
-    """Resolve and return the output subdirectory for `folder`, raising 400 on invalid names."""
-    if not folder or not all(ch.isalnum() or ch in "-_" for ch in folder):
+    """Resolve and return the output subdirectory for `folder`, raising 400 on invalid or traversal-attempting paths."""
+    segments = folder.split("/") if folder else []
+    if not segments or not all(segment and all(ch.isalnum() or ch in "-_" for ch in segment) for segment in segments):
         raise HTTPException(status_code=400, detail="Invalid folder name")
-    output_dir = OUTPUTS_DIR / folder
+    output_dir = OUTPUTS_DIR.joinpath(*segments)
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 

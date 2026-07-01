@@ -17,6 +17,16 @@ import { TabComponent } from '../../components/tabs/tab.component';
 import { LANGUAGE_OPTIONS } from '../../shared/language-options';
 import { ErrorDialogService } from '../../services/error-dialog.service';
 
+interface DownloadSection {
+  folder: string;
+  title: string;
+  tooltip: string;
+  files: { name: string; size: number; modified: string }[];
+  isLoading: boolean;
+  error: string;
+  deletingFilename: string;
+}
+
 @Component({
   selector: 'app-translate',
   standalone: true,
@@ -51,10 +61,10 @@ export class TranslateComponent implements OnInit, OnDestroy {
   translatedFileToReview: File | null = null;
   isTranslatingFile = false;
   isReviewingTranslatedFile = false;
-  availableDownloads: { name: string; size: number; modified: string }[] = [];
-  isFetchingDownloads = false;
-  downloadError = '';
-  deletingDownload = '';
+  downloadSections: DownloadSection[] = [
+    { folder: 'sub-files/translated', title: 'Translated Files', tooltip: 'Subtitle files produced by file translation', files: [], isLoading: false, error: '', deletingFilename: '' },
+    { folder: 'sub-files/reviewed', title: 'Reviewed Files', tooltip: 'Corrected subtitle files produced by translation review', files: [], isLoading: false, error: '', deletingFilename: '' },
+  ];
   private filePollingInterval?: any;
   private reviewPollingInterval?: any;
   private lastShownTaskError: Record<string, string> = {};
@@ -429,30 +439,34 @@ export class TranslateComponent implements OnInit, OnDestroy {
   }
 
   refreshDownloads(): void {
-    this.isFetchingDownloads = true;
-    this.downloadError = '';
-    this.apiService.listFiles('sub-files').subscribe({
+    this.downloadSections.forEach(section => this.refreshDownloadSection(section));
+  }
+
+  refreshDownloadSection(section: DownloadSection): void {
+    section.isLoading = true;
+    section.error = '';
+    this.apiService.listFiles(section.folder).subscribe({
       next: (response) => {
         if (response.status === 'success') {
-          this.availableDownloads = response.data?.files || [];
+          section.files = response.data?.files || [];
         } else {
-          this.availableDownloads = [];
-          this.downloadError = 'Unable to load downloads.';
+          section.files = [];
+          section.error = 'Unable to load downloads.';
         }
-        this.isFetchingDownloads = false;
+        section.isLoading = false;
       },
       error: (error: any) => {
-        console.error('Failed to load downloads:', error);
-        this.availableDownloads = [];
-        this.downloadError = 'Failed to load downloads. Please try again.';
-        this.isFetchingDownloads = false;
+        console.error(`Failed to load downloads for ${section.folder}:`, error);
+        section.files = [];
+        section.error = 'Failed to load downloads. Please try again.';
+        section.isLoading = false;
       }
     });
   }
 
-  downloadTranslatedFile(filename: string): void {
+  downloadFile(section: DownloadSection, filename: string): void {
     if (!filename) return;
-    this.apiService.getFileBlob('sub-files', filename).subscribe({
+    this.apiService.getFileBlob(section.folder, filename).subscribe({
       next: (blob: Blob) => {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -470,8 +484,8 @@ export class TranslateComponent implements OnInit, OnDestroy {
     });
   }
 
-  async deleteTranslatedFile(filename: string): Promise<void> {
-    if (!filename || this.deletingDownload) return;
+  async deleteFile(section: DownloadSection, filename: string): Promise<void> {
+    if (!filename || section.deletingFilename) return;
     const confirmed = await this.confirmationService.confirm({
       title: 'Confirm Deletion',
       message: `Delete ${filename}? This cannot be undone.`,
@@ -479,16 +493,16 @@ export class TranslateComponent implements OnInit, OnDestroy {
       cancelLabel: 'Cancel',
     });
     if (!confirmed) return;
-    this.deletingDownload = filename;
-    this.apiService.deleteFile('sub-files', filename).subscribe({
+    section.deletingFilename = filename;
+    this.apiService.deleteFile(section.folder, filename).subscribe({
       next: () => {
-        this.availableDownloads = this.availableDownloads.filter(file => file.name !== filename);
-        this.deletingDownload = '';
+        section.files = section.files.filter(file => file.name !== filename);
+        section.deletingFilename = '';
       },
       error: (error: any) => {
         console.error('Failed to delete file:', error);
         this.errorDialogService.show('Failed to delete file. Please try again.');
-        this.deletingDownload = '';
+        section.deletingFilename = '';
       }
     });
   }

@@ -14,14 +14,14 @@ from .shared import build_file_list, get_files_dir
 router = APIRouter(prefix="/file-management")
 
 
-@router.get("/{folder}")
+@router.get("/list")
 async def list_files(folder: str):
     """Return a list of all files in the given output subdirectory."""
     output_dir = get_files_dir(folder)
     return success_response({"files": build_file_list(output_dir)})
 
 
-@router.get("/{folder}/{filename}")
+@router.get("/download")
 async def download_file(folder: str, filename: str):
     """Download a file from an output subdirectory; returns 404 if not found or outside the folder."""
     output_dir = get_files_dir(folder).resolve()
@@ -32,7 +32,7 @@ async def download_file(folder: str, filename: str):
     return FileResponse(path=str(file_path), filename=safe_name, media_type="application/octet-stream")
 
 
-@router.delete("/{folder}/{filename}")
+@router.delete("")
 async def delete_file(folder: str, filename: str):
     """Delete a file from an output subdirectory; returns 404 if not found or outside the folder."""
     output_dir = get_files_dir(folder).resolve()

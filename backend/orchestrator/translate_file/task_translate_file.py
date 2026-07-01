@@ -99,7 +99,7 @@ class TaskTranslateFile(BaseTask):
             safe_lang = "".join(char for char in output_lang if char.isalnum() or char in ("-", "_")) or "lang"
             translated_filename = f"{base_name}.{safe_lang}.{ext}"
             from utils.config import OUTPUTS_DIR
-            output_dir = OUTPUTS_DIR / "sub-files"
+            output_dir = OUTPUTS_DIR / "sub-files" / "translated"
             output_dir.mkdir(parents=True, exist_ok=True)
             output_path = output_dir / translated_filename
             translated_subs.save(output_path)

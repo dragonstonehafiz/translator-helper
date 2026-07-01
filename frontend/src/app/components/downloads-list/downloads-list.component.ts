@@ -24,8 +24,8 @@ export class DownloadsListComponent {
   @Output() delete = new EventEmitter<string>();
 
   search = '';
-  sortField: 'modified' | 'name' = 'name';
-  sort: 'desc' | 'asc' = 'asc';
+  sortField: 'modified' | 'name' = 'modified';
+  sort: 'desc' | 'asc' = 'desc';
   currentPage = 1;
 
   toggleCollapsed(): void {

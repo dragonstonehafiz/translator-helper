@@ -191,5 +191,4 @@ Once the two previous steps are completed, you can access the app by going to ht
 ## TODO
 
 - Add a way to choose a specific model per translate/context task instead of forcing all tasks to use the same globally loaded LLM.
-- **Translate File: integrate library context** — the translate file chain currently takes a raw context JSON. It should instead accept a `series_id`, load the relevant series from the library, run a `TaskSelectRelevantContext` task to pick the characters and glossary terms relevant to the subtitle file, and pass that structured context downstream to `TaskTranslateFile`.
 

@@ -360,22 +360,23 @@ Progress row for the global fixed-bottom task overlay. Tasks without granular ba
 ### app-downloads-list
 **Location**: `frontend/src/app/components/downloads-list/`
 
-Downloads panel with search, sort, pagination, refresh, collapse, and per-file actions.
+Downloads panel with search, sort, pagination, refresh, collapse, and per-file actions. Defaults to sorting by date descending (most recently modified first).
 
 ```html
 <app-downloads-list
-  [files]="availableDownloads"
-  [isLoading]="isFetchingDownloads"
-  [error]="downloadError"
-  [deletingFilename]="deletingDownload"
-  (refresh)="refreshDownloads()"
-  (download)="downloadTranslatedFile($event)"
-  (delete)="deleteTranslatedFile($event)">
+  [files]="section.files"
+  [isLoading]="section.isLoading"
+  [error]="section.error"
+  [deletingFilename]="section.deletingFilename"
+  (refresh)="refreshDownloadSection(section)"
+  (download)="downloadFile(section, $event)"
+  (delete)="deleteFile(section, $event)">
 </app-downloads-list>
 ```
 
 - `title` (default: "Downloads"), `files`, `isLoading`, `error`, `deletingFilename`, `collapsed`, `pageSize` (default: 7)
 - Events: `refresh`, `download` (filename), `delete` (filename), `collapsedChange`
+- For pages with multiple distinct file categories (e.g. translate page's Translated/Reviewed downloads), model each category as a small state object (`{ folder, title, tooltip, files, isLoading, error, deletingFilename }`) in a `downloadSections`-style array, wrap each in its own `app-subsection`, and use `*ngFor` with generic section-parameterized handler methods — do not duplicate fields/methods per category. `ApiService.listFiles/getFileBlob/deleteFile` accept a `folder` string that may contain `/` for nested output subdirectories (e.g. `sub-files/translated`), sent as a query parameter, not a URL path segment.
 
 ---
 

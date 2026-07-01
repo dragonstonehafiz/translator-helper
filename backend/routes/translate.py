@@ -24,7 +24,6 @@ from .shared import (
     OUTPUTS_DIR,
     model_manager,
     parse_json_form,
-    progress_handler,
     result_handler,
     run_single_task,
     save_upload_to_temp,
@@ -51,16 +50,7 @@ def run_translation_file_chain(data: dict):
         log_dir = OUTPUTS_DIR / "translate-file-logs" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_filename}"
         log_dir.mkdir(parents=True, exist_ok=True)
         data["log_dir"] = str(log_dir)
-        result_handler.set_processing(final_task_type)
-        progress_handler.set(
-            final_task_type,
-            {
-                "current": 0,
-                "total": 1,
-                "status": "Planning translation batches",
-                "eta_seconds": 0.0,
-            },
-        )
+        result_handler.clear(final_task_type)
         task_orchestrator.clear_tasks()
         task_orchestrator.add_task(TaskPlanTranslationBatches())
         task_orchestrator.add_task(TaskSplitOversizedBatches())
@@ -85,16 +75,7 @@ def run_review_translated_file_chain(data: dict):
         log_dir = OUTPUTS_DIR / "review-file-logs" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_filename}"
         log_dir.mkdir(parents=True, exist_ok=True)
         data["log_dir"] = str(log_dir)
-        result_handler.set_processing(final_task_type)
-        progress_handler.set(
-            final_task_type,
-            {
-                "current": 0,
-                "total": 1,
-                "status": "Planning review batches",
-                "eta_seconds": 0.0,
-            },
-        )
+        result_handler.clear(final_task_type)
         task_orchestrator.clear_tasks()
         task_orchestrator.add_task(TaskPlanTranslationReviewBatches())
         task_orchestrator.add_task(TaskSelectLibraryContextForReview())

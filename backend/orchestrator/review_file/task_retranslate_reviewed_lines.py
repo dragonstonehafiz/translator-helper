@@ -135,13 +135,13 @@ class TaskRetranslateReviewedLines(BaseTask):
         """.strip()
 
     def _save_corrected_file(self, translated_subs, translated_filename: str) -> str:
-        """Save the corrected subtitle file as <original_stem>.corrected.ass under outputs/sub-files/ and return the path."""
+        """Save the corrected subtitle file as <original_stem>.corrected.ass under outputs/sub-files/reviewed/ and return the path."""
         safe_name = os.path.basename(translated_filename) or "translated.ass"
         path = Path(safe_name)
         suffix = path.suffix or ".ass"
         corrected_filename = f"{path.stem}.corrected{suffix}"
         from utils.config import OUTPUTS_DIR
-        output_dir = OUTPUTS_DIR / "sub-files"
+        output_dir = OUTPUTS_DIR / "sub-files" / "reviewed"
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / corrected_filename
         translated_subs.save(str(output_path))

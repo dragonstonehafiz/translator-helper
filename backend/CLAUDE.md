@@ -35,7 +35,9 @@ backend/
     utils.py                 — load_sub_data() and other shared helpers
   outputs/                   — All generated files and logs (gitignored)
     library/<series_id>/     — series.json, characters.json, glossary.json
-    sub-files/               — Translated subtitle outputs
+    sub-files/
+      translated/            — File translation chain outputs
+      reviewed/              — Translated file review chain outputs (corrected files)
     transcribe-sub-files/    — Transcribed subtitle outputs
     translate-file-logs/     — Per-run batch planning logs for file translation
     review-file-logs/        — Per-run review logs for translated file review
@@ -52,6 +54,18 @@ Every JSON endpoint returns:
 Use the helpers in `utils/api_response.py` — never construct raw dicts in routes.  
 Put payload fields under `data`. Never add root-level fields like `files` or `result`.  
 File download endpoints return file blobs directly.
+
+## File Management
+
+`routes/file_management.py` exposes generic list/download/delete endpoints over any directory under `OUTPUTS_DIR`:
+```
+GET    /file-management/list?folder=<folder>
+GET    /file-management/download?folder=<folder>&filename=<filename>
+DELETE /file-management?folder=<folder>&filename=<filename>
+```
+`folder` and `filename` are always **query parameters**, never URL path segments. `folder` may be a nested path (e.g. `sub-files/translated`) — `get_files_dir()` in `shared.py` validates each `/`-separated segment individually (alphanumeric/`-_` only, no `..`) and resolves it under `OUTPUTS_DIR`.
+
+Do not switch these routes back to path-segment params (e.g. `/{folder}/{filename}`) — once `folder` can be more than one segment, a bare `{folder:path}` list route and a `{folder:path}/{filename}` download route become ambiguous (the router can't tell where `folder` ends and `filename` begins), and whichever route is registered first silently swallows requests meant for the other.
 
 ## Singletons
 

@@ -238,15 +238,15 @@ export class ApiService {
   }
 
   listFiles(folder: string): Observable<ApiResponse<FileListData>> {
-    return this.http.get<ApiResponse<FileListData>>(`${this.baseUrl}/file-management/${encodeURIComponent(folder)}`);
+    return this.http.get<ApiResponse<FileListData>>(`${this.baseUrl}/file-management/list`, { params: { folder } });
   }
 
   getFileBlob(folder: string, filename: string): Observable<Blob> {
-    return this.http.get(`${this.baseUrl}/file-management/${encodeURIComponent(folder)}/${encodeURIComponent(filename)}`, { responseType: 'blob' });
+    return this.http.get(`${this.baseUrl}/file-management/download`, { params: { folder, filename }, responseType: 'blob' });
   }
 
   deleteFile(folder: string, filename: string): Observable<ApiResponse<null>> {
-    return this.http.delete<ApiResponse<null>>(`${this.baseUrl}/file-management/${encodeURIComponent(folder)}/${encodeURIComponent(filename)}`);
+    return this.http.delete<ApiResponse<null>>(`${this.baseUrl}/file-management`, { params: { folder, filename } });
   }
 
 }
