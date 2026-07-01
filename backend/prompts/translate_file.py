@@ -106,6 +106,7 @@ def generate_batch_plan_prompt(
     Return JSON only.
     Do not include markdown fences.
     Do not include commentary.
+    Write the "reason" field in {output_lang}, regardless of the language of the subtitle transcript.
     Output exactly this shape:
 
     {{
@@ -161,6 +162,7 @@ def generate_split_batch_plan_prompt(
     Return JSON only.
     Do not include markdown fences.
     Do not include commentary.
+    Write the "reason" field in {output_lang}, regardless of the language of the subtitle transcript.
     Use exactly this shape:
 
     {{

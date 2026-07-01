@@ -60,6 +60,7 @@ def generate_batch_review_prompt(
     Return JSON only.
     Do not include markdown fences.
     Do not include commentary.
+    Write the "reason" field in {output_lang}, regardless of the language of the subtitle lines.
     Use exactly this shape:
 
     {{
