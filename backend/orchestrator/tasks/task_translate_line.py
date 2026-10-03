@@ -1,5 +1,5 @@
-from interface.base_task import BaseTask
-from models.model_manager import ModelManager
+from orchestrator.base_task import BaseTask
+from model_manager import ModelManager
 from orchestrator.result_handler import ResultHandler
 from prompts.translate import generate_translate_sub_prompt
 

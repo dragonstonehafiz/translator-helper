@@ -62,8 +62,8 @@ export class TranslateComponent implements OnInit, OnDestroy {
   isTranslatingFile = false;
   isReviewingTranslatedFile = false;
   downloadSections: DownloadSection[] = [
-    { folder: 'sub-files/translated', title: 'Translated Files', tooltip: 'Subtitle files produced by file translation', files: [], isLoading: false, error: '', deletingFilename: '' },
-    { folder: 'sub-files/reviewed', title: 'Reviewed Files', tooltip: 'Corrected subtitle files produced by translation review', files: [], isLoading: false, error: '', deletingFilename: '' },
+    { folder: 'translated', title: 'Translated Files', tooltip: 'Subtitle files produced by file translation', files: [], isLoading: false, error: '', deletingFilename: '' },
+    { folder: 'reviewed', title: 'Reviewed Files', tooltip: 'Corrected subtitle files produced by translation review', files: [], isLoading: false, error: '', deletingFilename: '' },
   ];
   private filePollingInterval?: any;
   private reviewPollingInterval?: any;

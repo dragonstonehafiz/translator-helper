@@ -5,7 +5,7 @@ from typing import Optional
 import pysubs2
 import whisper
 
-from interface import AudioModelInterface
+from audio.interface import AudioModelInterface
 
 
 class AudioWhisper(AudioModelInterface):
@@ -144,7 +144,7 @@ class AudioWhisper(AudioModelInterface):
         return self._device
 
     def get_available_devices(self) -> dict:
-        from utils.utils import get_device_map
+        from audio.devices import get_device_map
         return get_device_map()
 
     def get_server_variables(self) -> list[dict]:

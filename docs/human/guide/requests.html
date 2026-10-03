@@ -7,7 +7,7 @@
 <body>
 <nav class="site-nav" aria-label="Human documentation">
 <div class="site-nav-inner"><a class="site-nav-brand" href="../index.html">Translator Helper <span>docs</span></a><details class="nav-menu current"><summary>Documentation</summary>
-<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="backend.html">Backend and models</a><a href="tasks.html">Orchestrator and task chains</a><a href="requests.html" aria-current="page">Translation request flow</a><a href="frontend.html">Frontend architecture</a><a href="storage.html">Files and storage</a>
+<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="backend.html">Backend and models</a><a href="routes-api.html">Routes and API</a><a href="tasks.html">Orchestrator and task chains</a><a href="requests.html" aria-current="page">Translation request flow</a><a href="frontend.html">Frontend architecture</a><a href="storage.html">Files and storage</a>
 </div></details>
 </div>
 </nav>
@@ -37,7 +37,7 @@
 </h1>
 <p>File submission, background processing, result polling and downloads.
 </p>
-<div class="meta-line"><span>First draft</span><span>Current implementation &middot; 3 October 2026</span>
+<div class="meta-line"><span>Current implementation &middot; 3 October 2026</span>
 </div>
 </header>
 <section id="start">
@@ -66,7 +66,7 @@
 </div>
 <div class="flow-arrow" aria-hidden="true">
 </div>
-<div class="flow-step db"><strong>Translate and save</strong><small>Translate batches and save under sub-files/translated.</small>
+<div class="flow-step db"><strong>Translate and save</strong><small>Translate batches and save under files/outputs/translated.</small>
 </div>
 </div>
 <p>The route runner creates a timestamped log directory and supplies it to every task. Tasks can write numbered JSON diagnostics. The final translation task preserves the input extension in the output filename and lets the subtitle library save that format.
@@ -111,7 +111,7 @@
 <section id="finish">
 <h2>4. Completion and downloads
 </h2>
-<p>File translation marks completion without a result payload. The page refreshes the file list for <code>sub-files/translated</code>. Downloading is a separate request through <code>ApiService.getFileBlob()</code>.
+<p>File translation marks completion without a result payload. The page refreshes the file list for <code>translated</code>. Downloading is a separate request through <code>ApiService.getFileBlob()</code>.
 </p>
 <p>Other operations have different results: line tasks return text; library updates return proposals; review returns a result payload and also writes a corrected file. File downloads require a separate request.
 </p>

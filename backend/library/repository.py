@@ -1,5 +1,5 @@
 """
-Utility helpers for the series library.
+Series library persistence.
 
 Storage layout per series:
   library/<series_id>/series.json      — series metadata (id, name, langs, notes)
@@ -12,10 +12,15 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from fastapi import HTTPException
+from utils.config import LIBRARY_DIR
 
-OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
-LIBRARY_DIR = OUTPUTS_DIR / "library"
+
+class InvalidSeriesIdError(ValueError):
+    """Raised when a series ID is not a valid kebab-case slug."""
+
+
+class SeriesNotFoundError(LookupError):
+    """Raised when no series.json exists for a series ID."""
 
 
 def get_library_dir() -> Path:
@@ -61,11 +66,11 @@ def list_series_ids() -> list[str]:
 
 
 def load_series(series_id: str) -> dict:
-    """Load and merge series.json, characters.json, and glossary.json into a single dict; raises 404 if not found."""
+    """Load and merge series.json, characters.json, and glossary.json into a single dict; raises SeriesNotFoundError if not found."""
     series_dir = get_series_dir(series_id)
     meta_path = series_dir / "series.json"
     if not meta_path.exists():
-        raise HTTPException(status_code=404, detail=f"Series '{series_id}' not found")
+        raise SeriesNotFoundError(f"Series '{series_id}' not found")
 
     with open(meta_path, "r", encoding="utf-8") as f:
         meta = json.load(f)
@@ -119,6 +124,6 @@ def _write_json(path: Path, data) -> None:
 
 
 def _validate_series_id(series_id: str) -> None:
-    """Raise a 400 HTTPException if series_id is not a valid kebab-case slug."""
+    """Raise InvalidSeriesIdError if series_id is not a valid kebab-case slug."""
     if not series_id or not re.match(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$", series_id):
-        raise HTTPException(status_code=400, detail="Invalid series ID")
+        raise InvalidSeriesIdError("Invalid series ID")

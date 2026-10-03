@@ -1,0 +1,711 @@
+<!doctype html>
+
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Routes and API | Translator Helper</title><link rel="stylesheet" href="../human-docs.css"><link rel="stylesheet" href="routes-api.css"><script src="../human-docs.js" defer></script>
+</head>
+
+<body>
+<nav class="site-nav" aria-label="Human documentation">
+<div class="site-nav-inner"><a class="site-nav-brand" href="../index.html">Translator Helper <span>docs</span></a><details class="nav-menu current"><summary>Documentation</summary>
+<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="backend.html">Backend and models</a><a href="routes-api.html" aria-current="page">Routes and API</a><a href="tasks.html">Orchestrator and task chains</a><a href="requests.html">Translation request flow</a><a href="frontend.html">Frontend architecture</a><a href="storage.html">Files and storage</a>
+</div></details>
+</div>
+</nav>
+<div class="page">
+<aside class="toc" aria-label="On this page">
+<h2>On this page</h2>
+<ol>
+<li><a href="#contract">Response contract</a></li>
+<li><a href="#swimlane">Background job sequence</a></li>
+<li><a href="#shell">Application shell</a></li>
+<li><a href="#settings">Settings page</a></li>
+<li><a href="#translate">Translate page</a></li>
+<li><a href="#transcribe">Transcribe page</a></li>
+<li><a href="#library">Library pages</a></li>
+<li><a href="#shared">Shared task and file APIs</a></li>
+<li><a href="#schemas">Data shapes</a></li>
+<li><a href="#generated">Generated routes</a></li>
+</ol>
+</aside>
+<main>
+<header class="hero">
+<h1>Routes and API</h1>
+<p>Every backend endpoint, organized by the frontend page that uses it, with request inputs and returned data.</p>
+<div class="meta-line"><span>Current implementation &middot; 4 October 2026</span></div>
+</header>
+
+<div class="api-summary" aria-label="API summary">
+<div><strong>28</strong><span>application endpoints</span></div>
+<div><strong>6</strong><span>frontend workflow groups</span></div>
+<div><strong>1</strong><span>JSON response envelope</span></div>
+</div>
+
+<section id="contract">
+<h2>Response contract</h2>
+<p>All JSON endpoints return the same outer object. Payload fields belong under <code>data</code>. The file download endpoint is the only application route that returns a raw body instead.</p>
+<div class="contract">
+<div>
+<h3>Normal JSON response</h3>
+<pre><code>{
+  "status": "success | processing | complete | idle | error | loading",
+  "message": null,
+  "data": {}
+}</code></pre>
+</div>
+<div>
+<h3>Validation error · HTTP 422</h3>
+<pre><code>{
+  "status": "error",
+  "message": "Invalid request data.",
+  "data": { "details": [] }
+}</code></pre>
+</div>
+</div>
+<div class="note">
+<p>Several precondition failures—such as a model not being loaded or another task already running—use HTTP 200 with <code>status: "error"</code>. Callers must inspect both the HTTP result and the envelope status.</p>
+</div>
+</section>
+
+<section id="swimlane">
+<h2>How a background job runs</h2>
+<p>Every background job follows this sequence, with time running downwards: translate line, translate file, review, transcribe line, transcribe file and library update. The page sections below list each job's start endpoint. Jobs that produce a file also use the file-management routes. Direct requests such as library edits are a single request and response.</p>
+<figure class="swimlane">
+<img class="swimlane-svg" src="figures/background-job-sequence.svg" alt="Sequence shared by background jobs: post to the start endpoint, receive processing, poll task results every second until complete or error, then list and download any output file">
+</figure>
+</section>
+
+<section id="shell">
+<h2>Application shell and home</h2>
+<p>The home page has no page-specific backend call. The persistent application shell checks readiness and shows global task state.</p>
+<div class="endpoint-list">
+<article class="endpoint">
+<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/utils/server-variables</span></div>
+<p>Runtime values and readiness for the three clients. A provider list is empty until its client exists.</p>
+<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": {
+    "audio": [
+      {"key": "whisperx_model", "label": "Model", "value": "medium"},
+      {"key": "device", "label": "Device", "value": "cpu"},
+      {"key": "compute_type", "label": "Compute Type", "value": "float32"}
+    ],
+    "llm": [
+      {"key": "deepseek_model", "label": "Model", "value": "deepseek-v4-flash"},
+      {"key": "temperature", "label": "Temperature", "value": 0.5}
+    ],
+    "search": [{"key": "tavily_status", "label": "Status", "value": "loaded"}],
+    "llm_ready": true,
+    "audio_ready": true,
+    "search_ready": true,
+    "llm_loading_error": null,
+    "audio_loading_error": null,
+    "search_loading_error": null
+  }
+}</code></pre></div></div>
+</article>
+<article class="endpoint">
+<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/utils/running</span></div>
+<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": {
+    "running_llm": true,
+    "running_audio": false,
+    "loading_audio_model": false,
+    "loading_llm_model": false,
+    "active_task_type": "TaskTranslateFile"
+  }
+}</code></pre></div></div>
+</article>
+</div>
+</section>
+
+<section id="settings">
+<h2>Settings page</h2>
+<p>Settings reads each client's field definitions, shows runtime state, and asks the backend to configure and initialize each client.</p>
+<div class="endpoint-list">
+<article class="endpoint">
+<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/utils/settings-schema</span></div>
+<p>Field definitions for the Settings form. <code>audio</code> has the same shape, with <code>model_name</code>, <code>device</code>, <code>compute_type</code> and <code>batch_size</code> fields.</p>
+<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": {
+    "audio": {"provider": "audio_whisperx", "title": "WhisperX", "fields": ["…"]},
+    "llm": {
+      "provider": "llm_deepseek",
+      "title": "DeepSeek",
+      "fields": [
+        {
+          "key": "model_name",
+          "label": "Model",
+          "type": "select",
+          "options": [
+            {"label": "deepseek-v4-flash", "value": "deepseek-v4-flash"},
+            {"label": "deepseek-v4-pro", "value": "deepseek-v4-pro"}
+          ],
+          "default": "deepseek-v4-flash",
+          "required": true
+        },
+        {
+          "key": "api_key",
+          "label": "API Key",
+          "type": "password",
+          "placeholder": "sk-...",
+          "required": true
+        },
+        {
+          "key": "temperature",
+          "label": "Temperature",
+          "type": "number",
+          "min": 0,
+          "max": 2,
+          "step": 0.1,
+          "default": 0.5
+        }
+      ]
+    },
+    "search": {
+      "provider": "search_tavily",
+      "title": "Tavily Web Search",
+      "fields": [
+        {
+          "key": "api_key",
+          "label": "API Key",
+          "type": "password",
+          "placeholder": "tvly-...",
+          "required": true
+        }
+      ]
+    }
+  }
+}</code></pre></div></div>
+</article>
+<article class="endpoint">
+<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/utils/load-audio-model</span></div>
+<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
+  "provider": "audio",
+  "settings": {"model_name": "medium", "device": "cuda:0", "compute_type": "float16", "batch_size": 16}
+}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": "Audio model loaded",
+  "data": null
+}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
+  "status": "error",
+  "message": "Audio model is already loading",
+  "data": null
+}</code></pre></div></div>
+</article>
+<article class="endpoint">
+<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/utils/load-llm-model</span></div>
+<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
+  "provider": "llm",
+  "settings": {"model_name": "deepseek-v4-flash", "api_key": "sk-...", "temperature": 0.5}
+}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": "LLM loaded",
+  "data": null
+}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
+  "status": "error",
+  "message": "LLM is already loading",
+  "data": null
+}</code></pre></div></div>
+</article>
+<article class="endpoint">
+<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/utils/load-search-model</span></div>
+<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
+  "provider": "search",
+  "settings": {"api_key": "tvly-..."}
+}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": "Search model loaded",
+  "data": null
+}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
+  "status": "error",
+  "message": "Search model is already loading",
+  "data": null
+}</code></pre></div></div>
+</article>
+</div>
+<div class="note"><p><code>provider</code> is required by the request model but ignored by the handlers.</p></div>
+</section>
+
+<section id="translate">
+<h2>Translate page</h2>
+<p>One-line translation, whole-file translation and review of a translated file. The page also loads series choices, checks subtitle statistics and lists generated files.</p>
+<div class="endpoint-list">
+<article class="endpoint">
+<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/library/</span></div>
+<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": {
+    "series": [
+      {
+        "id": "my-show",
+        "name": "My Show",
+        "input_lang": "ja",
+        "output_lang": "en",
+        "character_count": 12,
+        "glossary_count": 30
+      }
+    ]
+  }
+}</code></pre></div></div>
+</article>
+<article class="endpoint">
+<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/utils/get-subtitle-file-info</span></div>
+<div class="io"><div class="io-panel"><h4>Request · multipart</h4><pre><code>file  episode01.ass         // required, .ass or .srt</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": {"total_lines": "312", "character_count": "9840", "average_character_count": "31.54"}
+}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
+  "status": "error",
+  "message": "Only .ass or .srt files are supported for this endpoint",
+  "data": null
+}</code></pre></div></div>
+</article>
+<article class="endpoint task">
+<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/translate/translate-line</span></div>
+<div class="io"><div class="io-panel"><h4>Request · multipart</h4><pre><code>text         こんにちは            // required
+context      "{}"                  // JSON string
+input_lang   "ja"                  // default
+output_lang  "en"                  // default</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
+  "status": "processing",
+  "message": "Translation started",
+  "data": {"task_type": "TaskTranslateLine"}
+}</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
+  "status": "complete",
+  "message": null,
+  "data": {"task_type": "TaskTranslateLine", "result": {"text": "Hello"}, "progress": null}
+}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
+  "status": "error",
+  "message": "Translation is already running",
+  "data": null
+}</code></pre></div></div>
+</article>
+<article class="endpoint task">
+<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/translate/translate-file</span></div>
+<p>Writes <code>files/outputs/translated/&lt;base&gt;.&lt;output_lang&gt;.&lt;ext&gt;</code>.</p>
+<div class="io"><div class="io-panel"><h4>Request · multipart</h4><pre><code>file         episode01.ass         // required
+input_lang   "ja"                  // default
+output_lang  "en"                  // default
+batch_size   3                     // default
+series_id    "my-show"             // optional</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
+  "status": "processing",
+  "message": "Translation started",
+  "data": {"task_type": "TaskTranslateFile"}
+}</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
+  "status": "complete",
+  "message": null,
+  "data": {
+    "task_type": "TaskTranslateFile",
+    "result": null,
+    "progress": {
+      "task_type": "TaskTranslateFile",
+      "current": 40,
+      "total": 40,
+      "status": "Translating batch 40/40",
+      "eta_seconds": 0.0
+    }
+  }
+}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
+  "status": "error",
+  "message": "Translation is already running",
+  "data": null
+}</code></pre></div></div>
+</article>
+<article class="endpoint task">
+<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/translate/review-translated-file</span></div>
+<p>Writes the corrected file under <code>files/outputs/reviewed/</code>.</p>
+<div class="io"><div class="io-panel"><h4>Request · multipart</h4><pre><code>file             episode01.ass         // required, original
+translated_file  episode01.en.ass      // required
+input_lang       "ja"                  // default
+output_lang      "en"                  // default
+batch_size       50                    // default
+series_id        "my-show"             // optional</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
+  "status": "processing",
+  "message": "Translation review started",
+  "data": {"task_type": "TaskRetranslateReviewedLines"}
+}</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
+  "status": "complete",
+  "message": null,
+  "data": {
+    "task_type": "TaskRetranslateReviewedLines",
+    "result": {"corrected_count": 14, "output_filename": "episode01.corrected.ass"},
+    "progress": null
+  }
+}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
+  "status": "error",
+  "message": "Translation review is already running",
+  "data": null
+}</code></pre></div></div>
+</article>
+</div>
+<div class="note"><p>An unknown <code>series_id</code> is ignored by translation and review; the chain runs without library context.</p></div>
+</section>
+
+<section id="transcribe">
+<h2>Transcribe page</h2>
+<p>Transcribe sends audio to the loaded audio model. A line task returns text; a file task writes an ASS subtitle.</p>
+<div class="endpoint-list">
+<article class="endpoint task">
+<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/transcribe/transcribe-line</span></div>
+<div class="io"><div class="io-panel"><h4>Request · multipart</h4><pre><code>file      clip.wav              // required
+language  "ja"                  // required</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
+  "status": "processing",
+  "message": "Transcription started",
+  "data": {"task_type": "TaskTranscribeLine"}
+}</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
+  "status": "complete",
+  "message": null,
+  "data": {"task_type": "TaskTranscribeLine", "result": {"text": "こんにちは"}, "progress": null}
+}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
+  "status": "error",
+  "message": "Transcription is already running",
+  "data": null
+}</code></pre></div></div>
+</article>
+<article class="endpoint task">
+<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/transcribe/transcribe-file</span></div>
+<p>Writes <code>files/outputs/transcribed/&lt;base&gt;.&lt;language&gt;.ass</code>.</p>
+<div class="io"><div class="io-panel"><h4>Request · multipart</h4><pre><code>file      episode01.wav         // required
+language  "ja"                  // required</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
+  "status": "processing",
+  "message": "File transcription started",
+  "data": {"task_type": "TaskTranscribeFile"}
+}</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
+  "status": "complete",
+  "message": null,
+  "data": {"task_type": "TaskTranscribeFile", "result": null, "progress": null}
+}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
+  "status": "error",
+  "message": "Transcription is already running",
+  "data": null
+}</code></pre></div></div>
+</article>
+</div>
+</section>
+
+<section id="library">
+<h2>Library pages</h2>
+<p>The library index lists, creates and deletes series. The detail page edits metadata, characters and glossary terms, and can scan a subtitle file for proposed additions.</p>
+<h3>Library index</h3>
+<div class="endpoint-list">
+<article class="endpoint">
+<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/library/</span></div>
+<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": {
+    "series": [
+      {
+        "id": "my-show",
+        "name": "My Show",
+        "input_lang": "ja",
+        "output_lang": "en",
+        "character_count": 12,
+        "glossary_count": 30
+      }
+    ]
+  }
+}</code></pre></div></div>
+</article>
+<article class="endpoint">
+<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/library/</span></div>
+<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
+  "name": "My Show",
+  "input_lang": "ja",
+  "output_lang": "en",
+  "notes": ""
+}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": <a href="#shape-series">Series</a>
+}</code></pre></div></div>
+</article>
+<article class="endpoint">
+<div class="endpoint-head"><span class="method delete">DELETE</span><span class="endpoint-path">/library/{series_id}</span></div>
+<p>Deletes the series folder and everything in it.</p>
+<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": null
+}</code></pre></div><div class="io-panel"><h4>Error · HTTP 200</h4><pre><code>{
+  "status": "error",
+  "message": "Series 'my-show' not found",
+  "data": null
+}</code></pre></div></div>
+</article>
+</div>
+<h3>Series detail</h3>
+<div class="endpoint-list">
+<article class="endpoint">
+<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/library/{series_id}</span></div>
+<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": <a href="#shape-series">Series</a>
+}</code></pre></div><div class="io-panel"><h4>Error · HTTP 404</h4><pre><code>{
+  "status": "error",
+  "message": "Series 'my-show' not found",
+  "data": null
+}</code></pre></div></div>
+</article>
+<article class="endpoint">
+<div class="endpoint-head"><span class="method patch">PATCH</span><span class="endpoint-path">/library/{series_id}</span></div>
+<p>Send only the fields to change: <code>name</code>, <code>input_lang</code>, <code>output_lang</code>, <code>notes</code>.</p>
+<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
+  "notes": "Set in Tokyo."
+}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": <a href="#shape-series">Series</a>
+}</code></pre></div></div>
+</article>
+<article class="endpoint">
+<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/library/{series_id}/characters</span></div>
+<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
+  "name": "Aoi",
+  "aliases": ["Aoi-chan"],
+  "personality": ["Cheerful"],
+  "relationships": {"Ren": ["Childhood friend."]},
+  "history": []
+}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": <a href="#shape-series">Series</a>
+}</code></pre></div></div>
+</article>
+<article class="endpoint">
+<div class="endpoint-head"><span class="method patch">PATCH</span><span class="endpoint-path">/library/{series_id}/characters/{character_id}</span></div>
+<p>Send only the fields to change.</p>
+<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
+  "history": ["Moved to Tokyo in episode 3."]
+}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": <a href="#shape-series">Series</a>
+}</code></pre></div><div class="io-panel"><h4>Error · HTTP 200</h4><pre><code>{
+  "status": "error",
+  "message": "Character 'aoi' not found",
+  "data": null
+}</code></pre></div></div>
+</article>
+<article class="endpoint">
+<div class="endpoint-head"><span class="method delete">DELETE</span><span class="endpoint-path">/library/{series_id}/characters/{character_id}</span></div>
+<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": <a href="#shape-series">Series</a>
+}</code></pre></div></div>
+</article>
+<article class="endpoint">
+<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/library/{series_id}/glossary</span></div>
+<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
+  "term": "先輩",
+  "translation": "senpai",
+  "notes": "Keep untranslated."
+}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": <a href="#shape-series">Series</a>
+}</code></pre></div></div>
+</article>
+<article class="endpoint">
+<div class="endpoint-head"><span class="method patch">PATCH</span><span class="endpoint-path">/library/{series_id}/glossary/{term_id}</span></div>
+<p>Send only the fields to change.</p>
+<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
+  "translation": "upperclassman"
+}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": <a href="#shape-series">Series</a>
+}</code></pre></div><div class="io-panel"><h4>Error · HTTP 200</h4><pre><code>{
+  "status": "error",
+  "message": "Glossary term 'senpai' not found",
+  "data": null
+}</code></pre></div></div>
+</article>
+<article class="endpoint">
+<div class="endpoint-head"><span class="method delete">DELETE</span><span class="endpoint-path">/library/{series_id}/glossary/{term_id}</span></div>
+<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": <a href="#shape-series">Series</a>
+}</code></pre></div></div>
+</article>
+<article class="endpoint task">
+<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/library/{series_id}/update</span></div>
+<p>The start response names an intermediate task; the frontend polls <code>TaskDeduplicateProposals</code>, the last stage.</p>
+<div class="io"><div class="io-panel"><h4>Request · multipart</h4><pre><code>file  episode01.ass         // required</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
+  "status": "processing",
+  "message": "Library update started",
+  "data": {"task_type": "TaskGenerateLibraryProposals"}
+}</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
+  "status": "complete",
+  "message": null,
+  "data": {
+    "task_type": "TaskDeduplicateProposals",
+    "result": {"proposals": <a href="#shape-proposals">LibraryProposals</a>},
+    "progress": null
+  }
+}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
+  "status": "error",
+  "message": "A task is already running",
+  "data": null
+}</code></pre></div></div>
+</article>
+</div>
+</section>
+
+<section id="shared">
+<h2>Shared task and file APIs</h2>
+<p>Translate, Transcribe and Library Detail poll task results. Translate and Transcribe also list, download and delete generated files.</p>
+<div class="endpoint-list">
+<article class="endpoint task">
+<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/task-results/{task_type}</span></div>
+<p>Status is <code>idle</code>, <code>processing</code>, <code>complete</code> or <code>error</code>. An unregistered task type returns HTTP 400.</p>
+<div class="io"><div class="io-panel"><h4>Processing</h4><pre><code>{
+  "status": "processing",
+  "message": null,
+  "data": {
+    "task_type": "TaskTranslateFile",
+    "result": null,
+    "progress": {
+      "task_type": "TaskTranslateFile",
+      "current": 12,
+      "total": 40,
+      "status": "Translating batch 12/40",
+      "eta_seconds": 84.0
+    }
+  }
+}</code></pre></div><div class="io-panel"><h4>Complete</h4><pre><code>{
+  "status": "complete",
+  "message": null,
+  "data": {"task_type": "TaskTranslateLine", "result": {"text": "Hello"}, "progress": null}
+}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
+  "status": "error",
+  "message": "LLM not loaded",
+  "data": {"task_type": "TaskTranslateFile", "result": null, "progress": null}
+}</code></pre></div><div class="io-panel"><h4>Idle</h4><pre><code>{
+  "status": "idle",
+  "message": null,
+  "data": {"task_type": "TaskTranslateFile", "result": null, "progress": null}
+}</code></pre></div></div>
+</article>
+<article class="endpoint file">
+<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/file-management/list?folder=translated</span></div>
+<p>Newest first.</p>
+<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": {
+    "files": [
+      {"name": "episode02.en.ass", "size": 51877, "modified": "2026-10-04T06:12:45.120384"},
+      {"name": "episode01.en.ass", "size": 48213, "modified": "2026-10-03T21:40:02.551907"}
+    ]
+  }
+}</code></pre></div></div>
+</article>
+<article class="endpoint file">
+<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/file-management/download?folder=translated&amp;filename=episode01.en.ass</span></div>
+<p>Returns the raw file, not a JSON envelope.</p>
+<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>HTTP/1.1 200 OK
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename="episode01.en.ass"
+
+&lt;file bytes&gt;</code></pre></div><div class="io-panel"><h4>Error · HTTP 404</h4><pre><code>{
+  "status": "error",
+  "message": "File not found",
+  "data": null
+}</code></pre></div></div>
+</article>
+<article class="endpoint file">
+<div class="endpoint-head"><span class="method delete">DELETE</span><span class="endpoint-path">/file-management?folder=translated&amp;filename=episode01.en.ass</span></div>
+<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
+  "status": "success",
+  "message": null,
+  "data": null
+}</code></pre></div><div class="io-panel"><h4>Error · HTTP 404</h4><pre><code>{
+  "status": "error",
+  "message": "File not found",
+  "data": null
+}</code></pre></div></div>
+</article>
+</div>
+<p>Output folders are <code>translated</code>, <code>reviewed</code> and <code>transcribed</code>, under <code>backend/files/outputs/</code>. Folder names may only contain letters, digits, hyphens and underscores.</p>
+<h3>Registered polling types</h3>
+<ul class="route-index">
+<li><code>TaskTranslateLine</code></li>
+<li><code>TaskTranslateFile</code></li>
+<li><code>TaskRetranslateReviewedLines</code></li>
+<li><code>TaskTranscribeLine</code></li>
+<li><code>TaskTranscribeFile</code></li>
+<li><code>TaskScanSubtitleFile</code></li>
+<li><code>TaskCheckAgainstLibrary</code></li>
+<li><code>TaskGenerateSearchQueries</code></li>
+<li><code>TaskWebSearch</code></li>
+<li><code>TaskGenerateLibraryProposals</code></li>
+<li><code>TaskDeduplicateProposals</code></li>
+</ul>
+</section>
+
+<section id="schemas">
+<h2>Returned data shapes</h2>
+<div class="schema-list">
+<article class="shape" id="shape-series">
+<h3>Series</h3>
+<pre><code>{
+  "id": "my-show",
+  "name": "My Show",
+  "input_lang": "ja",
+  "output_lang": "en",
+  "notes": "",
+  "characters": [
+    {
+      "id": "aoi",
+      "name": "Aoi",
+      "aliases": ["Aoi-chan"],
+      "personality": ["Cheerful"],
+      "relationships": {"Ren": ["Childhood friend."]},
+      "history": ["Moved to Tokyo in episode 3."]
+    }
+  ],
+  "glossary": [{"id": "senpai", "term": "先輩", "translation": "senpai", "notes": "Keep untranslated."}]
+}</code></pre>
+</article>
+<article class="shape" id="shape-proposals">
+<h3>Library proposals</h3>
+<pre><code>{
+  "new_characters": [
+    {
+      "name": "Ren",
+      "aliases": [],
+      "personality": ["Quiet"],
+      "relationships": {"Aoi": ["Childhood friend."]},
+      "history": []
+    }
+  ],
+  "updated_characters": [
+    {"id": "aoi", "field": "history", "append": "Joined the band in episode 4."},
+    {"id": "aoi", "field": "relationships", "character": "Ren", "append": "Rivals on stage."}
+  ],
+  "new_glossary": [{"term": "文化祭", "translation": "school festival", "notes": ""}],
+  "updated_glossary": [{"id": "senpai", "field": "notes", "value": "Keep untranslated in dialogue."}]
+}</code></pre>
+</article>
+</div>
+<p><code>updated_characters[].field</code> is <code>personality</code>, <code>relationships</code> or <code>history</code>; <code>character</code> is only present for relationships.</p>
+</section>
+
+<section id="generated">
+<h2>Generated FastAPI routes</h2>
+<p>FastAPI adds <code>GET /openapi.json</code>, <code>GET /docs</code>, <code>GET /docs/oauth2-redirect</code> and <code>GET /redoc</code>. These four routes are not part of the 28 application-endpoint count.</p>
+<p>Implementation sources: <code>backend/routes/</code>, <code>backend/utils/api_response.py</code>, task result writers under <code>backend/orchestrator/</code>, and <code>frontend/src/app/services/api.service.ts</code>.</p>
+</section>
+</main>
+</div>
+</body>
+</html>

@@ -5,7 +5,7 @@ from typing import Optional
 import os
 from pathlib import Path
 from llama_cpp import Llama
-from interface import LLMInterface
+from llm.interface import LLMInterface
 
 
 class LLMLlamaCpp(LLMInterface):

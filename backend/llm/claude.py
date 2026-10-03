@@ -4,7 +4,7 @@ import os
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from interface import LLMInterface
+from llm.interface import LLMInterface
 
 
 class LLMClaude(LLMInterface):

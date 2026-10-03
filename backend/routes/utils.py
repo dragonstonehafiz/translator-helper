@@ -7,14 +7,14 @@ import os
 from fastapi import APIRouter, File, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
-from models.search_tavily import SearchTavily
+from search.tavily import SearchTavily
 from utils.api_response import error_response, success_response
+from utils.subtitles import analyze_subtitle_file
 
 from .shared import (
     AUDIO_TASK_TYPES,
     LLM_TASK_TYPES,
     UpdateSettingsRequest,
-    analyze_subtitle_file,
     model_manager,
     save_upload_to_temp,
     task_orchestrator,

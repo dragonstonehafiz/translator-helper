@@ -65,8 +65,8 @@ Prefix `/translate` (`routes/translate.py`). All are multipart form posts that s
 | Path | Form fields | Polled task type | Output |
 |---|---|---|---|
 | `POST /translate/translate-line` | `text` (required), `context` (JSON string, default `{}`), `input_lang` (`ja`), `output_lang` (`en`) | `TaskTranslateLine` | `result` in the poll response |
-| `POST /translate/translate-file` | `file`, `input_lang` (`ja`), `output_lang` (`en`), `batch_size` (`3`), `series_id` (optional) | `TaskTranslateFile` | `outputs/sub-files/translated/<base>.<output_lang>.<ext>` |
-| `POST /translate/review-translated-file` | `file` (original), `translated_file`, `input_lang` (`ja`), `output_lang` (`en`), `batch_size` (`50`), `series_id` (optional) | `TaskRetranslateReviewedLines` | `outputs/sub-files/reviewed/` and `result` in the poll response |
+| `POST /translate/translate-file` | `file`, `input_lang` (`ja`), `output_lang` (`en`), `batch_size` (`3`), `series_id` (optional) | `TaskTranslateFile` | `files/outputs/translated/<base>.<output_lang>.<ext>` |
+| `POST /translate/review-translated-file` | `file` (original), `translated_file`, `input_lang` (`ja`), `output_lang` (`en`), `batch_size` (`50`), `series_id` (optional) | `TaskRetranslateReviewedLines` | `files/outputs/reviewed/` and `result` in the poll response |
 
 An unknown `series_id` is ignored and the chain runs without library context.
 
@@ -77,7 +77,7 @@ Prefix `/transcribe` (`routes/transcribe.py`). Multipart posts with `file` (audi
 | Path | Polled task type | Output |
 |---|---|---|
 | `POST /transcribe/transcribe-line` | `TaskTranscribeLine` | `result` in the poll response |
-| `POST /transcribe/transcribe-file` | `TaskTranscribeFile` | `.ass` file in `outputs/transcribe-sub-files/` |
+| `POST /transcribe/transcribe-file` | `TaskTranscribeFile` | `.ass` file in `files/outputs/transcribed/` |
 
 ## Library
 
@@ -104,7 +104,7 @@ For `/update`, the frontend polls `TaskDeduplicateProposals`, whose `result` is 
 
 ## File management
 
-Prefix `/file-management` (`routes/file_management.py`). Works over any directory under `backend/outputs/`.
+Prefix `/file-management` (`routes/file_management.py`). Works over the output folders under `backend/files/outputs/` (`OUTPUTS_DIR`).
 
 | Method & path | Query | Response |
 |---|---|---|
@@ -112,7 +112,7 @@ Prefix `/file-management` (`routes/file_management.py`). Works over any director
 | `GET /file-management/download` | `folder`, `filename` | File blob |
 | `DELETE /file-management` | `folder`, `filename` | `success`, `data: null` |
 
-- `folder` may be nested (`sub-files/translated`). `get_files_dir()` checks each `/`-separated segment (alphanumeric, `-`, `_` only; no `..`) and creates the directory if it is missing. An invalid folder returns 400; a missing file returns 404.
+- `get_files_dir()` checks each `/`-separated segment (alphanumeric, `-`, `_` only; no `..`) and creates the directory if it is missing. An invalid folder returns 400; a missing file returns 404.
 - `folder` and `filename` are always **query parameters**. Do not switch these routes to path segments: once `folder` can contain `/`, a `{folder:path}` list route and a `{folder:path}/{filename}` download route are ambiguous, and whichever is registered first swallows the other's requests.
 
-Folders the frontend uses: `sub-files/translated`, `sub-files/reviewed`, `transcribe-sub-files`.
+Output folders: `translated`, `reviewed`, `transcribed` (used by the frontend) and `context`.

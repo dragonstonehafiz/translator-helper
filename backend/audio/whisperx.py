@@ -7,7 +7,7 @@ import warnings
 import pysubs2
 import whisperx
 
-from interface import AudioModelInterface
+from audio.interface import AudioModelInterface
 
 # Suppress verbose output from whisperx and its dependencies
 warnings.filterwarnings("ignore", category=UserWarning, module="pyannote")
@@ -231,7 +231,7 @@ class AudioWhisperX(AudioModelInterface):
 
     def get_available_devices(self) -> dict:
         """Return a dict of human-readable device labels to torch device strings for the settings UI."""
-        from utils.utils import get_device_map
+        from audio.devices import get_device_map
         return get_device_map()
 
     def get_server_variables(self) -> list[dict]:

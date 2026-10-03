@@ -2,12 +2,12 @@ import json
 import os
 from typing import Optional
 
+from utils.config import CONFIG_DIR
 from utils.logger import setup_logger
 
 logger = setup_logger("translator-helper")
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
-CONFIG_FILE = os.path.join(DATA_DIR, "search_tavily.json")
+CONFIG_FILE = CONFIG_DIR / "search_tavily.json"
 
 
 class SearchTavily:
@@ -24,7 +24,7 @@ class SearchTavily:
                 cfg = json.load(f)
             self._api_key = cfg.get("api_key", "")
         else:
-            os.makedirs(DATA_DIR, exist_ok=True)
+            CONFIG_DIR.mkdir(parents=True, exist_ok=True)
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 json.dump({"api_key": ""}, f, indent=2)
 
@@ -34,7 +34,7 @@ class SearchTavily:
             return
         if "api_key" in settings:
             self._api_key = settings["api_key"]
-        os.makedirs(DATA_DIR, exist_ok=True)
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump({"api_key": self._api_key}, f, indent=2)
 

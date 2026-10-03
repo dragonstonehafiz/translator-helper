@@ -7,7 +7,7 @@
 <body>
 <nav class="site-nav" aria-label="Human documentation">
 <div class="site-nav-inner"><a class="site-nav-brand" href="../index.html">Translator Helper <span>docs</span></a><details class="nav-menu current"><summary>Documentation</summary>
-<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="backend.html" aria-current="page">Backend and models</a><a href="tasks.html">Orchestrator and task chains</a><a href="requests.html">Translation request flow</a><a href="frontend.html">Frontend architecture</a><a href="storage.html">Files and storage</a>
+<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="backend.html" aria-current="page">Backend and models</a><a href="routes-api.html">Routes and API</a><a href="tasks.html">Orchestrator and task chains</a><a href="requests.html">Translation request flow</a><a href="frontend.html">Frontend architecture</a><a href="storage.html">Files and storage</a>
 </div></details>
 </div>
 </nav>
@@ -37,7 +37,7 @@
 </h1>
 <p>The backend is organized around HTTP routes, task execution and a shared manager for model clients.
 </p>
-<div class="meta-line"><span>First draft</span><span>Current implementation &middot; 3 October 2026</span>
+<div class="meta-line"><span>Current implementation &middot; 3 October 2026</span>
 </div>
 </header>
 <section id="folders">
@@ -54,15 +54,21 @@
 </tr>
 <tr><td>routes/</td><td>HTTP boundary; builds task input dictionaries and assembles chains.</td><td><code>backend/routes/__init__.py</code></td>
 </tr>
-<tr><td>interface/</td><td>Abstract contracts for LLMs, audio models and tasks. Implementations live elsewhere.</td><td><code>backend/interface/llm_interface.py</code></td>
+<tr><td>model_manager.py</td><td>ModelManager: owns the LLM, audio and search clients and their loading state.</td><td><code>backend/model_manager.py</code></td>
 </tr>
-<tr><td>models/</td><td>Provider implementations, Tavily client and ModelManager.</td><td><code>backend/models/model_manager.py</code></td>
+<tr><td>llm/</td><td>LLM contract next to its provider implementations.</td><td><code>backend/llm/interface.py</code></td>
 </tr>
-<tr><td>orchestrator/</td><td>Sequential runner, result/progress stores, and domain-specific tasks.</td><td><code>backend/orchestrator/task_orchestrator.py</code></td>
+<tr><td>audio/</td><td>Audio contract, provider implementations and torch device discovery.</td><td><code>backend/audio/interface.py</code></td>
+</tr>
+<tr><td>search/</td><td>Tavily search client.</td><td><code>backend/search/tavily.py</code></td>
+</tr>
+<tr><td>library/</td><td>Series library persistence; raises its own errors instead of HTTP errors.</td><td><code>backend/library/repository.py</code></td>
+</tr>
+<tr><td>orchestrator/</td><td>BaseTask, sequential runner, result/progress stores, and domain-specific tasks.</td><td><code>backend/orchestrator/task_orchestrator.py</code></td>
 </tr>
 <tr><td>prompts/</td><td>Functions that build system-prompt text; task code builds the corresponding user message.</td><td><code>backend/prompts/translate_file.py</code></td>
 </tr>
-<tr><td>utils/</td><td>Response envelopes, subtitle helpers, library persistence, logging and paths.</td><td><code>backend/utils/library.py</code></td>
+<tr><td>utils/</td><td>Response envelopes, subtitle helpers, logging and runtime paths. Importing it does not load torch.</td><td><code>backend/utils/config.py</code></td>
 </tr>
 </tbody>
 </table>
@@ -71,7 +77,7 @@
 <section id="startup">
 <h2>Startup
 </h2>
-<p><code>server.py</code> calls <code>startup_load_models()</code>. It starts three daemon threads: one for the LLM, one for audio, and one for search. Each calls the shared manager. Readiness can still be false while initialization runs.
+<p>The <code>server.py</code> lifespan starts three daemon threads: one for the LLM, one for audio, and one for search. Each calls the shared manager. Readiness can still be false while initialization runs.
 </p>
 <div class="flow" aria-label="Process in execution order">
 <div class="flow-step route"><strong>Server lifespan</strong><small>Starts loading threads.</small>
@@ -127,9 +133,9 @@
 </h2>
 <p><code>LLMInterface</code> combines inference with initialization, shutdown, configuration/schema methods, status, running state, device access, model access and temperature access. <code>AudioModelInterface</code> has a similar shape, with line/file transcription and available-device methods instead of inference and temperature.
 </p>
-<p>Both contain a helper for finding configuration files in <code>backend/data/</code>. Provider implementations handle their actual settings persistence. Sharing configuration behavior is a possible future design choice; there is no common configuration interface today.
+<p>Both contain a helper for finding configuration files in <code>backend/files/config/</code>. Provider implementations handle their actual settings persistence. Sharing configuration behavior is a possible future design choice; there is no common configuration interface today.
 </p>
-<p>Source: <code>backend/interface/llm_interface.py</code> and <code>backend/interface/audio_model_interface.py</code>.
+<p>Source: <code>backend/llm/interface.py</code> and <code>backend/audio/interface.py</code>.
 </p>
 </section>
 <section id="status">
@@ -147,7 +153,7 @@
 <section id="search">
 <h2>Tavily search
 </h2>
-<p>Tavily is a concrete search client in <code>models/</code>, owned by ModelManager. It does not implement the LLM or audio interface. <code>TaskWebSearch</code> retrieves it and calls <code>search()</code> directly to collect snippets for library proposals.
+<p>Tavily is a concrete search client in <code>search/</code>, owned by ModelManager. It does not implement the LLM or audio interface. <code>TaskWebSearch</code> retrieves it and calls <code>search()</code> directly to collect snippets for library proposals.
 </p>
 <p>If no queries exist, the task skips searching. If queries exist and search is unavailable, it raises an error. Source: <code>backend/orchestrator/library/task_web_search.py</code>.
 </p>

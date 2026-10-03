@@ -12,7 +12,7 @@ import tempfile
 from fastapi import HTTPException, UploadFile
 from pydantic import BaseModel
 
-from models.model_manager import ModelManager
+from model_manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from orchestrator.library.task_check_against_library import TaskCheckAgainstLibrary
@@ -34,6 +34,7 @@ from orchestrator.tasks.task_transcribe_line import TaskTranscribeLine
 from orchestrator.translate_file.task_translate_file import TaskTranslateFile
 from orchestrator.tasks.task_translate_line import TaskTranslateLine
 from utils.api_response import complete_response, error_response, idle_response, processing_response, task_result_data
+from utils.config import OUTPUTS_DIR
 
 model_manager = ModelManager.get_instance()
 task_orchestrator = TaskOrchestrator.get_instance()
@@ -72,7 +73,6 @@ TRANSLATE_TASK_TYPES = [
     TaskRetranslateReviewedLines.TASK_TYPE,
 ]
 TRANSCRIBE_TASK_TYPES = [TaskTranscribeLine.TASK_TYPE, TaskTranscribeFile.TASK_TYPE]
-OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
 
 
 class UpdateSettingsRequest(BaseModel):
@@ -139,30 +139,6 @@ def parse_json_form(value: str, fallback: dict | None = None) -> dict:
     if value:
         return json.loads(value)
     return fallback or {}
-
-
-def analyze_subtitle_file(file_path: str):
-    """Return dialogue stats for an ASS/SRT subtitle file."""
-    import pysubs2
-
-    subs = pysubs2.load(file_path)
-    total_lines = 0
-    total_characters = 0
-    for event in subs.events:
-        text = event.plaintext.strip()
-        if not text:
-            continue
-        speaker = event.name.strip() if event.name else ""
-        line_text = f"{speaker}: {text}" if speaker else text
-        total_lines += 1
-        total_characters += len(line_text)
-
-    average_characters = total_characters / total_lines if total_lines else 0
-    return {
-        "total_lines": str(total_lines),
-        "character_count": str(total_characters),
-        "average_character_count": f"{average_characters:.2f}",
-    }
 
 
 def get_files_dir(folder: str) -> Path:

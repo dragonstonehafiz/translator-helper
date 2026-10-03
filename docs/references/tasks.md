@@ -19,7 +19,7 @@ How long-running backend work is structured: the `BaseTask` pattern, `TaskOrches
 
 ## Task pattern
 
-Every task extends `BaseTask` (`interface/base_task.py`):
+Every task extends `BaseTask` (`orchestrator/base_task.py`):
 
 - `TASK_TYPE` — class-level string constant (the class name, e.g. `"TaskTranslateFile"`), used as the key in every registry and by the frontend's `TASK_TYPES`.
 - `task_type` property — returns `self.TASK_TYPE`.
@@ -62,7 +62,7 @@ LLM calls go through `model_manager.llm_infer(...)`; transcription through `mode
 - `clear_tasks()`, `add_task(task)`, `run_tasks(initial_data)` — runs each task in order, passing each task's returned dict to the next via `set_data()`.
 - `run_task(task, data)` — clears the list, adds one task, and runs it.
 - `run_tasks` raises `RuntimeError` if a chain is already running; `is_running()` and `get_active_task_type()` expose the current state.
-- Each task's start, finish (with elapsed time and `log_dir`), and failure is written to `outputs/translator-helper.log`.
+- Each task's start, finish (with elapsed time and `log_dir`), and failure is written to `files/logs/translator-helper.log`.
 
 ## Result and progress handlers
 
@@ -114,13 +114,13 @@ The frontend polls `GET /task-results/{task_type}` with the chain's **final** ta
 
 ## Run logs
 
-Each multi-task chain writes numbered JSON files into its per-run `log_dir` (`outputs/<chain>-logs/<YYYYmmdd-HHMMSS>-<name>/`), numbered by the task's position in the chain:
+Each multi-task chain writes numbered JSON files into its per-run `log_dir` (`files/logs/<chain>/<YYYYmmdd-HHMMSS>-<name>/`), numbered by the task's position in the chain:
 
 | Chain | Files |
 |---|---|
-| Translate file (`translate-file-logs/`) | `01-plan-translation-batches.json`, `02-split-oversized-batches.json`, `03-select-library-context.json`, `04-translate-file-batch-failures.json` (only when batches fail) |
-| Review (`review-file-logs/`) | `01-plan-translation-batches.json`, `02-select-library-context.json`, `03-review-translated-batches.json` (+ `03-review-translated-batch-failures.json` on failure), `04-retranslate-reviewed-lines.json` |
-| Library update (`library-update-logs/`) | `01-scan-subtitle-file.json`, `02-check-against-library.json`, `03-generate-search-queries.json`, `04-web-search.json`, `05-generate-library-proposals.json`, `06-deduplicate-proposals.json` |
+| Translate file (`translate_file/`) | `01-plan-translation-batches.json`, `02-split-oversized-batches.json`, `03-select-library-context.json`, `04-translate-file-batch-failures.json` (only when batches fail) |
+| Review (`review_file/`) | `01-plan-translation-batches.json`, `02-select-library-context.json`, `03-review-translated-batches.json` (+ `03-review-translated-batch-failures.json` on failure), `04-retranslate-reviewed-lines.json` |
+| Library update (`update_library/`) | `01-scan-subtitle-file.json`, `02-check-against-library.json`, `03-generate-search-queries.json`, `04-web-search.json`, `05-generate-library-proposals.json`, `06-deduplicate-proposals.json` |
 
 ## Prompts
 

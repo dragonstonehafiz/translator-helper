@@ -74,7 +74,7 @@ def main() -> int:
     args = _parse_args()
 
     try:
-        from models.model_manager import ModelManager
+        from model_manager import ModelManager
         from orchestrator.task_orchestrator import TaskOrchestrator
         from orchestrator.result_handler import ResultHandler
         from orchestrator.translate_file.task_plan_translation_batches import TaskPlanTranslationBatches

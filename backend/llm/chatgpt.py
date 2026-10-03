@@ -4,19 +4,14 @@ import os
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from interface import LLMInterface
-
-DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+from llm.interface import LLMInterface
 
 
-class LLMDeepSeek(LLMInterface):
-    """LLM backend that calls the DeepSeek API via the OpenAI-compatible LangChain ChatOpenAI client."""
-
-    CONFIG_FILE = "llm_deepseek.json"
+class LLMChatGPT(LLMInterface):
+    CONFIG_FILE = "llm_chatgpt.json"
 
     def __init__(self):
-        """Load saved config from disk or write defaults; sets up model name, API key, and temperature."""
-        self._model_name = "deepseek-v4-flash"
+        self._model_name = "gpt-4o"
         self._device = "API"
         self._api_key = ""
         self._temperature = 0.5
@@ -37,7 +32,6 @@ class LLMDeepSeek(LLMInterface):
                 json.dump({"model_name": self._model_name, "api_key": "", "temperature": self._temperature}, _f, indent=2)
 
     def configure(self, settings: dict):
-        """Apply api_key, model_name, and/or temperature from settings and persist to the config file."""
         if not settings:
             return
 
@@ -54,18 +48,20 @@ class LLMDeepSeek(LLMInterface):
             json.dump({"model_name": self._model_name, "api_key": self._api_key, "temperature": self._temperature}, _f, indent=2)
 
     def get_settings_schema(self) -> dict:
-        """Return the settings schema describing model, API key, and temperature fields for the settings UI."""
         return {
-            "provider": "llm_deepseek",
-            "title": "DeepSeek",
+            "provider": "llm_chatgpt",
+            "title": "OpenAI ChatGPT",
             "fields": [
                 {
                     "key": "model_name",
                     "label": "Model",
                     "type": "select",
                     "options": [
-                        {"label": "deepseek-v4-flash", "value": "deepseek-v4-flash"},
-                        {"label": "deepseek-v4-pro", "value": "deepseek-v4-pro"},
+                        {"label": "gpt-4.1-mini", "value": "gpt-4.1-mini"},
+                        {"label": "gpt-4.1", "value": "gpt-4.1"},
+                        {"label": "gpt-5.1", "value": "gpt-5.1"},
+                        {"label": "gpt-4o", "value": "gpt-4o"},
+                        {"label": "o4-mini", "value": "o4-mini"}
                     ],
                     "default": self._model_name,
                     "required": True
@@ -90,9 +86,9 @@ class LLMDeepSeek(LLMInterface):
         }
 
     def initialize(self):
-        """Build the LangChain client and send a minimal test request to validate the API key; sets status to 'loaded' or 'error'."""
         try:
             self._llm = self._build_llm()
+            # Validate API key with a lightweight request.
             test_llm = self._build_llm(temperature=0, max_tokens=1)
             test_llm.invoke([HumanMessage(content="ping")])
             self._status = "loaded"
@@ -101,35 +97,28 @@ class LLMDeepSeek(LLMInterface):
             raise
 
     def change_model(self, model_name: str):
-        """Switch to a different DeepSeek model name and rebuild the client if one is already loaded."""
         self._model_name = model_name
         if self._llm is not None:
             self._llm = self._build_llm()
-
+            
     def get_model(self) -> str:
-        """Return the current DeepSeek model name."""
         return self._model_name
 
     def set_device(self, device: str):
-        """No-op for API-based providers; device is always 'API'."""
         self._device = "API"
 
     def get_device(self) -> str:
-        """Return 'API' (DeepSeek runs remotely, not on a local device)."""
         return self._device
 
     def set_temperature(self, temperature: float):
-        """Set the default temperature used for inference calls."""
         self._temperature = temperature
 
     def get_temperature(self) -> float:
-        """Return the current default temperature."""
         return self._temperature
 
     def get_server_variables(self) -> list[dict]:
-        """Return model name and temperature as key-value pairs for the server-variables status endpoint."""
         return [
-            {"key": "deepseek_model", "label": "Model", "value": self._model_name},
+            {"key": "openai_model", "label": "Model", "value": self._model_name},
             {"key": "temperature", "label": "Temperature", "value": self._temperature}
         ]
 
@@ -140,7 +129,6 @@ class LLMDeepSeek(LLMInterface):
         temperature: float | None = None,
         max_tokens: int | None = None
     ):
-        """Run inference; builds a temporary client if temperature or max_tokens override the defaults."""
         llm = self._llm
         if llm is None:
             llm = self._build_llm()
@@ -156,34 +144,30 @@ class LLMDeepSeek(LLMInterface):
         return response.content
 
     def shutdown(self):
-        """Release the client reference and reset status to 'not_loaded'."""
         self._llm = None
         self._status = "not_loaded"
 
     def get_status(self) -> str:
-        """Return the current load status: 'not_loaded', 'loaded', or 'error'."""
         return self._status
 
     def is_running(self) -> bool:
-        """Return True if an inference call is currently in progress."""
         return self._running
 
     def set_running(self, running: bool):
-        """Set the running flag; called by tasks before and after inference to prevent concurrent use."""
         self._running = running
 
     def _build_llm(self, temperature: float | None = None, max_tokens: int | None = None):
-        """Construct and return a ChatOpenAI instance pointed at the DeepSeek API endpoint."""
         if not self._api_key:
-            raise ValueError("DeepSeek API key is required to initialize DeepSeek.")
+            raise ValueError("OpenAI API key is required to initialize ChatGPT.")
 
         params = {
             "api_key": self._api_key,
             "model": self._model_name,
-            "base_url": DEEPSEEK_BASE_URL,
             "temperature": self._temperature if temperature is None else temperature
         }
-        if max_tokens is not None:
+        if max_tokens is None:
+            pass
+        else:
             params["max_tokens"] = max_tokens
 
         return ChatOpenAI(**params)

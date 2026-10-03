@@ -1,13 +1,14 @@
 import os
 from typing import Optional
 
-from models.audio_whisperx import AudioWhisperX
-# from models.llm_claude import LLMClaude
-from models.llm_deepseek import LLMDeepSeek
-# from models.llm_llamacpp import LLMLlamaCpp
-from models.search_tavily import SearchTavily
-from interface.llm_interface import LLMInterface
-from interface.audio_model_interface import AudioModelInterface
+from audio.whisperx import AudioWhisperX
+# from llm.claude import LLMClaude
+from llm.deepseek import LLMDeepSeek
+# from llm.llamacpp import LLMLlamaCpp
+from search.tavily import SearchTavily
+from llm.interface import LLMInterface
+from audio.interface import AudioModelInterface
+from utils.config import OUTPUTS_DIR
 from utils.logger import setup_logger
 
 logger = setup_logger("translator-helper")
@@ -174,7 +175,7 @@ class ModelManager:
         return self._audio_client.transcribe_line(file_path, language)
 
     def audio_transcribe_file(self, file_path: str, language: str, original_filename: str):
-        """Transcribe a full audio file to an ASS subtitle file saved under outputs/transcribe-sub-files/; raises RuntimeError if audio client is not initialized."""
+        """Transcribe a full audio file to an ASS subtitle file saved under OUTPUTS_DIR/transcribed/; raises RuntimeError if audio client is not initialized."""
         if self._audio_client is None:
             raise RuntimeError("Audio client not initialized.")
 
@@ -183,8 +184,8 @@ class ModelManager:
         base_name = safe_original_name.split(".")[0]
         safe_lang = "".join(char for char in language if char.isalnum() or char in ("-", "_")) or "lang"
         output_filename = f"{base_name}.{safe_lang}.ass"
-        output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "outputs", "transcribe-sub-files")
-        os.makedirs(output_dir, exist_ok=True)
-        output_path = os.path.join(output_dir, output_filename)
+        output_dir = OUTPUTS_DIR / "transcribed"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = str(output_dir / output_filename)
         subs.save(output_path)
         return output_path

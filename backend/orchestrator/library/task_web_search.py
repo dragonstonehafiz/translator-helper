@@ -1,8 +1,8 @@
 import json
 import os
 
-from interface.base_task import BaseTask
-from models.model_manager import ModelManager
+from orchestrator.base_task import BaseTask
+from model_manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from utils.logger import setup_logger

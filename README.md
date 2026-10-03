@@ -29,7 +29,7 @@ A full-stack web application for transcribing and translating subtitle files. Bu
 ### Translate Page
 - **Context**: View and edit saved context (character list, synopsis, summary)
 - **Translate Line**: Translate single lines with selectable context sources (character list, synopsis, summary)
-- **Translate File**: Upload subtitle files (.ass/.srt) with batch size support; translated files are saved in `backend/outputs/sub-files/` for download
+- **Translate File**: Upload subtitle files (.ass/.srt) with batch size support; translated files are saved in `backend/files/outputs/translated/` for download
 
 
 ## Dependencies
@@ -94,17 +94,17 @@ uv pip install torchaudio
 
 ### 5. Configuration
 
-Settings (API keys, model names, temperatures, etc.) are stored as JSON files in `backend/data/`. These files are created automatically with default values the first time the backend starts up. You can set your API keys and preferences through the **Settings page** in the app — changes are saved immediately to the corresponding JSON file.
+Settings (API keys, model names, temperatures, etc.) are stored as JSON files in `backend/files/config/`. These files are created automatically with default values the first time the backend starts up. You can set your API keys and preferences through the **Settings page** in the app — changes are saved immediately to the corresponding JSON file.
 
 | File | Provider |
 |---|---|
-| `backend/data/llm_claude.json` | Anthropic Claude |
-| `backend/data/llm_chatgpt.json` | OpenAI ChatGPT |
-| `backend/data/llm_deepseek.json` | DeepSeek |
-| `backend/data/llm_llamacpp.json` | llama.cpp (local GGUF) |
-| `backend/data/audio_whisperx.json` | WhisperX |
-| `backend/data/audio_whisper.json` | Whisper |
-| `backend/data/search_tavily.json` | Tavily Web Search |
+| `backend/files/config/llm_claude.json` | Anthropic Claude |
+| `backend/files/config/llm_chatgpt.json` | OpenAI ChatGPT |
+| `backend/files/config/llm_deepseek.json` | DeepSeek |
+| `backend/files/config/llm_llamacpp.json` | llama.cpp (local GGUF) |
+| `backend/files/config/audio_whisperx.json` | WhisperX |
+| `backend/files/config/audio_whisper.json` | Whisper |
+| `backend/files/config/search_tavily.json` | Tavily Web Search |
 
 ### 6. Using llama.cpp (Local LLM)
 
@@ -119,7 +119,7 @@ If you want to use a local GGUF model instead of an API-based LLM, install the l
    - Put the model in `backend/model-files/`
 
 3. **Start the backend**
-   - The backend reads local llama.cpp settings from `backend/data/llm_llamacpp.json`
+   - The backend reads local llama.cpp settings from `backend/files/config/llm_llamacpp.json`
    - If the file does not exist yet, it will be created automatically
 
 4. **Configure the model through the Settings page**
@@ -132,9 +132,9 @@ If you want to use a local GGUF model instead of an API-based LLM, install the l
      - `temperature`
 
 Notes:
-- The local llama.cpp implementation lives in `backend/models/llm_llamacpp.py`
+- The local llama.cpp implementation lives in `backend/llm/llamacpp.py`
 - The current backend `ModelManager` already supports `LLMLlamaCpp`; no manual code edits are required just to use the local backend
-- API-based backends remain available through their own JSON config files in `backend/data/`
+- API-based backends remain available through their own JSON config files in `backend/files/config/`
 - `n_gpu_layers = -1` lets llama.cpp auto-select GPU offload depth
 
 ### 7. Setting up the Frontend

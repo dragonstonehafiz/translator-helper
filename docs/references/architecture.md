@@ -38,12 +38,15 @@ README.md       User setup and usage
 
 ```
 backend/
-  server.py                  FastAPI app, CORS, lifespan (loads models on startup)
-  interface/                 Abstract bases: LLMInterface, AudioModelInterface, BaseTask
-  models/                    Concrete clients: LLMDeepSeek, LLMClaude, LLMChatGPT, LLMLlamaCpp,
-                             AudioWhisperX, AudioWhisper, SearchTavily
-  models/model_manager.py    ModelManager singleton — client lifecycle and infer/transcribe helpers
+  server.py                  FastAPI app, CORS, lifespan (starts background model loading)
+  model_manager.py           ModelManager singleton — client lifecycle and infer/transcribe helpers
+  llm/                       LLMInterface (interface.py) + LLMDeepSeek, LLMClaude, LLMChatGPT, LLMLlamaCpp
+  audio/                     AudioModelInterface (interface.py) + AudioWhisperX, AudioWhisper;
+                             devices.py — torch device discovery
+  search/tavily.py           SearchTavily
+  library/repository.py      Series load/save, slugs, character/glossary lookup; domain errors
   orchestrator/
+    base_task.py             BaseTask abstract base
     task_orchestrator.py     TaskOrchestrator singleton — runs one task chain at a time
     result_handler.py        ResultHandler singleton — latest result per task type
     progress_handler.py      ProgressHandler singleton — progress per task type
@@ -52,30 +55,30 @@ backend/
     review_file/             Translated-file review chain tasks
     tasks/                   Standalone tasks (transcribe line/file, translate line)
   routes/
-    __init__.py              Aggregates routers; startup_load_models()
+    __init__.py              Aggregates routers
     shared.py                Singleton references, task-type sets, polling/upload/file helpers
     library.py               Series/character/glossary CRUD + library update chain
     translate.py             translate-line, translate-file, review-translated-file + chain runners
     transcribe.py            transcribe-line, transcribe-file
     task_results.py          GET /task-results/{task_type}
-    file_management.py       List/download/delete files under outputs/
+    file_management.py       List/download/delete files under files/outputs/
     utils.py                 Status, settings schema, model loading, subtitle file info
   prompts/                   System-prompt builders, one module per domain
   utils/
     api_response.py          Response envelope helpers and global exception handlers
-    config.py                BACKEND_DIR and OUTPUTS_DIR path constants
-    library.py               Series load/save, slugs, character/glossary lookup
+    config.py                BACKEND_DIR, FILES_DIR, CONFIG_DIR, LIBRARY_DIR, OUTPUTS_DIR, LOGS_DIR
     logger.py                setup_logger() — shared log file
-    utils.py                 load_sub_data() and other helpers
+    subtitles.py             load_sub_data(), analyze_subtitle_file()
   tests/                     Standalone CLI harnesses (not an automated test suite)
-  data/                      Per-provider settings JSON, including API keys (gitignored)
   model-files/               Local GGUF models for llama.cpp
-  outputs/                   Generated files and logs (gitignored)
+  files/                     Runtime data (gitignored): config/, library/, outputs/, logs/
 ```
+
+Importing `utils` does not import torch; only `audio/` does.
 
 ## Runtime model
 
-- On startup, `startup_load_models()` loads the LLM, audio, and search clients on three daemon threads, so the server accepts requests before models are ready.
+- On startup, the `server.py` lifespan loads the LLM, audio, and search clients on three daemon threads, so the server accepts requests before models are ready.
 - Long-running work is started from a route via FastAPI `BackgroundTasks`; the route returns `processing` immediately and the frontend polls `GET /task-results/{task_type}`. See [`tasks.md`](tasks.md).
 - `TaskOrchestrator` holds a single chain and refuses to start another while one is running — the app supports one transcription/translation/library job at a time across all users.
 
@@ -94,29 +97,30 @@ Four singletons are shared across the backend, always obtained with `.get_instan
 
 ## Model backends
 
-- `ModelManager.load_llm_model()` creates an `LLMDeepSeek` client if none exists; `load_audio_model()` creates `AudioWhisperX`; `load_search_model()` creates `SearchTavily`. The other implementations (`LLMClaude`, `LLMChatGPT`, `LLMLlamaCpp`, `AudioWhisper`) exist in `models/` but no route switches to them — the `provider` field on load requests is accepted but unused.
-- Each client reads and writes its own settings file in `backend/data/` (e.g. `llm_deepseek.json`, `audio_whisperx.json`, `search_tavily.json`), created with defaults on first load. Settings sent from the Settings page are applied with `configure()` and saved to the same file.
+- `ModelManager.load_llm_model()` creates an `LLMDeepSeek` client if none exists; `load_audio_model()` creates `AudioWhisperX`; `load_search_model()` creates `SearchTavily`. The other implementations (`LLMClaude`, `LLMChatGPT`, `LLMLlamaCpp`, `AudioWhisper`) exist in `llm/` and `audio/` but no route switches to them — the `provider` field on load requests is accepted but unused.
+- Each client reads and writes its own settings file in `backend/files/config/` (e.g. `llm_deepseek.json`, `audio_whisperx.json`, `search_tavily.json`), created with defaults on first load. Settings sent from the Settings page are applied with `configure()` and saved to the same file.
 - Each client exposes `get_settings_schema()` (drives the Settings page form) and `get_server_variables()` (drives the status display).
 
 ## Storage
 
-All paths are under `backend/`.
+All paths are under `backend/` and defined once in `utils/config.py`; build paths from those constants, never by hand.
 
 | Path | Contents | Written by |
 |---|---|---|
-| `data/*.json` | Model settings and API keys per provider | Model clients |
-| `outputs/library/<series_id>/series.json` | `id`, `name`, `input_lang`, `output_lang`, `notes` | `utils/library.save_series` |
-| `outputs/library/<series_id>/characters.json` | List of `{id, name, aliases[], personality[], relationships{}, history[]}` | `utils/library.save_series` |
-| `outputs/library/<series_id>/glossary.json` | List of `{id, term, translation, notes}` | `utils/library.save_series` |
-| `outputs/sub-files/translated/` | File translation chain output | `TaskTranslateFile` |
-| `outputs/sub-files/reviewed/` | Review chain output (corrected file) | `TaskRetranslateReviewedLines` |
-| `outputs/transcribe-sub-files/` | Transcribed `.ass` files | `ModelManager.audio_transcribe_file` |
-| `outputs/translate-file-logs/`, `review-file-logs/`, `library-update-logs/` | One timestamped folder of numbered JSON logs per run | Chain tasks (see [`tasks.md`](tasks.md#run-logs)) |
-| `outputs/translator-helper.log` | Shared backend log: task start/finish timing, model lifecycle, unhandled exceptions | `utils/logger` |
+| `files/config/*.json` | Model settings and API keys per provider | Model clients |
+| `files/library/<series_id>/series.json` | `id`, `name`, `input_lang`, `output_lang`, `notes` | `library/repository.save_series` |
+| `files/library/<series_id>/characters.json` | List of `{id, name, aliases[], personality[], relationships{}, history[]}` | `library/repository.save_series` |
+| `files/library/<series_id>/glossary.json` | List of `{id, term, translation, notes}` | `library/repository.save_series` |
+| `files/outputs/translated/` | File translation chain output | `TaskTranslateFile` |
+| `files/outputs/reviewed/` | Review chain output (corrected file) | `TaskRetranslateReviewedLines` |
+| `files/outputs/transcribed/` | Transcribed `.ass` files | `ModelManager.audio_transcribe_file` |
+| `files/outputs/context/` | Saved context files (no active writer) | — |
+| `files/logs/translate_file/`, `review_file/`, `update_library/` | One timestamped folder of numbered JSON logs per run | Chain tasks (see [`tasks.md`](tasks.md#run-logs)) |
+| `files/logs/translator-helper.log` | Shared backend log: task start/finish timing, model lifecycle, unhandled exceptions | `utils/logger` |
 
 Library rules:
 
-- Always use `load_series(series_id)` and `save_series(series)` from `utils/library.py` — never read or write the three files directly. `load_series` merges them into one dict and raises 404 if the series is missing. `save_series` splits the dict, writes all three files, and restores the lists on the caller's dict.
+- Always use `load_series(series_id)` and `save_series(series)` from `library/repository.py` — never read or write the three files directly. `load_series` merges them into one dict and raises `SeriesNotFoundError` if the series is missing; an invalid ID raises `InvalidSeriesIdError`. The repository does not import FastAPI: `utils/api_response.register_exception_handlers` maps these errors to 404 and 400. Translate/review treat only `SeriesNotFoundError` as "no series context". `save_series` splits the dict, writes all three files, and restores the lists on the caller's dict.
 - Series, character, and glossary IDs are kebab-case slugs of the name/term, made unique with `unique_slug`.
 
 ## Current limitations

@@ -1,12 +1,12 @@
 import os
 
-from interface.base_task import BaseTask
-from models.model_manager import ModelManager
+from orchestrator.base_task import BaseTask
+from model_manager import ModelManager
 from orchestrator.result_handler import ResultHandler
 
 
 class TaskTranscribeFile(BaseTask):
-    """Standalone task: transcribe a full audio file to an ASS subtitle file saved under outputs/transcribe-sub-files/."""
+    """Standalone task: transcribe a full audio file to an ASS subtitle file saved under OUTPUTS_DIR/transcribed/."""
 
     TASK_TYPE = "TaskTranscribeFile"
 

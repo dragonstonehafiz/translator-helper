@@ -1,6 +1,6 @@
 import threading
 import time
-from interface.base_task import BaseTask
+from orchestrator.base_task import BaseTask
 from typing import Any, Optional
 from utils.logger import setup_logger
 

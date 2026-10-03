@@ -97,5 +97,5 @@ Follow [`tasks.md`](tasks.md#adding-a-task), then `py_compile` every changed fil
 | Task or chain | `tasks.md` | `py_compile`; task type registered in `shared.py`; pass-through rule; run-log numbering |
 | Prompt | `tasks.md` | `py_compile`; a harness run or a manual run in the UI if the user wants one |
 | Model backend or settings | `architecture.md` | `py_compile`; Settings page loads the schema and loads the model (manual) |
-| Library storage | `architecture.md`, `api.md` | `py_compile`; never touch `outputs/library/` data without approval |
+| Library storage | `architecture.md`, `api.md` | `py_compile`; never touch `files/library/` data without approval |
 | Page or component | `frontend.md` | `tsc`; template check through `ng serve` output or an approved build; manual UI check |

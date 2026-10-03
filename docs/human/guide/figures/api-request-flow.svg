@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1140" height="820" viewBox="0 0 1140 820" role="img" aria-labelledby="title desc">
+<title id="title">File translation request sequence</title>
+<desc id="desc">Sequence diagram, time running downwards, for one file translation. The Translate page posts the file; the route schedules the translation chain and immediately answers processing. The page polls task results every second while the chain records progress. The chain saves the translated subtitle and marks the task complete; the next poll returns complete, and the page lists and downloads the file through the file-management routes.</desc>
+<style>
+  .bg { fill: #ffffff; }
+  text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: 13px; fill: #1c2330; }
+  .code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 11px; }
+  .sub { font-size: 11px; fill: #5b6475; }
+  .node rect { stroke-width: 1.5; }
+  .fe rect { fill: #efe9fa; stroke: #6a4bb3; }
+  .route rect { fill: #e6effa; stroke: #2f6fb3; }
+  .sync rect { fill: #f8eedd; stroke: #8a5a14; }
+  .db rect { fill: #e4f4ec; stroke: #2c8a5a; }
+  .lifeline { stroke: #c3c9d3; stroke-width: 1.2; stroke-dasharray: 4 4; }
+  .active { fill: #f8eedd; stroke: #8a5a14; stroke-width: 1.2; }
+  .edge { fill: none; stroke: #5b6475; stroke-width: 1.6; }
+  .edge.reply { stroke: #2f6fb3; stroke-dasharray: 6 5; }
+  .arrowhead { fill: #5b6475; }
+  .arrowhead.reply { fill: #2f6fb3; }
+  .loop rect { fill: none; stroke: #8a93a3; stroke-width: 1.2; }
+  .loop .tag { fill: #f0f2f5; stroke: #8a93a3; stroke-width: 1.2; }
+  .loop text { font-size: 11px; font-weight: 700; fill: #5b6475; }
+  @media (prefers-color-scheme: dark) {
+    .bg { fill: #1a1f27; }
+    text { fill: #e6e9ef; }
+    .sub, .loop text { fill: #9aa3b2; }
+    .fe rect { fill: #2a2340; stroke: #b9a2f5; }
+    .route rect { fill: #1b2a3d; stroke: #7db3ef; }
+    .sync rect, .active { fill: #342816; stroke: #e7b56a; }
+    .db rect { fill: #183126; stroke: #6fd3a0; }
+    .lifeline { stroke: #3a4352; }
+    .edge { stroke: #9aa3b2; }
+    .edge.reply { stroke: #7db3ef; }
+    .arrowhead { fill: #9aa3b2; }
+    .arrowhead.reply { fill: #7db3ef; }
+    .loop rect { stroke: #6b7486; }
+    .loop .tag { fill: #222833; stroke: #6b7486; }
+  }
+</style>
+<rect class="bg" width="1140" height="820" rx="10"/>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker>
+  <marker id="arrow-reply" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead reply" d="M0,0 L10,5 L0,10 z"/></marker>
+</defs>
+
+<!-- Participants -->
+<g class="node fe"><rect x="30" y="20" width="160" height="50" rx="7"/><text x="110" y="41" text-anchor="middle">Translate page<tspan class="sub" x="110" dy="17">via ApiService</tspan></text></g>
+<g class="node route"><rect x="300" y="20" width="160" height="50" rx="7"/><text x="380" y="41" text-anchor="middle">FastAPI routes<tspan class="sub" x="380" dy="17">translate · task-results · files</tspan></text></g>
+<g class="node sync"><rect x="520" y="20" width="160" height="50" rx="7"/><text x="600" y="41" text-anchor="middle">Translation chain<tspan class="sub" x="600" dy="17">background task</tspan></text></g>
+<g class="node db"><rect x="725" y="20" width="190" height="50" rx="7"/><text x="820" y="41" text-anchor="middle">Task state<tspan class="sub" x="820" dy="17">ResultHandler · ProgressHandler</tspan></text></g>
+<g class="node db"><rect x="960" y="20" width="160" height="50" rx="7"/><text x="1040" y="41" text-anchor="middle">Output files<tspan class="sub" x="1040" dy="17">files/outputs/translated/</tspan></text></g>
+
+<line class="lifeline" x1="110" y1="70" x2="110" y2="760"/>
+<line class="lifeline" x1="380" y1="70" x2="380" y2="760"/>
+<line class="lifeline" x1="600" y1="70" x2="600" y2="760"/>
+<line class="lifeline" x1="820" y1="70" x2="820" y2="760"/>
+<line class="lifeline" x1="1040" y1="70" x2="1040" y2="760"/>
+
+<!-- Chain runs from scheduling until it marks the task complete -->
+<rect class="active" x="594" y="160" width="12" height="350" rx="2"/>
+
+<!-- 1. Start -->
+<path class="edge" d="M110,110 H379" marker-end="url(#arrow)"/>
+<text class="code" x="245" y="102" text-anchor="middle">POST /translate/translate-file</text>
+<text class="sub" x="245" y="126" text-anchor="middle">subtitle file · languages · batch size · series</text>
+
+<path class="edge" d="M380,160 H593" marker-end="url(#arrow)"/>
+<text class="sub" x="487" y="152" text-anchor="middle">schedule the chain</text>
+
+<path class="edge reply" d="M380,200 H111" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="245" y="192" text-anchor="middle">processing · task_type (returns immediately)</text>
+
+<path class="edge" d="M606,250 H819" marker-end="url(#arrow)"/>
+<text class="sub" x="712" y="242" text-anchor="middle">progress for each stage</text>
+
+<!-- 2. Poll loop -->
+<g class="loop">
+  <rect x="40" y="280" width="830" height="140" rx="6"/>
+  <path class="tag" d="M40,280 H250 V298 L240,306 H40 Z"/>
+  <text x="50" y="297">loop · every 1 s while processing</text>
+</g>
+<path class="edge" d="M110,330 H379" marker-end="url(#arrow)"/>
+<text class="code" x="245" y="322" text-anchor="middle">GET /task-results/{task_type}</text>
+<path class="edge" d="M380,360 H819" marker-end="url(#arrow)"/>
+<text class="sub" x="712" y="352" text-anchor="middle">read record and progress</text>
+<path class="edge reply" d="M380,400 H111" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="245" y="392" text-anchor="middle">processing · progress</text>
+
+<!-- 3. Chain finishes -->
+<path class="edge" d="M606,460 H1039" marker-end="url(#arrow)"/>
+<text class="sub" x="822" y="452" text-anchor="middle">save &lt;name&gt;.&lt;lang&gt;.ass</text>
+<path class="edge" d="M606,505 H819" marker-end="url(#arrow)"/>
+<text class="sub" x="712" y="497" text-anchor="middle">mark complete</text>
+
+<!-- 4. Final poll -->
+<path class="edge" d="M110,560 H379" marker-end="url(#arrow)"/>
+<text class="code" x="245" y="552" text-anchor="middle">GET /task-results/{task_type}</text>
+<path class="edge reply" d="M380,600 H111" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="245" y="592" text-anchor="middle">complete</text>
+
+<!-- 5. Fetch the file -->
+<path class="edge" d="M110,650 H379" marker-end="url(#arrow)"/>
+<text class="code" x="245" y="642" text-anchor="middle">GET /file-management/list, /download</text>
+<text class="sub" x="245" y="666" text-anchor="middle">folder = translated</text>
+<path class="edge" d="M380,690 H1039" marker-end="url(#arrow)"/>
+<text class="sub" x="710" y="682" text-anchor="middle">read folder or file</text>
+<path class="edge reply" d="M380,730 H111" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="245" y="722" text-anchor="middle">file list · file blob</text>
+
+<!-- Legend -->
+<g aria-hidden="true">
+  <path class="edge" d="M30,796 H70" marker-end="url(#arrow)"/>
+  <text class="sub" x="82" y="800">request or call</text>
+  <path class="edge reply" d="M210,796 H250" marker-end="url(#arrow-reply)"/>
+  <text class="sub" x="262" y="800">response</text>
+  <rect class="active" x="360" y="788" width="12" height="16" rx="2"/>
+  <text class="sub" x="382" y="800">chain running</text>
+</g>
+</svg>

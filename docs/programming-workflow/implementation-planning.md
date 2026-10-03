@@ -62,7 +62,7 @@ If the request and the issue or file it references disagree, record the conflict
 
 When the user supplies a plan file to revise, treat it as the current authoritative draft rather than starting over: reconcile it against the current request, current source, and current working tree — which still take priority over prior plan text and documentation when they disagree — preserve still-valid evidence and decisions, replace stale content, update its status, and write the result back to that same file in place.
 
-When no destination is supplied, save a new plan as a local Markdown file under `<repository-root>/plans/`, using a simple descriptive filename (for example, derived from an issue number or a short slug of the request). Locate the repository root using the destination repository's own workspace conventions rather than assuming a path from another project.
+When no destination is supplied, save a new plan as a local Markdown file under `<repository-root>/.plans/`, using a simple descriptive filename (for example, derived from an issue number or a short slug of the request). Locate the repository root using the destination repository's own workspace conventions rather than assuming a path from another project.
 
 ## Select references by affected area
 
@@ -117,7 +117,7 @@ Order steps by actual dependencies in this change, not by a fixed application-wi
 
 ## Plan existing-data handling
 
-There is no database; persistent state is JSON on disk — series library files under `backend/outputs/library/<series_id>/` and per-provider settings in `backend/data/*.json` (see [`architecture.md`](../references/architecture.md#storage)). When a change alters the shape of either, determine how existing files reach the required state: tolerant reads with defaults (as `load_series` does for missing `characters.json`/`glossary.json`), a one-off conversion, or an explicitly approved reset. Backward compatibility between application versions and rollback support are not required unless the request asks for them.
+There is no database; persistent state is JSON on disk — series library files under `backend/files/library/<series_id>/` and per-provider settings in `backend/files/config/*.json` (see [`architecture.md`](../references/architecture.md#storage)). When a change alters the shape of either, determine how existing files reach the required state: tolerant reads with defaults (as `load_series` does for missing `characters.json`/`glossary.json`), a one-off conversion, or an explicitly approved reset. Backward compatibility between application versions and rollback support are not required unless the request asks for them.
 
 In-memory task state (results, progress) is rebuilt on every restart and needs no migration. Any deletion of library, settings, or output files requires explicit approval.
 

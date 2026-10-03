@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Translator Helper — subtitle transcription, translation, and translation-review app. FastAPI backend (WhisperX transcription, DeepSeek/Claude/OpenAI/llama.cpp LLM backends, Tavily web search) + Angular 17 standalone frontend. No database: series library and outputs are JSON/files under `backend/outputs/`, task state is in memory.
+Translator Helper — subtitle transcription, translation, and translation-review app. FastAPI backend (WhisperX transcription, DeepSeek/Claude/OpenAI/llama.cpp LLM backends, Tavily web search) + Angular 17 standalone frontend. No database: settings, series library, outputs and logs are JSON/files under `backend/files/`, task state is in memory.
 
 Read [`docs/repository-rules.md`](docs/repository-rules.md) first — it holds the coding rules, verification expectations, and safety/permission boundaries that apply to virtually every task.
 

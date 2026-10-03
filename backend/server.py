@@ -2,20 +2,26 @@
 FastAPI server for Translator Helper backend.
 """
 
+import threading
+from contextlib import asynccontextmanager
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-from dotenv import load_dotenv
-from routes import router, startup_load_models
+
+from model_manager import ModelManager
+from routes import router
 from utils.api_response import register_exception_handlers
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan context manager for startup and shutdown events."""
-    startup_load_models()
+    """Start background model loading on startup; shutdown handling arrives with the ModelManager rework."""
+    model_manager = ModelManager.get_instance()
+    threading.Thread(target=model_manager.load_llm_model, daemon=True).start()
+    threading.Thread(target=model_manager.load_audio_model, daemon=True).start()
+    threading.Thread(target=model_manager.load_search_model, daemon=True).start()
     yield
-    # Shutdown (if needed in the future)
 
 
 # Initialize FastAPI app

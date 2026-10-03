@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1140" height="860" viewBox="0 0 1140 860" role="img" aria-labelledby="title desc">
+<title id="title">Background job request sequence</title>
+<desc id="desc">Sequence diagram, time running downwards, shared by every background job. The page posts to the job's start endpoint; the route schedules the task chain and immediately answers processing with the task type. The page polls task results every second while the chain records progress. File-producing jobs save their output file. The chain marks the task complete or failed; the next poll returns complete with the result, or error. File-producing jobs then list and download the file through the file-management routes.</desc>
+<style>
+  .bg { fill: #ffffff; }
+  text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: 13px; fill: #1c2330; }
+  .code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 11px; }
+  .sub { font-size: 11px; fill: #5b6475; }
+  .node rect { stroke-width: 1.5; }
+  .fe rect { fill: #efe9fa; stroke: #6a4bb3; }
+  .route rect { fill: #e6effa; stroke: #2f6fb3; }
+  .sync rect { fill: #f8eedd; stroke: #8a5a14; }
+  .db rect { fill: #e4f4ec; stroke: #2c8a5a; }
+  .lifeline { stroke: #c3c9d3; stroke-width: 1.2; stroke-dasharray: 4 4; }
+  .active { fill: #f8eedd; stroke: #8a5a14; stroke-width: 1.2; }
+  .edge { fill: none; stroke: #5b6475; stroke-width: 1.6; }
+  .edge.reply { stroke: #2f6fb3; stroke-dasharray: 6 5; }
+  .arrowhead { fill: #5b6475; }
+  .arrowhead.reply { fill: #2f6fb3; }
+  .frame rect { fill: none; stroke: #8a93a3; stroke-width: 1.2; }
+  .frame .tag { fill: #f0f2f5; stroke: #8a93a3; stroke-width: 1.2; }
+  .frame text { font-size: 11px; font-weight: 700; fill: #5b6475; }
+  @media (prefers-color-scheme: dark) {
+    .bg { fill: #1a1f27; }
+    text { fill: #e6e9ef; }
+    .sub, .frame text { fill: #9aa3b2; }
+    .fe rect { fill: #2a2340; stroke: #b9a2f5; }
+    .route rect { fill: #1b2a3d; stroke: #7db3ef; }
+    .sync rect, .active { fill: #342816; stroke: #e7b56a; }
+    .db rect { fill: #183126; stroke: #6fd3a0; }
+    .lifeline { stroke: #3a4352; }
+    .edge { stroke: #9aa3b2; }
+    .edge.reply { stroke: #7db3ef; }
+    .arrowhead { fill: #9aa3b2; }
+    .arrowhead.reply { fill: #7db3ef; }
+    .frame rect { stroke: #6b7486; }
+    .frame .tag { fill: #222833; stroke: #6b7486; }
+  }
+</style>
+<rect class="bg" width="1140" height="860" rx="10"/>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker>
+  <marker id="arrow-reply" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead reply" d="M0,0 L10,5 L0,10 z"/></marker>
+</defs>
+
+<!-- Participants -->
+<g class="node fe"><rect x="30" y="20" width="160" height="50" rx="7"/><text x="110" y="41" text-anchor="middle">Page<tspan class="sub" x="110" dy="17">via ApiService</tspan></text></g>
+<g class="node route"><rect x="300" y="20" width="160" height="50" rx="7"/><text x="380" y="41" text-anchor="middle">FastAPI routes<tspan class="sub" x="380" dy="17">start · task-results · files</tspan></text></g>
+<g class="node sync"><rect x="520" y="20" width="160" height="50" rx="7"/><text x="600" y="41" text-anchor="middle">Task chain<tspan class="sub" x="600" dy="17">background task</tspan></text></g>
+<g class="node db"><rect x="725" y="20" width="190" height="50" rx="7"/><text x="820" y="41" text-anchor="middle">Task state<tspan class="sub" x="820" dy="17">ResultHandler · ProgressHandler</tspan></text></g>
+<g class="node db"><rect x="960" y="20" width="160" height="50" rx="7"/><text x="1040" y="41" text-anchor="middle">Output files<tspan class="sub" x="1040" dy="17">files/outputs/&lt;folder&gt;/</tspan></text></g>
+
+<line class="lifeline" x1="110" y1="70" x2="110" y2="800"/>
+<line class="lifeline" x1="380" y1="70" x2="380" y2="800"/>
+<line class="lifeline" x1="600" y1="70" x2="600" y2="800"/>
+<line class="lifeline" x1="820" y1="70" x2="820" y2="800"/>
+<line class="lifeline" x1="1040" y1="70" x2="1040" y2="800"/>
+
+<!-- Chain runs from scheduling until it records the outcome -->
+<rect class="active" x="594" y="160" width="12" height="380" rx="2"/>
+
+<!-- 1. Start -->
+<path class="edge" d="M110,110 H379" marker-end="url(#arrow)"/>
+<text class="code" x="245" y="102" text-anchor="middle">POST &lt;start endpoint&gt;</text>
+<text class="sub" x="245" y="126" text-anchor="middle">form fields · uploaded file</text>
+
+<path class="edge" d="M380,160 H593" marker-end="url(#arrow)"/>
+<text class="sub" x="487" y="152" text-anchor="middle">schedule the chain</text>
+
+<path class="edge reply" d="M380,200 H111" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="245" y="192" text-anchor="middle">processing · task_type (returns immediately)</text>
+
+<path class="edge" d="M606,250 H819" marker-end="url(#arrow)"/>
+<text class="sub" x="712" y="242" text-anchor="middle">progress for each stage</text>
+
+<!-- 2. Poll loop -->
+<g class="frame">
+  <rect x="40" y="280" width="830" height="140" rx="6"/>
+  <path class="tag" d="M40,280 H250 V298 L240,306 H40 Z"/>
+  <text x="50" y="297">loop · every 1 s while processing</text>
+</g>
+<path class="edge" d="M110,330 H379" marker-end="url(#arrow)"/>
+<text class="code" x="245" y="322" text-anchor="middle">GET /task-results/{task_type}</text>
+<path class="edge" d="M380,360 H819" marker-end="url(#arrow)"/>
+<text class="sub" x="712" y="352" text-anchor="middle">read record and progress</text>
+<path class="edge reply" d="M380,400 H111" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="245" y="392" text-anchor="middle">processing · progress</text>
+
+<!-- 3. Chain finishes -->
+<g class="frame">
+  <rect x="580" y="440" width="540" height="56" rx="6"/>
+  <path class="tag" d="M580,440 H800 V458 L790,466 H580 Z"/>
+  <text x="590" y="457">only for jobs that produce a file</text>
+</g>
+<path class="edge" d="M606,480 H1039" marker-end="url(#arrow)"/>
+<text class="sub" x="880" y="472" text-anchor="middle">save output file</text>
+<path class="edge" d="M606,535 H819" marker-end="url(#arrow)"/>
+<text class="sub" x="712" y="527" text-anchor="middle">record result or error</text>
+
+<!-- 4. Final poll -->
+<path class="edge" d="M110,590 H379" marker-end="url(#arrow)"/>
+<text class="code" x="245" y="582" text-anchor="middle">GET /task-results/{task_type}</text>
+<path class="edge reply" d="M380,630 H111" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="245" y="622" text-anchor="middle">complete · result, or error · message</text>
+
+<!-- 5. Fetch the file -->
+<g class="frame">
+  <rect x="40" y="660" width="1080" height="130" rx="6"/>
+  <path class="tag" d="M40,660 H260 V678 L250,686 H40 Z"/>
+  <text x="50" y="677">only for jobs that produce a file</text>
+</g>
+<path class="edge" d="M110,710 H379" marker-end="url(#arrow)"/>
+<text class="code" x="245" y="702" text-anchor="middle">GET /file-management/list, /download</text>
+<path class="edge" d="M380,740 H1039" marker-end="url(#arrow)"/>
+<text class="sub" x="710" y="732" text-anchor="middle">read folder or file</text>
+<path class="edge reply" d="M380,775 H111" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="245" y="767" text-anchor="middle">file list · file blob</text>
+
+<!-- Legend -->
+<g aria-hidden="true">
+  <path class="edge" d="M30,836 H70" marker-end="url(#arrow)"/>
+  <text class="sub" x="82" y="840">request or call</text>
+  <path class="edge reply" d="M210,836 H250" marker-end="url(#arrow-reply)"/>
+  <text class="sub" x="262" y="840">response</text>
+  <rect class="active" x="360" y="828" width="12" height="16" rx="2"/>
+  <text class="sub" x="382" y="840">chain running</text>
+</g>
+</svg>

@@ -16,12 +16,11 @@ from orchestrator.review_file.task_select_library_context_for_review import Task
 from orchestrator.translate_file.task_split_oversized_batches import TaskSplitOversizedBatches
 from orchestrator.translate_file.task_translate_file import TaskTranslateFile
 from orchestrator.tasks.task_translate_line import TaskTranslateLine
+from library.repository import SeriesNotFoundError, load_series
 from utils.api_response import error_response, processing_response
-
-from utils.library import load_series
+from utils.config import LOGS_DIR
 
 from .shared import (
-    OUTPUTS_DIR,
     model_manager,
     parse_json_form,
     result_handler,
@@ -47,7 +46,7 @@ def run_translation_file_chain(data: dict):
     try:
         data = dict(data)
         safe_filename = _safe_log_filename(str(data.get("original_filename", "subtitles")))
-        log_dir = OUTPUTS_DIR / "translate-file-logs" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_filename}"
+        log_dir = LOGS_DIR / "translate_file" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_filename}"
         log_dir.mkdir(parents=True, exist_ok=True)
         data["log_dir"] = str(log_dir)
         result_handler.clear(final_task_type)
@@ -72,7 +71,7 @@ def run_review_translated_file_chain(data: dict):
             str(data.get("translated_file_path", "")),
         ]
         safe_filename = _safe_log_filename(str(data.get("translated_filename") or data.get("original_filename") or "subtitles"))
-        log_dir = OUTPUTS_DIR / "review-file-logs" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_filename}"
+        log_dir = LOGS_DIR / "review_file" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_filename}"
         log_dir.mkdir(parents=True, exist_ok=True)
         data["log_dir"] = str(log_dir)
         result_handler.clear(final_task_type)
@@ -145,8 +144,8 @@ async def api_translate_file(
         if series_id:
             try:
                 series = load_series(series_id)
-            except Exception:
-                pass
+            except SeriesNotFoundError:
+                series = None
         background_tasks.add_task(
             run_translation_file_chain,
             {
@@ -187,8 +186,8 @@ async def api_review_translated_file(
         if series_id:
             try:
                 series = load_series(series_id)
-            except Exception:
-                pass
+            except SeriesNotFoundError:
+                series = None
         background_tasks.add_task(
             run_review_translated_file_chain,
             {

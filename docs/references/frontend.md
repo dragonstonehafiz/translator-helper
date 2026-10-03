@@ -68,7 +68,7 @@ Add app-wide overlays to `AppComponent`, never to a page.
 - It exports the response and payload interfaces: `ApiResponse<TData>`, `SeriesData`, `SeriesCharacter`, `SeriesGlossaryTerm`, `SeriesSummary`, `LibraryProposals`, `SubtitleFileInfoData`, `FileListData`, `RunningStatusData`, `ServerVariablesData`, `TaskStartData`, `TaskResultData` and `TaskResultResponse`.
 - File uploads and task starts send `FormData`. Library CRUD and model loading send JSON.
 - `getTaskResult(taskType)` calls `GET /task-results/{task_type}`.
-- `listFiles`, `getFileBlob` and `deleteFile` take a `folder` that may contain `/` (e.g. `sub-files/translated`), sent as a query parameter.
+- `listFiles`, `getFileBlob` and `deleteFile` take a `folder` (`translated`, `reviewed`, `transcribed`), sent as a query parameter.
 
 ### StateService
 

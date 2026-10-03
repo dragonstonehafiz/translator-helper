@@ -449,7 +449,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
   refreshFileDownloads(): void {
     this.isFetchingFileDownloads = true;
     this.fileDownloadError = '';
-    this.apiService.listFiles('transcribe-sub-files').subscribe({
+    this.apiService.listFiles('transcribed').subscribe({
       next: (response) => {
         this.fileAvailableDownloads = response.status === 'success' ? (response.data?.files || []) : [];
         if (response.status !== 'success') this.fileDownloadError = 'Unable to load downloads.';
@@ -464,7 +464,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
   }
 
   downloadTranscribedFile(filename: string): void {
-    this.apiService.getFileBlob('transcribe-sub-files', filename).subscribe({
+    this.apiService.getFileBlob('transcribed', filename).subscribe({
       next: (blob) => {
         this.triggerDownload(blob, filename);
       },
@@ -482,7 +482,7 @@ export class TranscribeComponent implements OnInit, OnDestroy {
     });
     if (!confirmed) return;
     this.deletingFileDownload = filename;
-    this.apiService.deleteFile('transcribe-sub-files', filename).subscribe({
+    this.apiService.deleteFile('transcribed', filename).subscribe({
       next: () => {
         this.fileAvailableDownloads = this.fileAvailableDownloads.filter(f => f.name !== filename);
         this.deletingFileDownload = '';

@@ -1,27 +1,23 @@
-import os
 from abc import ABC, abstractmethod
 
+from utils.config import CONFIG_DIR
 
-class LLMInterface(ABC):
-    """Abstract interface that all LLM backend implementations must satisfy."""
+
+class AudioModelInterface(ABC):
+    """Abstract interface that all audio transcription backend implementations must satisfy."""
 
     def _get_config_path(self, filename: str) -> str:
-        """Return the absolute path to backend/data/<filename>."""
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", filename)
-    
+        """Return the absolute path to the provider config file <filename> under CONFIG_DIR."""
+        return str(CONFIG_DIR / filename)
+
     @abstractmethod
     def initialize(self):
-        """Initialize the LLM backend."""
+        """Initialize the audio model backend."""
         raise NotImplementedError
 
     @abstractmethod
     def change_model(self, model_name: str):
         """Swap or update the underlying model configuration."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_model(self) -> str:
-        """Return the current model identifier."""
         raise NotImplementedError
 
     @abstractmethod
@@ -35,19 +31,23 @@ class LLMInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def infer(
-        self,
-        prompt: str,
-        system_prompt: str | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None
-    ):
-        """Run inference with the current model."""
+    def transcribe_line(self, audio_path: str, language: str):
+        """Transcribe audio to a single text line."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def transcribe_file(self, audio_path: str, language: str):
+        """Transcribe audio to a subtitle file representation."""
         raise NotImplementedError
 
     @abstractmethod
     def get_status(self) -> str:
         """Return current model status: 'loaded', 'not_loaded', or 'error'."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_model(self) -> str:
+        """Return the current model identifier."""
         raise NotImplementedError
 
     @abstractmethod
@@ -71,13 +71,8 @@ class LLMInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_temperature(self, temperature: float):
-        """Set the default temperature for inference."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_temperature(self) -> float:
-        """Return the current default temperature."""
+    def get_available_devices(self) -> dict:
+        """Return available device options."""
         raise NotImplementedError
 
     @abstractmethod

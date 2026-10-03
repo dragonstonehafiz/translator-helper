@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from library.repository import InvalidSeriesIdError, SeriesNotFoundError
 from utils.logger import setup_logger
 
 
@@ -64,7 +65,7 @@ def task_result_data(
 
 
 def register_exception_handlers(app: FastAPI) -> None:
-    """Attach global exception handlers that return the standard API envelope for HTTP, validation, and unhandled errors."""
+    """Attach global exception handlers that return the standard API envelope for HTTP, library, validation, and unhandled errors."""
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
@@ -74,6 +75,16 @@ def register_exception_handlers(app: FastAPI) -> None:
             content=error_response(str(exc.detail)),
             headers=exc.headers,
         )
+
+    @app.exception_handler(InvalidSeriesIdError)
+    async def invalid_series_id_handler(request: Request, exc: InvalidSeriesIdError):
+        """Convert an invalid series ID to a 400 error-envelope JSON response."""
+        return JSONResponse(status_code=400, content=error_response(str(exc)))
+
+    @app.exception_handler(SeriesNotFoundError)
+    async def series_not_found_handler(request: Request, exc: SeriesNotFoundError):
+        """Convert a missing series to a 404 error-envelope JSON response."""
+        return JSONResponse(status_code=404, content=error_response(str(exc)))
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):

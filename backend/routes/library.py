@@ -6,7 +6,6 @@ import os
 import re
 import shutil
 from datetime import datetime
-from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, File, UploadFile
 from pydantic import BaseModel
@@ -18,7 +17,8 @@ from orchestrator.library.task_generate_search_queries import TaskGenerateSearch
 from orchestrator.library.task_scan_subtitle_file import TaskScanSubtitleFile
 from orchestrator.library.task_web_search import TaskWebSearch
 from utils.api_response import error_response, processing_response, success_response
-from utils.library import (
+from utils.config import LOGS_DIR
+from library.repository import (
     find_character,
     find_glossary_term,
     get_library_dir,
@@ -295,7 +295,7 @@ async def start_library_update(
     tmp_path = await save_upload_to_temp(file)
 
     safe_name = re.sub(r"[^\w\-]", "_", series.get("name", series_id))[:40]
-    log_dir = Path(__file__).parent.parent / "outputs" / "library-update-logs" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_name}"
+    log_dir = LOGS_DIR / "update_library" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_name}"
     log_dir.mkdir(parents=True, exist_ok=True)
 
     known_names = []

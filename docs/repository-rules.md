@@ -9,7 +9,7 @@ Coding rules, verification expectations, and safety/permission boundaries that a
 - use type hints and a concise, single-line docstring on every Python function, class, and method — describe purpose or contract, not implementation history
 - return every JSON response through the helpers in `utils/api_response.py`; put payload fields under `data`, never at the root
 - never swallow errors silently — every task exception path calls `result_handler.set_error(...)` and re-raises
-- import output paths from `utils/config.py` (`OUTPUTS_DIR`) rather than rebuilding them
+- import runtime paths from `utils/config.py` (`CONFIG_DIR`, `LIBRARY_DIR`, `OUTPUTS_DIR`, `LOGS_DIR`) rather than rebuilding them
 - keep `.method()` on the same line as its object — no chained calls starting on a new line
 
 ### Frontend
@@ -43,7 +43,7 @@ Allowed without asking:
 
 Ask first:
 - `uv pip install` / `npm install` new packages
-- deleting files, including anything under `backend/outputs/` (library data, generated subtitles, logs) or `backend/data/` (settings and API keys)
+- deleting files, including anything under `backend/files/` (settings and API keys, library data, generated subtitles, logs)
 - full project builds
 - starting the backend or frontend server
 
@@ -52,7 +52,7 @@ Never:
 - run `git push`
 - publish issues or documentation remotely
 - treat drafting or planning as authorization to implement
-- print or copy API keys from `backend/data/*.json`
+- print or copy API keys from `backend/files/config/*.json`
 
 ## Scope control
 
