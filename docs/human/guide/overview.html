@@ -1,0 +1,120 @@
+<!doctype html>
+
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Overview | Translator Helper</title><link rel="stylesheet" href="../human-docs.css"><script src="../human-docs.js" defer></script>
+</head>
+
+<body>
+<nav class="site-nav" aria-label="Human documentation">
+<div class="site-nav-inner"><a class="site-nav-brand" href="../index.html">Translator Helper <span>docs</span></a><details class="nav-menu current"><summary>Documentation</summary>
+<div class="nav-menu-list"><a href="overview.html" aria-current="page">Overview</a><a href="backend.html">Backend and models</a><a href="tasks.html">Orchestrator and task chains</a><a href="requests.html">Translation request flow</a><a href="frontend.html">Frontend architecture</a><a href="storage.html">Files and storage</a>
+</div></details>
+</div>
+</nav>
+<div class="page">
+<aside class="toc" aria-label="On this page">
+<h2>On this page
+</h2>
+<ol>
+<li><a href="#map">Application structure</a>
+</li>
+<li><a href="#read">Documentation pages</a>
+</li>
+<li><a href="#lifetimes">Data lifetime</a>
+</li>
+<li><a href="#scope">Scope</a>
+</li>
+
+</ol>
+</aside>
+<main>
+<header class="hero">
+<h1>Overview
+</h1>
+<p>Application components, processing flow and data storage.
+</p>
+<div class="meta-line"><span>First draft</span><span>Current implementation &middot; 3 October 2026</span>
+</div>
+</header>
+<section id="map">
+<h2>Application structure
+</h2>
+<p>The app has two running parts: an Angular browser interface and a FastAPI Python backend. The browser gathers files, text and settings. The backend runs models, executes task chains and writes files. There is no database or separate durable job worker.
+</p>
+<div class="flow" aria-label="Process in execution order">
+<div class="flow-step fe"><strong>Angular pages</strong><small>Choose inputs, start work and display results.</small>
+</div>
+<div class="flow-arrow" aria-hidden="true">
+</div>
+<div class="flow-step route"><strong>FastAPI routes</strong><small>Validate requests and arrange background work.</small>
+</div>
+<div class="flow-arrow" aria-hidden="true">
+</div>
+<div class="flow-step sync"><strong>Tasks and models</strong><small>Process audio, translate text or research library entries.</small>
+</div>
+<div class="flow-arrow" aria-hidden="true">
+</div>
+<div class="flow-step db"><strong>Files on disk</strong><small>Keep library data, generated subtitles and run logs.</small>
+</div>
+</div>
+<p>The browser calls <code>http://localhost:8000</code> through <code>ApiService</code>. Backend CORS permits <code>http://localhost:4200</code>. Model-provider and Tavily calls happen in the backend.
+</p>
+</section>
+<section id="read">
+<h2>Documentation pages
+</h2>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Page</th><th scope="col">What it explains</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><a href="backend.html">Backend and models</a></td><td>Who owns model instances, settings, startup and provider calls.</td>
+</tr>
+<tr><td><a href="tasks.html">Orchestrator and task chains</a></td><td>How tasks exchange data; what is enforced; how review reuses translation tasks.</td>
+</tr>
+<tr><td><a href="requests.html">Translation request flow</a></td><td>Upload, background execution, polling, errors and download.</td>
+</tr>
+<tr><td><a href="frontend.html">Frontend architecture</a></td><td>Pages, services, shared components and state lifetime.</td>
+</tr>
+<tr><td><a href="storage.html">Files and storage</a></td><td>What survives a restart, who writes files and where uploads actually go.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="lifetimes">
+<h2>Data lifetime
+</h2>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Location</th><th scope="col">Examples</th><th scope="col">When it disappears</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>Browser memory</td><td>Selected files, selected series, task state in StateService.</td><td>Browser refresh. Route changes keep service state, but page-local state has its own lifecycle.</td>
+</tr>
+<tr><td>Backend memory</td><td>Loaded clients, active task, latest result and progress per task type.</td><td>Backend restart. There is no persisted queue to resume a chain.</td>
+</tr>
+<tr><td>Disk</td><td>Library JSON, settings JSON, generated subtitles, logs.</td><td>Files persist independently of in-memory task state until removed or overwritten.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="scope">
+<h2>Scope
+</h2>
+<div class="note">
+<p>This guide describes the current implementation inspected on 3 October 2026. It explains the architecture with source-file references. Proposed folders and provider changes in <code>.todo/refactor.md</code> are not implemented behavior.
+</p>
+</div>
+
+</section>
+
+</main>
+</div>
+</body>
+</html>

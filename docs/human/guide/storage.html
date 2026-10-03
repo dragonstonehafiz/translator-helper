@@ -1,0 +1,125 @@
+<!doctype html>
+
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Files and storage | Translator Helper</title><link rel="stylesheet" href="../human-docs.css"><script src="../human-docs.js" defer></script>
+</head>
+
+<body>
+<nav class="site-nav" aria-label="Human documentation">
+<div class="site-nav-inner"><a class="site-nav-brand" href="../index.html">Translator Helper <span>docs</span></a><details class="nav-menu current"><summary>Documentation</summary>
+<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="backend.html">Backend and models</a><a href="tasks.html">Orchestrator and task chains</a><a href="requests.html">Translation request flow</a><a href="frontend.html">Frontend architecture</a><a href="storage.html" aria-current="page">Files and storage</a>
+</div></details>
+</div>
+</nav>
+<div class="page">
+<aside class="toc" aria-label="On this page">
+<h2>On this page
+</h2>
+<ol>
+<li><a href="#disk">Storage paths</a>
+</li>
+<li><a href="#upload">Temporary uploads</a>
+</li>
+<li><a href="#library">Series library storage</a>
+</li>
+<li><a href="#download">File listing and downloads</a>
+</li>
+<li><a href="#future">Proposed storage changes</a>
+</li>
+
+</ol>
+</aside>
+<main>
+<header class="hero">
+<h1>Files and storage
+</h1>
+<p>Persistent files and temporary uploads have different owners and lifetimes.
+</p>
+<div class="meta-line"><span>First draft</span><span>Current implementation &middot; 3 October 2026</span>
+</div>
+</header>
+<section id="disk">
+<h2>Storage paths
+</h2>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Path</th><th scope="col">Contents</th><th scope="col">Writer / owner</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>backend/data/</td><td>Provider settings JSON, potentially including API keys.</td><td>Provider implementations; this guide does not read or reproduce these values.</td>
+</tr>
+<tr><td>backend/outputs/library/&lt;series_id&gt;/</td><td>series.json, characters.json, glossary.json.</td><td>utils/library.py, called by library routes.</td>
+</tr>
+<tr><td>backend/outputs/sub-files/translated/</td><td>Translated subtitles.</td><td>TaskTranslateFile.</td>
+</tr>
+<tr><td>backend/outputs/sub-files/reviewed/</td><td>Corrected subtitles.</td><td>TaskRetranslateReviewedLines.</td>
+</tr>
+<tr><td>backend/outputs/transcribe-sub-files/</td><td>Transcribed ASS subtitles.</td><td>ModelManager.audio_transcribe_file().</td>
+</tr>
+<tr><td>backend/outputs/translate-file-logs/</td><td>Per-run planning, splitting and context logs; failure diagnostics when applicable.</td><td>Translation runner creates the directory; tasks write its files.</td>
+</tr>
+<tr><td>backend/outputs/review-file-logs/</td><td>Per-run review planning, context, review and correction logs.</td><td>Review runner and tasks.</td>
+</tr>
+<tr><td>backend/outputs/library-update-logs/</td><td>Per-run extraction, comparison, search and proposal logs.</td><td>Library route and tasks.</td>
+</tr>
+<tr><td>backend/outputs/translator-helper.log</td><td>Shared application/task logging.</td><td>utils/logger.py.</td>
+</tr>
+<tr><td>Operating-system temporary directory</td><td>Copies of uploaded files.</td><td>routes/shared.py: save_upload_to_temp().</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>This map comes from active source paths, not an inventory of personal output files. A folder may be created only when its writer runs.
+</p>
+</section>
+<section id="upload">
+<h2>Temporary uploads
+</h2>
+<p><code>save_upload_to_temp()</code> uses <code>tempfile.NamedTemporaryFile(delete=False)</code>. It does not archive uploads under <code>outputs/</code>. The returned temporary path travels through the task dictionary.
+</p>
+<p>Cleanup is distributed. File translation removes its input in the final task's <code>finally</code>; the review runner removes both inputs in its own <code>finally</code>. If translation fails in an earlier stage, the final task never runs, so its cleanup does not run either.
+</p>
+<p>The refactor needs a defined owner for upload cleanup. Retaining uploads in an <code>uploads/</code> directory would also change their lifetime.
+</p>
+</section>
+<section id="library">
+<h2>Series library storage
+</h2>
+<p><code>load_series()</code> reads three JSON files and combines them into one series dictionary. <code>save_series()</code> separates metadata, characters and glossary back into their files. Series directories are identified by their series IDs.
+</p>
+<p>The library-update chain produces suggested entries. Acceptance in the UI goes through ordinary library CRUD requests before entries become persistent library data.
+</p>
+<p>Source: <code>backend/utils/library.py</code> and <code>backend/routes/library.py</code>.
+</p>
+</section>
+<section id="download">
+<h2>File listing and downloads
+</h2>
+<p>The frontend requests a folder through file-management endpoints. The shared path helper validates folder segments and resolves them under <code>outputs/</code>. The list response contains names, sizes and modification times; download returns file content separately.
+</p>
+<p>Translate names <code>sub-files/translated</code> and <code>sub-files/reviewed</code>; Transcribe names <code>transcribe-sub-files</code>. The panel does not discover arbitrary output categories automatically.
+</p>
+<p>Source: <code>backend/routes/file_management.py</code>.
+</p>
+</section>
+<section id="future">
+<h2>Proposed storage changes
+</h2>
+<div class="note">
+<p><code>outputs/uploads</code>, <code>outputs/downloads</code> and <code>outputs/logs</code> are proposals from the refactor note. They are not the current paths.
+</p>
+</div>
+<p>Moving translated/reviewed outputs means updating task writers and frontend folder values together. Transcription also needs attention because its writer lives in ModelManager. Log roots are constructed by chain runners, while task code writes filenames underneath them.
+</p>
+<p>The note mentions renaming <code>context-files</code> to <code>context</code>. The inspected backend Python source has no active writer referencing <code>context-files</code>; it should not be presented as an active output pipeline without further evidence.
+</p>
+<p>Library data and provider settings also need an explicit place in any eventual storage design. They are persistent application data, with different purposes from generated downloads.
+</p>
+</section>
+
+</main>
+</div>
+</body>
+</html>

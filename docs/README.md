@@ -2,6 +2,8 @@
 
 Canonical home for this repository's rules, task procedures, and application references. `AGENTS.md` is a short entry point that links here.
 
+For a human-readable introduction, open the [HTML architecture guide](human/index.html). It summarizes the current implementation with diagrams and source links; the references below remain canonical.
+
 ## Load project references
 
 | Task area | Reference |

@@ -1,0 +1,75 @@
+<!doctype html>
+
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Translator Helper | Human documentation</title><link rel="stylesheet" href="human-docs.css">
+</head>
+<body>
+<nav class="site-nav" aria-label="Human documentation">
+<div class="site-nav-inner"><a class="site-nav-brand" href="index.html">Translator Helper <span>docs</span></a>
+</div>
+</nav>
+<div class="page">
+<aside class="toc">
+<h2>Overview
+</h2>
+<ol>
+<li><a href="guide/overview.html">Overview</a>
+</li>
+
+</ol>
+</aside>
+<main>
+<header class="hero">
+<h1>Translator Helper architecture
+</h1>
+<p>Backend and frontend architecture, with diagrams, request flows and source-file references.
+</p>
+<div class="meta-line"><span>First draft &middot; 3 October 2026</span>
+</div>
+</header>
+<div class="card-grid">
+<article class="card">
+<h2><a href="guide/overview.html">Overview</a>
+</h2>
+<p>Application components, processing flow and data storage.
+</p>
+</article>
+<article class="card">
+<h2><a href="guide/backend.html">Backend and models</a>
+</h2>
+<p>The backend is organized around HTTP routes, task execution and a shared manager for model clients.
+</p>
+</article>
+<article class="card">
+<h2><a href="guide/tasks.html">Orchestrator and task chains</a>
+</h2>
+<p>A chain is an ordered list of task objects. Each task receives the previous task's returned dictionary.
+</p>
+</article>
+<article class="card">
+<h2><a href="guide/requests.html">Translation request flow</a>
+</h2>
+<p>File submission, background processing, result polling and downloads.
+</p>
+</article>
+<article class="card">
+<h2><a href="guide/frontend.html">Frontend architecture</a>
+</h2>
+<p>Angular pages coordinate workflows. Services share state and HTTP access; reusable components handle presentation and interaction.
+</p>
+</article>
+<article class="card">
+<h2><a href="guide/storage.html">Files and storage</a>
+</h2>
+<p>Persistent files and temporary uploads have different owners and lifetimes.
+</p>
+</article>
+</div>
+<div class="note">
+<p>The overview summarizes the application. The remaining pages describe individual parts of the architecture.
+</p>
+</div>
+</main>
+</div>
+</body>
+</html>

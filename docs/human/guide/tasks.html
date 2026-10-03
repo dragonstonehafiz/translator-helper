@@ -1,0 +1,171 @@
+<!doctype html>
+
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Orchestrator and task chains | Translator Helper</title><link rel="stylesheet" href="../human-docs.css"><script src="../human-docs.js" defer></script>
+</head>
+
+<body>
+<nav class="site-nav" aria-label="Human documentation">
+<div class="site-nav-inner"><a class="site-nav-brand" href="../index.html">Translator Helper <span>docs</span></a><details class="nav-menu current"><summary>Documentation</summary>
+<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="backend.html">Backend and models</a><a href="tasks.html" aria-current="page">Orchestrator and task chains</a><a href="requests.html">Translation request flow</a><a href="frontend.html">Frontend architecture</a><a href="storage.html">Files and storage</a>
+</div></details>
+</div>
+</nav>
+<div class="page">
+<aside class="toc" aria-label="On this page">
+<h2>On this page
+</h2>
+<ol>
+<li><a href="#runner">Task execution</a>
+</li>
+<li><a href="#contract">Task inputs and outputs</a>
+</li>
+<li><a href="#chains">Task chains</a>
+</li>
+<li><a href="#reuse">Task reuse</a>
+</li>
+<li><a href="#tracking">Progress and error tracking</a>
+</li>
+<li><a href="#questions">Refactoring considerations</a>
+</li>
+
+</ol>
+</aside>
+<main>
+<header class="hero">
+<h1>Orchestrator and task chains
+</h1>
+<p>A chain is an ordered list of task objects. Each task receives the previous task's returned dictionary.
+</p>
+<div class="meta-line"><span>First draft</span><span>Current implementation &middot; 3 October 2026</span>
+</div>
+</header>
+<section id="runner">
+<h2>Task execution
+</h2>
+<p>The routes decide which tasks belong in a chain. <code>TaskOrchestrator</code> stores that list, copies it when execution begins, and runs it sequentially. It tracks the active task type and writes start, finish and failure messages to the shared log.
+</p>
+<div class="flow" aria-label="Process in execution order">
+<div class="flow-step route"><strong>Route runner</strong><small>Clear list, add tasks, supply initial_data.</small>
+</div>
+<div class="flow-arrow" aria-hidden="true">
+</div>
+<div class="flow-step sync"><strong>set_data(output)</strong><small>Replace the next task's input dictionary.</small>
+</div>
+<div class="flow-arrow" aria-hidden="true">
+</div>
+<div class="flow-step sync"><strong>run_task()</strong><small>Execute synchronously and return a dictionary.</small>
+</div>
+<div class="flow-arrow" aria-hidden="true">
+</div>
+<div class="flow-step sync"><strong>Next task</strong><small>Receive that return value as its entire input.</small>
+</div>
+</div>
+<p>The runner rejects execution when it is already running and resets its active flags in <code>finally</code>. This is an in-process sequence, not a durable queue or dependency graph. Task-list assembly and starting execution are separate operations; the lock should not be read as a transactional submission API.
+</p>
+<p>Source: <code>backend/orchestrator/task_orchestrator.py</code>.
+</p>
+</section>
+<section id="contract">
+<h2>Task inputs and outputs
+</h2>
+<p><code>BaseTask</code> requires <code>run_task()</code>, but does not declare required input keys or validate the output dictionary. Tasks read keys themselves, often with <code>data.get(...)</code> defaults. Missing values can therefore fail later, or activate fallback behavior.
+</p>
+<p>The runner does <strong>not</strong> merge old and new data. Intermediate tasks preserve upstream values using <code>{**data, "new_key": value}</code>. Returning only the new key would discard everything else needed downstream.
+</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Step in file translation</th><th scope="col">Input it uses</th><th scope="col">Output passed onward</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>Route</td><td>Upload, languages, batch size, optional series.</td><td>file_path, original_filename, context, input_lang, output_lang, batch_size, series; runner adds log_dir.</td>
+</tr>
+<tr><td>Plan batches</td><td>Subtitle file and language/context information.</td><td>All incoming keys plus batches.</td>
+</tr>
+<tr><td>Split oversized batches</td><td>batches, file_path and batch_size.</td><td>All incoming keys with a repaired batches list.</td>
+</tr>
+<tr><td>Select library context</td><td>Series and subtitle content.</td><td>Preserves inputs; adds/replaces context and library_context when selection runs. Without a series it passes data through.</td>
+</tr>
+<tr><td>Translate file</td><td>File, batch ranges, context and language settings.</td><td>Writes the subtitle file, marks completion and returns an empty dictionary because the chain ends here.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="note warn">
+<p>A task's return value feeds the next task. <code>ResultHandler.set_complete(...)</code> feeds the polling API. These are different outputs; writing one does not automatically write the other.
+</p>
+</div>
+</section>
+<section id="chains">
+<h2>Task chains
+</h2>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">User operation</th><th scope="col">Execution order</th><th scope="col">Polled final type</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>Translate a line</td><td>TaskTranslateLine</td><td>TaskTranslateLine</td>
+</tr>
+<tr><td>Translate a file</td><td>TaskPlanTranslationBatches &rarr; TaskSplitOversizedBatches &rarr; TaskSelectLibraryContext &rarr; TaskTranslateFile</td><td>TaskTranslateFile</td>
+</tr>
+<tr><td>Review a translation</td><td>TaskPlanTranslationReviewBatches &rarr; TaskSelectLibraryContextForReview &rarr; TaskReviewTranslatedBatches &rarr; TaskRetranslateReviewedLines</td><td>TaskRetranslateReviewedLines</td>
+</tr>
+<tr><td>Update library</td><td>TaskScanSubtitleFile &rarr; TaskCheckAgainstLibrary &rarr; TaskGenerateSearchQueries &rarr; TaskWebSearch &rarr; TaskGenerateLibraryProposals &rarr; TaskDeduplicateProposals</td><td>TaskDeduplicateProposals</td>
+</tr>
+<tr><td>Transcribe a line / file</td><td>TaskTranscribeLine / TaskTranscribeFile, each as a single task.</td><td>Corresponding single-task type</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Library tasks extract candidates, compare them with the existing library, research them and prepare deduplicated proposals. The user accepts proposals through library editing endpoints; the chain does not directly save them as accepted entries.
+</p>
+</section>
+<section id="reuse">
+<h2>Task reuse
+</h2>
+<p><code>TaskPlanTranslationReviewBatches</code> inherits the translation batch planner, calls its implementation and forwards translated-file information. <code>TaskSelectLibraryContextForReview</code> inherits the translation context selector, changing its task type and log filename.
+</p>
+<p>The review chain does not include <code>TaskSplitOversizedBatches</code>. Sharing the planner therefore does not mean both chains have identical batch processing.
+</p>
+<p>These subclasses reuse task behavior, including progress/result reporting and singleton access. The reusable unit is currently an orchestrator task with side effects, rather than only a pure planning or context-selection function.
+</p>
+<p>Source: <code>backend/orchestrator/review_file/task_plan_translation_review_batches.py</code> and <code>backend/orchestrator/review_file/task_select_library_context_for_review.py</code>.
+</p>
+</section>
+<section id="tracking">
+<h2>Progress and error tracking
+</h2>
+<p>Tasks explicitly write to <code>ResultHandler</code> and <code>ProgressHandler</code>. Each store holds the latest entry per task type, protected by a lock. They do not hold a history of uniquely identified jobs.
+</p>
+<p>A task typically marks itself processing, writes progress, then marks completion. On failure it records an error and raises. The orchestrator logs the exception and stops the chain; route-level wrappers record the error under the final type that the UI is polling.
+</p>
+<p>The translation and review runners clear the final result before running. Polling can then report an intermediate task's progress until the final task has its own record. See <a href="requests.html#polling">the polling rules</a>.
+</p>
+</section>
+<section id="questions">
+<h2>Refactoring considerations
+</h2>
+<p>These are design questions, not changes made by this draft:
+</p>
+<ul>
+<li>Should each task declare and validate its inputs before execution?
+</li>
+<li>Should shared batch/context logic be separate from task status and logging?
+</li>
+<li>Should a chain submission own its task list instead of assembling a shared mutable list?
+</li>
+<li>Should results identify a particular run rather than only a task class?
+</li>
+<li>Should one layer own temporary-file cleanup for the whole chain?
+</li>
+</ul>
+</section>
+
+</main>
+</div>
+</body>
+</html>

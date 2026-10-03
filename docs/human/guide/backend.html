@@ -1,0 +1,159 @@
+<!doctype html>
+
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Backend and models | Translator Helper</title><link rel="stylesheet" href="../human-docs.css"><script src="../human-docs.js" defer></script>
+</head>
+
+<body>
+<nav class="site-nav" aria-label="Human documentation">
+<div class="site-nav-inner"><a class="site-nav-brand" href="../index.html">Translator Helper <span>docs</span></a><details class="nav-menu current"><summary>Documentation</summary>
+<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="backend.html" aria-current="page">Backend and models</a><a href="tasks.html">Orchestrator and task chains</a><a href="requests.html">Translation request flow</a><a href="frontend.html">Frontend architecture</a><a href="storage.html">Files and storage</a>
+</div></details>
+</div>
+</nav>
+<div class="page">
+<aside class="toc" aria-label="On this page">
+<h2>On this page
+</h2>
+<ol>
+<li><a href="#folders">Backend structure</a>
+</li>
+<li><a href="#startup">Startup</a>
+</li>
+<li><a href="#manager">ModelManager responsibilities</a>
+</li>
+<li><a href="#contracts">Model interfaces</a>
+</li>
+<li><a href="#status">Model status</a>
+</li>
+<li><a href="#search">Tavily search</a>
+</li>
+
+</ol>
+</aside>
+<main>
+<header class="hero">
+<h1>Backend and models
+</h1>
+<p>The backend is organized around HTTP routes, task execution and a shared manager for model clients.
+</p>
+<div class="meta-line"><span>First draft</span><span>Current implementation &middot; 3 October 2026</span>
+</div>
+</header>
+<section id="folders">
+<h2>Backend structure
+</h2>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Location</th><th scope="col">Role</th><th scope="col">Start reading</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>server.py</td><td>Creates the FastAPI app, installs CORS and exception handlers, and starts model loading through the lifespan hook.</td><td><code>backend/server.py</code></td>
+</tr>
+<tr><td>routes/</td><td>HTTP boundary; builds task input dictionaries and assembles chains.</td><td><code>backend/routes/__init__.py</code></td>
+</tr>
+<tr><td>interface/</td><td>Abstract contracts for LLMs, audio models and tasks. Implementations live elsewhere.</td><td><code>backend/interface/llm_interface.py</code></td>
+</tr>
+<tr><td>models/</td><td>Provider implementations, Tavily client and ModelManager.</td><td><code>backend/models/model_manager.py</code></td>
+</tr>
+<tr><td>orchestrator/</td><td>Sequential runner, result/progress stores, and domain-specific tasks.</td><td><code>backend/orchestrator/task_orchestrator.py</code></td>
+</tr>
+<tr><td>prompts/</td><td>Functions that build system-prompt text; task code builds the corresponding user message.</td><td><code>backend/prompts/translate_file.py</code></td>
+</tr>
+<tr><td>utils/</td><td>Response envelopes, subtitle helpers, library persistence, logging and paths.</td><td><code>backend/utils/library.py</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="startup">
+<h2>Startup
+</h2>
+<p><code>server.py</code> calls <code>startup_load_models()</code>. It starts three daemon threads: one for the LLM, one for audio, and one for search. Each calls the shared manager. Readiness can still be false while initialization runs.
+</p>
+<div class="flow" aria-label="Process in execution order">
+<div class="flow-step route"><strong>Server lifespan</strong><small>Starts loading threads.</small>
+</div>
+<div class="flow-arrow" aria-hidden="true">
+</div>
+<div class="flow-step sync"><strong>ModelManager</strong><small>Creates a client if its slot is empty, then initializes it.</small>
+</div>
+<div class="flow-arrow" aria-hidden="true">
+</div>
+<div class="flow-step db"><strong>Client configuration</strong><small>Provider code reads saved settings.</small>
+</div>
+<div class="flow-arrow" aria-hidden="true">
+</div>
+<div class="flow-step fe"><strong>Settings page</strong><small>Displays readiness and loading errors through utility endpoints.</small>
+</div>
+</div>
+<p>Initialization failures are recorded in manager error fields. The server lifespan currently has no model-shutdown cleanup after its <code>yield</code>.
+</p>
+</section>
+<section id="manager">
+<h2>ModelManager responsibilities
+</h2>
+<p>A singleton means one shared instance within the backend process. The manager keeps one LLM slot, one audio slot and one Tavily slot. It currently constructs <code>LLMDeepSeek</code>, <code>AudioWhisperX</code> and <code>SearchTavily</code>. Other provider implementation files are available, but there is no active multi-provider registry.
+</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Responsibility</th><th scope="col">Current behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>Instance ownership</td><td>Creates and returns clients through get_llm_client(), get_audio_client() and get_search_client().</td>
+</tr>
+<tr><td>Loading</td><td>Calls initialize(); tracks loading booleans and the latest loading error.</td>
+</tr>
+<tr><td>Readiness</td><td>Checks whether a client exists and reports status loaded.</td>
+</tr>
+<tr><td>Settings</td><td>Forwards configure(settings) to clients.</td>
+</tr>
+<tr><td>Execution</td><td>Offers llm_infer() and audio transcription wrappers; some task code also calls a retrieved client directly.</td>
+</tr>
+<tr><td>Output writing</td><td>audio_transcribe_file() also names and saves the generated subtitle file.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Removing ModelManager would require moving its lifecycle, readiness, settings and file-writing responsibilities to other components.
+</p>
+</section>
+<section id="contracts">
+<h2>Model interfaces
+</h2>
+<p><code>LLMInterface</code> combines inference with initialization, shutdown, configuration/schema methods, status, running state, device access, model access and temperature access. <code>AudioModelInterface</code> has a similar shape, with line/file transcription and available-device methods instead of inference and temperature.
+</p>
+<p>Both contain a helper for finding configuration files in <code>backend/data/</code>. Provider implementations handle their actual settings persistence. Sharing configuration behavior is a possible future design choice; there is no common configuration interface today.
+</p>
+<p>Source: <code>backend/interface/llm_interface.py</code> and <code>backend/interface/audio_model_interface.py</code>.
+</p>
+</section>
+<section id="status">
+<h2>Model status
+</h2>
+<p><strong>Loaded</strong> means initialization succeeded. <strong>Loading</strong> is a manager flag while initialization runs. <strong>Running</strong> can mean either an active orchestrator task or a client flag controlled by task code. These are separate pieces of state.
+</p>
+<div class="note">
+<p><code>GET /utils/running</code> uses the orchestrator's active task type and the LLM/audio task-type sets. It does not use the manager's <code>is_llm_running()</code> or <code>is_audio_running()</code> methods.
+</p>
+</div>
+<p>The settings load request includes a <code>provider</code> field, but the current load handlers use <code>request.settings</code> and do not select a provider from that field. See <code>backend/routes/utils.py</code>.
+</p>
+</section>
+<section id="search">
+<h2>Tavily search
+</h2>
+<p>Tavily is a concrete search client in <code>models/</code>, owned by ModelManager. It does not implement the LLM or audio interface. <code>TaskWebSearch</code> retrieves it and calls <code>search()</code> directly to collect snippets for library proposals.
+</p>
+<p>If no queries exist, the task skips searching. If queries exist and search is unavailable, it raises an error. Source: <code>backend/orchestrator/library/task_web_search.py</code>.
+</p>
+</section>
+
+</main>
+</div>
+</body>
+</html>

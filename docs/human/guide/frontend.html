@@ -1,0 +1,181 @@
+<!doctype html>
+
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Frontend architecture | Translator Helper</title><link rel="stylesheet" href="../human-docs.css"><script src="../human-docs.js" defer></script>
+</head>
+
+<body>
+<nav class="site-nav" aria-label="Human documentation">
+<div class="site-nav-inner"><a class="site-nav-brand" href="../index.html">Translator Helper <span>docs</span></a><details class="nav-menu current"><summary>Documentation</summary>
+<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="backend.html">Backend and models</a><a href="tasks.html">Orchestrator and task chains</a><a href="requests.html">Translation request flow</a><a href="frontend.html" aria-current="page">Frontend architecture</a><a href="storage.html">Files and storage</a>
+</div></details>
+</div>
+</nav>
+<div class="page">
+<aside class="toc" aria-label="On this page">
+<h2>On this page
+</h2>
+<ol>
+<li><a href="#shell">Application shell</a>
+</li>
+<li><a href="#pages">Pages and routes</a>
+</li>
+<li><a href="#services">Shared services</a>
+</li>
+<li><a href="#state">Shared and page-local state</a>
+</li>
+<li><a href="#components">Shared components</a>
+</li>
+<li><a href="#coupling">Refactoring dependencies</a>
+</li>
+
+</ol>
+</aside>
+<main>
+<header class="hero">
+<h1>Frontend architecture
+</h1>
+<p>Angular pages coordinate workflows. Services share state and HTTP access; reusable components handle presentation and interaction.
+</p>
+<div class="meta-line"><span>First draft</span><span>Current implementation &middot; 3 October 2026</span>
+</div>
+</header>
+<section id="shell">
+<h2>Application shell
+</h2>
+<p><code>AppComponent</code> renders the navbar, router outlet, confirmation dialog, error dialog and progress overlay. The router replaces the page inside the outlet while the shell remains.
+</p>
+<p>On initialization, the shell requests server variables. If the LLM or audio model is not ready, it navigates to Settings. Search readiness is tracked separately and is not part of that combined readiness check.
+</p>
+<p>Source: <code>frontend/src/app/app.component.ts</code>.
+</p>
+</section>
+<section id="pages">
+<h2>Pages and routes
+</h2>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Route</th><th scope="col">Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>/</td><td>Home / landing page.</td>
+</tr>
+<tr><td>/settings</td><td>Readiness display and forms built from backend settings schemas; apply settings and load clients.</td>
+</tr>
+<tr><td>/library</td><td>List and create series.</td>
+</tr>
+<tr><td>/library/:seriesId</td><td>Edit series metadata, characters and glossary; run updates and review proposals.</td>
+</tr>
+<tr><td>/transcribe</td><td>Record or supply audio, transcribe a line/file, display text and downloads.</td>
+</tr>
+<tr><td>/translate</td><td>Translate text/files, review translations and show translated/reviewed downloads.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>These are standalone components registered in <code>frontend/src/app/app.routes.ts</code>. Each page imports the components it uses.
+</p>
+</section>
+<section id="services">
+<h2>Shared services
+</h2>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Service</th><th scope="col">What it does</th><th scope="col">What it does not do</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>ApiService</td><td>Defines HTTP methods and response interfaces; sends requests to the backend.</td><td>Does not run the LLM or save library JSON locally.</td>
+</tr>
+<tr><td>StateService</td><td>Holds shared values in RxJS BehaviorSubjects, which expose the latest value to subscribers.</td><td>Does not persist them across a browser refresh or execute polling timers.</td>
+</tr>
+<tr><td>ConfirmationService</td><td>Supplies dialog state and resolves the user's decision.</td><td>Does not itself delete the target file or library item.</td>
+</tr>
+<tr><td>ErrorDialogService</td><td>Supplies error-dialog state for AppComponent.</td><td>Does not determine whether a task succeeded; callers must report the failure.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Sources: <code>frontend/src/app/services/api.service.ts</code> and <code>frontend/src/app/services/state.service.ts</code>.
+</p>
+</section>
+<section id="state">
+<h2>Shared and page-local state
+</h2>
+<p>StateService keeps model readiness, loading flags, settings schemas, selected series, original/translated subtitle files, file statistics and task records. Task records include status, result, message, progress and an <code>isPolling</code> flag.
+</p>
+<p>The Translate page also has local form fields, download lists, UI booleans and polling interval handles. It restores task state when created and restarts polling for tasks marked active. Its destroy hook stops its polling intervals and unsubscribes from shared-state subscriptions.
+</p>
+<div class="note">
+<p>Leaving Translate does not cancel backend work. It stops that page's polling, so a visible global progress snapshot may remain stale until polling resumes. Keeping task state in a root service is different from keeping a global polling loop.
+</p>
+</div>
+<p>Source: <code>frontend/src/app/pages/translate/translate.component.ts</code>.
+</p>
+</section>
+<section id="components">
+<h2>Shared components
+</h2>
+<div class="flow" aria-label="Process in execution order">
+<div class="flow-step fe"><strong>Page</strong><small>Holds workflow state and handles events.</small>
+</div>
+<div class="flow-arrow" aria-hidden="true">
+</div>
+<div class="flow-step fe"><strong>Reusable component</strong><small>Receives inputs and emits user actions.</small>
+</div>
+<div class="flow-arrow" aria-hidden="true">
+</div>
+<div class="flow-step route"><strong>ApiService</strong><small>Page calls the backend when needed.</small>
+</div>
+<div class="flow-arrow" aria-hidden="true">
+</div>
+<div class="flow-step fe"><strong>State and view</strong><small>Page stores the response and updates what is shown.</small>
+</div>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Component family</th><th scope="col">Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>tabs / tab / subsection</td><td>Organize sections. Tab content uses hidden state so switching tabs retains its component state.</td>
+</tr>
+<tr><td>file-upload / text-field</td><td>File selection and text editing/display.</td>
+</tr>
+<tr><td>primary-button / secondary-button / tooltip-icon</td><td>Common controls and help.</td>
+</tr>
+<tr><td>downloads-list</td><td>Reusable file panel; emits refresh, download and delete actions for the page to handle.</td>
+</tr>
+<tr><td>waveform-player</td><td>Audio playback, waveform display and selection/trim interaction.</td>
+</tr>
+<tr><td>progress-bar / confirm-dialog / error-dialog</td><td>Global progress and dialogs rendered by the app shell.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Shared layout/form styles live in <code>frontend/src/styles.scss</code>; component-specific styles live beside each component.
+</p>
+</section>
+<section id="coupling">
+<h2>Refactoring dependencies
+</h2>
+<ul>
+<li><code>TASK_TYPES</code> names the final backend task for each workflow. Changing the final task requires coordinating backend polling registration and frontend constants.
+</li>
+<li>The Settings UI consumes provider schemas, but the backend currently still selects its providers in ModelManager.
+</li>
+<li>Download sections name backend folders directly. Moving outputs requires updating writers and these consumers together.
+</li>
+<li>Library and Translate share selected subtitle files and series through StateService; those inputs are not entirely local to one page.
+</li>
+</ul>
+</section>
+
+</main>
+</div>
+</body>
+</html>
