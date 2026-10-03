@@ -188,7 +188,4 @@ Watch mode enabled. Watching for file changes...
 
 Once the two previous steps are completed, you can access the app by going to http://localhost:4200/.
 
-## TODO
-
-- Add a way to choose a specific model per translate/context task instead of forcing all tasks to use the same globally loaded LLM.
 
