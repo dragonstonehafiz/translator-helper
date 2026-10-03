@@ -12,7 +12,7 @@ A full-stack web application for transcribing and translating subtitle files. Bu
 ## Features
 
 ### Settings Page
-- **Status**: Monitor model readiness (LLM, WhisperX)
+- **Status**: Monitor model readiness (LLM, transcription model, web search)
 - **WhisperX Settings**: Select model size, compute device (CPU/CUDA), compute type, and batch size; load model into memory
 - **LLM Settings**: Configure the active LLM backend, including Claude/OpenAI API settings or llama.cpp GGUF settings for local inference
 
@@ -94,7 +94,7 @@ uv pip install torchaudio
 
 ### 5. Configuration
 
-Settings (API keys, model names, temperatures, etc.) are stored as JSON files in `backend/files/config/`. These files are created automatically with default values the first time the backend starts up. You can set your API keys and preferences through the **Settings page** in the app — changes are saved immediately to the corresponding JSON file.
+Settings (API keys, model names, temperatures, etc.) are stored as JSON files in `backend/files/config/`. These files are created automatically with default values the first time the backend starts up. You can set your API keys and preferences through the **Settings page** in the app — clicking Reload saves them to the corresponding JSON file and then loads the model. Saved API keys are never shown in the browser; leave the field blank to keep the current key.
 
 | File | Provider |
 |---|---|
@@ -133,7 +133,7 @@ If you want to use a local GGUF model instead of an API-based LLM, install the l
 
 Notes:
 - The local llama.cpp implementation lives in `backend/llm/llamacpp.py`
-- The current backend `ModelManager` already supports `LLMLlamaCpp`; no manual code edits are required just to use the local backend
+- To use it, set `LLM_PROVIDER = LLMLlamaCpp` in `backend/models/manager.py` (and uncomment its import); the default is DeepSeek
 - API-based backends remain available through their own JSON config files in `backend/files/config/`
 - `n_gpu_layers = -1` lets llama.cpp auto-select GPU offload depth
 

@@ -74,7 +74,7 @@ def main() -> int:
     args = _parse_args()
 
     try:
-        from model_manager import ModelManager
+        from models.manager import ModelManager
         from orchestrator.task_orchestrator import TaskOrchestrator
         from orchestrator.result_handler import ResultHandler
         from orchestrator.translate_file.task_plan_translation_batches import TaskPlanTranslationBatches
@@ -84,13 +84,13 @@ def main() -> int:
         return 1
 
     model_manager = ModelManager.get_instance()
-    if not model_manager.is_llm_ready():
-        message = model_manager.llm_loading_error or "LLM model not loaded."
-        print(json.dumps({"status": "error", "message": message}))
+    try:
+        model_manager.load_llm_model()
+    except Exception as exc:
+        print(json.dumps({"status": "error", "message": f"LLM model not loaded: {exc}"}))
         return 1
     llm_client = model_manager.get_llm_client()
-    loaded_model = llm_client.get_model() if llm_client is not None else "unknown"
-    print(f"Loaded LLM model: {loaded_model}")
+    print(f"Loaded LLM provider: {llm_client.provider_id}")
 
     source_file = Path(args.file_path).expanduser().resolve()
     if not source_file.is_file():

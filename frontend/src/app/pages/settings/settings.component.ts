@@ -1,11 +1,13 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subscription, interval } from 'rxjs';
-import { ApiService } from '../../services/api.service';
+import { Observable, Subscription, interval } from 'rxjs';
+import { ApiResponse, ApiService } from '../../services/api.service';
 import {
+  SettingsField,
   SettingsSchema,
   SettingsSchemaBundle,
+  SettingsValue,
   StateService
 } from '../../services/state.service';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
@@ -14,6 +16,14 @@ import { PrimaryButtonComponent } from '../../components/primary-button/primary-
 import { TabsComponent } from '../../components/tabs/tabs.component';
 import { TabComponent } from '../../components/tabs/tab.component';
 import { ErrorDialogService } from '../../services/error-dialog.service';
+
+type ModelScope = 'llm' | 'audio' | 'search';
+
+const SCOPE_LABELS: Record<ModelScope, string> = {
+  llm: 'LLM',
+  audio: 'transcription model',
+  search: 'web search',
+};
 
 @Component({
   selector: 'app-settings',
@@ -41,13 +51,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
   audioSchema: SettingsSchema | null = null;
   llmSchema: SettingsSchema | null = null;
   searchSchema: SettingsSchema | null = null;
-  llmApiKeyRequired = false;
 
-  settingsValues: {
-    audio: Record<string, string | number | boolean>;
-    llm: Record<string, string | number | boolean>;
-    search: Record<string, string | number | boolean>;
-  } = {
+  settingsValues: Record<ModelScope, Record<string, SettingsValue>> = {
     audio: {},
     llm: {},
     search: {}
@@ -68,7 +73,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.loadSettingsSchema();
     this.loadFromState();
 
-    // Subscribe to loading states
     this.stateService.loadingAudio$.subscribe(loading => {
       this.loadingAudio = loading;
     });
@@ -106,19 +110,24 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
   loadSettingsSchema(): void {
     const cachedSchema = this.stateService.getSettingsSchema();
-    if (cachedSchema.audio || cachedSchema.llm) {
-      this.applySchema(cachedSchema);
+    if (cachedSchema.audio || cachedSchema.llm || cachedSchema.search) {
+      this.applySchema(cachedSchema, false);
       return;
     }
+    this.fetchSchema(false);
+  }
 
+  /** Fetch the schema from the backend; `overwrite` replaces the form values with the saved ones. */
+  private fetchSchema(overwrite: boolean): void {
     this.apiService.getSettingsSchema().subscribe({
       next: (schema) => {
         if (!schema.data) return;
         this.stateService.setSettingsSchema(schema.data);
-        this.applySchema(schema.data);
+        this.applySchema(schema.data, overwrite);
       },
       error: (error) => {
         console.error('Failed to load settings schema:', error);
+        this.errorDialogService.show('Failed to load settings schema');
       }
     });
   }
@@ -143,15 +152,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.showLoadErrorIfNeeded('llm', this.llmLoadingError);
         this.showLoadErrorIfNeeded('audio', this.audioLoadingError);
         this.showLoadErrorIfNeeded('search', this.searchLoadingError);
-        if (response.data.llm_ready) {
-          this.stateService.setLoadingLlm(false);
-        }
-        if (response.data.audio_ready) {
-          this.stateService.setLoadingAudio(false);
-        }
-        if (response.data.search_ready) {
-          this.loadingSearch = false;
-        }
 
         this.audioDetails = audioVars.map(item => ({
           label: item.label ?? item.key ?? '',
@@ -171,8 +171,10 @@ export class SettingsComponent implements OnInit, OnDestroy {
         console.error('Failed to load server variables:', error);
         this.llmReady = null;
         this.audioReady = null;
+        this.searchReady = null;
         this.stateService.setLlmReady(null);
         this.stateService.setAudioReady(null);
+        this.stateService.setSearchReady(null);
       }
     });
   }
@@ -183,6 +185,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
         if (!status.data) return;
         this.stateService.setLoadingLlm(status.data.loading_llm_model);
         this.stateService.setLoadingAudio(status.data.loading_audio_model);
+        this.loadingSearch = status.data.loading_search_model;
       },
       error: (error) => {
         console.error('Failed to load running status:', error);
@@ -193,6 +196,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   loadFromState(): void {
     const llmReady = this.stateService.getLlmReady();
     const audioReady = this.stateService.getAudioReady();
+    const searchReady = this.stateService.getSearchReady();
     const serverVars = this.stateService.getServerVariables();
 
     if (llmReady !== null) {
@@ -200,6 +204,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
     }
     if (audioReady !== null) {
       this.audioReady = audioReady;
+    }
+    if (searchReady !== null) {
+      this.searchReady = searchReady;
     }
     const cachedAudio = Array.isArray(serverVars.audio) ? serverVars.audio : [];
     const cachedLlm = Array.isArray(serverVars.llm) ? serverVars.llm : [];
@@ -215,137 +222,107 @@ export class SettingsComponent implements OnInit, OnDestroy {
     if (llmReady === null || audioReady === null) {
       this.checkStatus();
     }
-
   }
 
-  private applySchema(schema: SettingsSchemaBundle): void {
+  isLoading(scope: ModelScope): boolean {
+    return scope === 'llm' ? this.loadingLlm : scope === 'audio' ? this.loadingAudio : this.loadingSearch;
+  }
+
+  isFieldDisabled(scope: ModelScope): boolean {
+    const ready = scope === 'llm' ? this.llmReady : scope === 'audio' ? this.audioReady : this.searchReady;
+    return this.isLoading(scope) || ready === null;
+  }
+
+  passwordPlaceholder(field: SettingsField): string {
+    return field.is_set ? 'Saved (leave blank to keep)' : (field.placeholder ?? '');
+  }
+
+  /** Validate the form against its schema, then save the settings and initialize the model. */
+  reloadModel(scope: ModelScope): void {
+    if (this.isLoading(scope)) return;
+    const schema = this.schemaFor(scope);
+    if (!schema) return;
+
+    const missing = schema.fields.find(field => field.required && this.isEmpty(this.settingsValues[scope][field.key]) && !field.is_set);
+    if (missing) {
+      this.errorDialogService.show(`Please enter ${missing.label}`);
+      return;
+    }
+
+    const settings: Record<string, SettingsValue> = {};
+    for (const field of schema.fields) {
+      const value = this.settingsValues[scope][field.key];
+      if (value === undefined || (field.type === 'password' && this.isEmpty(value))) continue;
+      settings[field.key] = value;
+    }
+
+    this.setLoading(scope, true);
+    this.loadRequest(scope, settings).subscribe({
+      next: (response) => {
+        this.setLoading(scope, false);
+        if (response.status === 'error') {
+          this.errorDialogService.show(response.message || `Failed to load ${SCOPE_LABELS[scope]}`);
+        }
+        this.clearPasswords(scope);
+        this.fetchSchema(true);
+        this.loadServerVariables();
+      },
+      error: (error) => {
+        console.error(`Failed to load ${SCOPE_LABELS[scope]}:`, error);
+        this.setLoading(scope, false);
+        this.errorDialogService.show(`Failed to load ${SCOPE_LABELS[scope]}`);
+      }
+    });
+  }
+
+  private loadRequest(scope: ModelScope, settings: Record<string, SettingsValue>): Observable<ApiResponse<null>> {
+    if (scope === 'llm') return this.apiService.loadLlmModel(settings);
+    if (scope === 'audio') return this.apiService.loadAudioModel(settings);
+    return this.apiService.loadSearchModel(settings);
+  }
+
+  private setLoading(scope: ModelScope, loading: boolean): void {
+    if (scope === 'llm') this.stateService.setLoadingLlm(loading);
+    else if (scope === 'audio') this.stateService.setLoadingAudio(loading);
+    else this.loadingSearch = loading;
+  }
+
+  private schemaFor(scope: ModelScope): SettingsSchema | null {
+    return scope === 'llm' ? this.llmSchema : scope === 'audio' ? this.audioSchema : this.searchSchema;
+  }
+
+  private isEmpty(value: SettingsValue | undefined): boolean {
+    return value === undefined || value === null || (typeof value === 'string' && !value.trim());
+  }
+
+  private clearPasswords(scope: ModelScope): void {
+    for (const field of this.schemaFor(scope)?.fields ?? []) {
+      if (field.type === 'password') this.settingsValues[scope][field.key] = '';
+    }
+  }
+
+  private applySchema(schema: SettingsSchemaBundle, overwrite: boolean): void {
     this.audioSchema = schema.audio;
     this.llmSchema = schema.llm;
     this.searchSchema = schema.search ?? null;
-    this.llmApiKeyRequired = Boolean(
-      this.llmSchema?.fields.find(field => field.key === 'api_key')?.required
-    );
 
-    this.initializeSettingsValues('audio', this.audioSchema);
-    this.initializeSettingsValues('llm', this.llmSchema);
-    this.initializeSettingsValues('search', this.searchSchema);
+    this.initializeSettingsValues('audio', this.audioSchema, overwrite);
+    this.initializeSettingsValues('llm', this.llmSchema, overwrite);
+    this.initializeSettingsValues('search', this.searchSchema, overwrite);
   }
 
-
-  private initializeSettingsValues(scope: 'audio' | 'llm' | 'search', schema: SettingsSchema | null): void {
+  /** Fill form values from the schema's current values; existing edits are kept unless `overwrite` is set. */
+  private initializeSettingsValues(scope: ModelScope, schema: SettingsSchema | null, overwrite: boolean): void {
     if (!schema) return;
 
     schema.fields.forEach(field => {
-      if (this.settingsValues[scope][field.key] === undefined) {
-        if (field.default !== undefined) {
-          this.settingsValues[scope][field.key] = field.default;
-        }
+      if (overwrite || this.settingsValues[scope][field.key] === undefined) {
+        this.settingsValues[scope][field.key] = field.value ?? field.default;
       }
     });
   }
 
-  loadSearchModel(): void {
-    if (this.loadingSearch) return;
-
-    const apiKey = this.settingsValues.search['api_key'] as string | undefined;
-    if (!apiKey || !String(apiKey).trim()) {
-      this.errorDialogService.show('Please enter a Tavily API key');
-      return;
-    }
-
-    this.loadingSearch = true;
-    this.apiService.loadSearchModel({ ...this.settingsValues.search }).subscribe({
-      next: (response) => {
-        this.loadingSearch = false;
-        if (response.status === 'error') {
-          this.errorDialogService.show(response.message || 'Failed to load search model');
-          return;
-        }
-        this.loadServerVariables();
-      },
-      error: (error) => {
-        console.error('Failed to load search model:', error);
-        this.loadingSearch = false;
-        this.errorDialogService.show('Failed to load search model');
-      }
-    });
-  }
-
-  loadAudioModel(): void {
-    if (this.loadingAudio) return;
-
-    const modelName = this.settingsValues.audio['model_name'] as string | undefined;
-    const device = this.settingsValues.audio['device'] as string | undefined;
-
-    if (!modelName || !device) {
-      this.errorDialogService.show('Please select a model and device');
-      return;
-    }
-
-    const settings = { ...this.settingsValues.audio };
-    this.stateService.setLoadingAudio(true);
-
-    this.apiService.loadAudioModel(settings).subscribe({
-      next: (response) => {
-        this.stateService.setLoadingAudio(false);
-        if (response.status === 'error') {
-          this.errorDialogService.show(response.message || 'Failed to load audio model');
-          return;
-        }
-        this.loadServerVariables();
-      },
-      error: (error) => {
-        console.error('Failed to load audio model:', error);
-        this.stateService.setLoadingAudio(false);
-        this.errorDialogService.show('Failed to load audio model');
-      }
-    });
-  }
-
-  loadLlmModel(): void {
-    if (this.loadingLlm) {
-      return;
-    }
-
-    const apiKey = this.settingsValues.llm['api_key'] as string | undefined;
-    const requiredFields = (this.llmSchema?.fields || []).filter(field => field.required && field.key !== 'api_key');
-    for (const field of requiredFields) {
-      const value = this.settingsValues.llm[field.key];
-      if (value === undefined || value === null || (typeof value === 'string' && !value.trim())) {
-        this.errorDialogService.show(`Please enter ${field.label}`);
-        return;
-      }
-    }
-
-    if (this.llmApiKeyRequired && !apiKey && this.llmReady === false) {
-      this.errorDialogService.show('Please enter OpenAI API key');
-      return;
-    }
-
-    const settings = { ...this.settingsValues.llm };
-    if (typeof settings['api_key'] === 'string' && !settings['api_key'].trim()) {
-      delete settings['api_key'];
-    }
-    this.stateService.setLoadingLlm(true);
-
-    this.apiService.loadLlmModel(settings).subscribe({
-      next: (response) => {
-        this.stateService.setLoadingLlm(false);
-        if (response.status === 'error') {
-          this.errorDialogService.show(response.message || 'Failed to load LLM');
-          return;
-        }
-        this.loadServerVariables();
-      },
-      error: (error) => {
-        console.error('Failed to load LLM:', error);
-        this.stateService.setLoadingLlm(false);
-        this.errorDialogService.show('Failed to load LLM');
-      }
-    });
-  }
-
-  private showLoadErrorIfNeeded(scope: 'llm' | 'audio' | 'search', message: string | null): void {
+  private showLoadErrorIfNeeded(scope: ModelScope, message: string | null): void {
     if (!message) {
       if (scope === 'llm') this.lastShownLlmError = null;
       else if (scope === 'audio') this.lastShownAudioError = null;
@@ -366,5 +343,4 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
     this.errorDialogService.show(message);
   }
-
 }

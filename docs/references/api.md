@@ -40,15 +40,17 @@ Prefix `/utils` (`routes/utils.py`).
 
 | Method & path | Body | `data` on success |
 |---|---|---|
-| `GET /utils/running` | — | `running_llm`, `running_audio`, `loading_audio_model`, `loading_llm_model`, `active_task_type` |
-| `GET /utils/server-variables` | — | `audio`, `llm`, `search` (each client's server variables), `llm_ready`, `audio_ready`, `search_ready`, `llm_loading_error`, `audio_loading_error`, `search_loading_error` |
-| `GET /utils/settings-schema` | — | `audio`, `llm`, `search` settings schemas |
-| `POST /utils/load-audio-model` | JSON `{provider, settings}` | `null`; error if already loading or load fails |
+| `GET /utils/running` | — | `running_llm`, `running_audio`, `running_search` (a task holds the model), `loading_llm_model`, `loading_audio_model`, `loading_search_model`, `active_task_type` |
+| `GET /utils/server-variables` | — | `audio`, `llm`, `search` (each client's non-password settings as `[{key, label, value}]`, empty until the client exists), `llm_ready`, `audio_ready`, `search_ready`, `llm_loading_error`, `audio_loading_error`, `search_loading_error` |
+| `GET /utils/settings-schema` | — | `audio`, `llm`, `search`: each `{provider, title, fields}` from `config.to_frontend()`, or `null` if the client could not be created |
+| `POST /utils/load-audio-model` | JSON `{provider, settings}` | `null`; error if loading, in use, a value is invalid, or initialization fails |
 | `POST /utils/load-llm-model` | JSON `{provider, settings}` | same |
 | `POST /utils/load-search-model` | JSON `{provider, settings}` | same |
 | `POST /utils/get-subtitle-file-info` | multipart `file` (`.ass`/`.srt` only) | `total_lines`, `character_count`, `average_character_count` (strings) |
 
-The load endpoints apply `settings` to the current client, then load it synchronously in a thread pool. `provider` is required by the request model but not used.
+The load endpoints call `ModelManager.load_*_model(settings)` in a thread pool: submitted keys are validated, saved, then the model is initialized. Omitted keys keep their saved values, so an empty password field leaves the stored key unchanged. Any rejection or failure becomes an `error` envelope; saved settings survive a failed initialization. `provider` is required by the request model but not used.
+
+A schema field is `{key, label, type, value, default, required}` plus `help`, `placeholder`, `options` (select), `min`/`max`/`step` (number) where they apply. `type` is `text`, `password`, `number`, `boolean` or `select`. Password fields send `value: ""` and `is_set: boolean` instead of the stored key.
 
 ## Task results
 

@@ -2,7 +2,7 @@ import json
 import os
 
 from orchestrator.base_task import BaseTask
-from model_manager import ModelManager
+from models.manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from prompts.library import generate_search_queries_prompt
@@ -47,9 +47,9 @@ class TaskGenerateSearchQueries(BaseTask):
                     self._write_log(log_dir, "", [])
                 return {**data, "search_queries": []}
 
-            llm_client.set_running(True)
+            model_manager.acquire_llm()
             prompt = f"Unknown items to search for:\n{json.dumps(all_unknowns, ensure_ascii=False)}"
-            raw = model_manager.llm_infer(
+            raw = model_manager.get_llm_client().infer(
                 prompt=prompt,
                 system_prompt=generate_search_queries_prompt(series_name),
                 temperature=0.1,
@@ -66,7 +66,7 @@ class TaskGenerateSearchQueries(BaseTask):
             result_handler.set_error(self.task_type, str(exc))
             raise
         finally:
-            llm_client.set_running(False)
+            model_manager.release_llm()
 
     def _parse_queries(self, raw: str) -> list[dict]:
         """Parse the LLM's JSON array of {subject, query} objects; raises ValueError on malformed output."""

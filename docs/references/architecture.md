@@ -39,7 +39,10 @@ README.md       User setup and usage
 ```
 backend/
   server.py                  FastAPI app, CORS, lifespan (starts background model loading)
-  model_manager.py           ModelManager singleton — client lifecycle and infer/transcribe helpers
+  models/
+    manager.py               ModelManager singleton — owns the three clients, loading and in-use tracking
+    state.py                 ModelState enum (NOT_LOADED, LOADED, ERROR)
+    config.py                ModelConfig base, ConfigField, option types (text, number, integer, boolean, dropdown)
   llm/                       LLMInterface (interface.py) + LLMDeepSeek, LLMClaude, LLMChatGPT, LLMLlamaCpp
   audio/                     AudioModelInterface (interface.py) + AudioWhisperX, AudioWhisper;
                              devices.py — torch device discovery
@@ -78,7 +81,7 @@ Importing `utils` does not import torch; only `audio/` does.
 
 ## Runtime model
 
-- On startup, the `server.py` lifespan loads the LLM, audio, and search clients on three daemon threads, so the server accepts requests before models are ready.
+- On startup, the `server.py` lifespan loads the LLM, audio, and search clients on three daemon threads, so the server accepts requests before models are ready. On shutdown it waits for those loads to finish, then calls `ModelManager.shutdown()` to release the clients. It does not yet wait for a running task chain.
 - Long-running work is started from a route via FastAPI `BackgroundTasks`; the route returns `processing` immediately and the frontend polls `GET /task-results/{task_type}`. See [`tasks.md`](tasks.md).
 - `TaskOrchestrator` holds a single chain and refuses to start another while one is running — the app supports one transcription/translation/library job at a time across all users.
 
@@ -88,7 +91,7 @@ Four singletons are shared across the backend, always obtained with `.get_instan
 
 | Singleton | Owns |
 |---|---|
-| `ModelManager` | LLM/audio/search client lifecycle, loading flags and errors, `llm_infer` and transcribe helpers |
+| `ModelManager` | The LLM, audio and search clients; loading flags and errors; in-use flags |
 | `TaskOrchestrator` | The queued task list, running flag, active task type |
 | `ResultHandler` | Latest `{status, result, error}` record per task type |
 | `ProgressHandler` | Progress dict per task type (`current`, `total`, `status`, `eta_seconds`) |
@@ -97,9 +100,11 @@ Four singletons are shared across the backend, always obtained with `.get_instan
 
 ## Model backends
 
-- `ModelManager.load_llm_model()` creates an `LLMDeepSeek` client if none exists; `load_audio_model()` creates `AudioWhisperX`; `load_search_model()` creates `SearchTavily`. The other implementations (`LLMClaude`, `LLMChatGPT`, `LLMLlamaCpp`, `AudioWhisper`) exist in `llm/` and `audio/` but no route switches to them — the `provider` field on load requests is accepted but unused.
-- Each client reads and writes its own settings file in `backend/files/config/` (e.g. `llm_deepseek.json`, `audio_whisperx.json`, `search_tavily.json`), created with defaults on first load. Settings sent from the Settings page are applied with `configure()` and saved to the same file.
-- Each client exposes `get_settings_schema()` (drives the Settings page form) and `get_server_variables()` (drives the status display).
+- `models/manager.py` picks one provider class per slot: `LLM_PROVIDER = LLMDeepSeek`, `AUDIO_PROVIDER = AudioWhisperX`, `SEARCH_PROVIDER = SearchTavily`. `LLMClaude`, `LLMChatGPT`, `LLMLlamaCpp` and `AudioWhisper` implement the same interfaces; to use one, change the constant. The `provider` field on load requests is accepted but unused.
+- A provider exposes only `provider_id`, `config`, `state`, `configure(config)`, `initialize()`, `shutdown()` and its operation: `infer()`, `transcribe_line()` / `transcribe_file()`, or `search()`. `state` is a `ModelState`; readiness is `state == ModelState.LOADED`. A failed operation does not change the state. `transcribe_file()` returns a `pysubs2.SSAFile` and does not save it.
+- Settings are declared once per provider as a `ModelConfig` dataclass next to the provider (`DeepSeekConfig`, `WhisperXConfig`, `TavilyConfig`, …), one `setting(label, option, default)` per field. The base class loads and saves `backend/files/config/<CONFIG_FILE>` and builds the Settings-page schema (`to_frontend()`). A missing file is created with defaults; unknown keys are ignored; malformed JSON is reported as a loading error and left untouched. Submitted values are validated by their option type; a saved dropdown value that is no longer listed is kept and stays selectable. Password fields are never sent to the browser — the schema reports only `is_set`.
+- `ModelManager.load_*_model(settings)` is the only way to (re)load a model: it rejects the call if that model is loading or in use, otherwise creates the client if needed, applies and saves the submitted settings, configures and initializes it. It raises on failure and records the message in `*_loading_error`; saved settings are kept. A rejected or invalid request changes nothing.
+- Tasks mark a model busy with `model_manager.acquire_llm()` / `acquire_audio()` / `acquire_search()` inside their `try`, and call the matching `release_*()` in `finally`. Acquire raises if the model is not loaded, loading or already in use; release only clears the flag for the thread that set it. `GET /utils/running` reports these flags.
 
 ## Storage
 
@@ -113,7 +118,7 @@ All paths are under `backend/` and defined once in `utils/config.py`; build path
 | `files/library/<series_id>/glossary.json` | List of `{id, term, translation, notes}` | `library/repository.save_series` |
 | `files/outputs/translated/` | File translation chain output | `TaskTranslateFile` |
 | `files/outputs/reviewed/` | Review chain output (corrected file) | `TaskRetranslateReviewedLines` |
-| `files/outputs/transcribed/` | Transcribed `.ass` files | `ModelManager.audio_transcribe_file` |
+| `files/outputs/transcribed/` | Transcribed `.ass` files | `TaskTranscribeFile` |
 | `files/outputs/context/` | Saved context files (no active writer) | — |
 | `files/logs/translate_file/`, `review_file/`, `update_library/` | One timestamped folder of numbered JSON logs per run | Chain tasks (see [`tasks.md`](tasks.md#run-logs)) |
 | `files/logs/translator-helper.log` | Shared backend log: task start/finish timing, model lifecycle, unhandled exceptions | `utils/logger` |

@@ -54,7 +54,7 @@
 </tr>
 <tr><td>routes/</td><td>HTTP boundary; builds task input dictionaries and assembles chains.</td><td><code>backend/routes/__init__.py</code></td>
 </tr>
-<tr><td>model_manager.py</td><td>ModelManager: owns the LLM, audio and search clients and their loading state.</td><td><code>backend/model_manager.py</code></td>
+<tr><td>models/</td><td>ModelManager, the ModelState enum and the shared ModelConfig settings classes.</td><td><code>backend/models/manager.py</code></td>
 </tr>
 <tr><td>llm/</td><td>LLM contract next to its provider implementations.</td><td><code>backend/llm/interface.py</code></td>
 </tr>
@@ -95,13 +95,13 @@
 <div class="flow-step fe"><strong>Settings page</strong><small>Displays readiness and loading errors through utility endpoints.</small>
 </div>
 </div>
-<p>Initialization failures are recorded in manager error fields. The server lifespan currently has no model-shutdown cleanup after its <code>yield</code>.
+<p>Initialization failures are recorded in manager error fields. On shutdown, the server lifespan waits for the startup loads and then releases the clients.
 </p>
 </section>
 <section id="manager">
 <h2>ModelManager responsibilities
 </h2>
-<p>A singleton means one shared instance within the backend process. The manager keeps one LLM slot, one audio slot and one Tavily slot. It currently constructs <code>LLMDeepSeek</code>, <code>AudioWhisperX</code> and <code>SearchTavily</code>. Other provider implementation files are available, but there is no active multi-provider registry.
+<p>A singleton means one shared instance within the backend process. The manager keeps one LLM slot, one audio slot and one Tavily slot. By default it constructs <code>LLMDeepSeek</code>, <code>AudioWhisperX</code> and <code>SearchTavily</code>. Claude, ChatGPT, llama.cpp and Whisper implement the same interfaces and can be swapped in.
 </p>
 <div class="table-wrap">
 <table>
@@ -110,30 +110,30 @@
 </tr>
 </thead>
 <tbody>
-<tr><td>Instance ownership</td><td>Creates and returns clients through get_llm_client(), get_audio_client() and get_search_client().</td>
+<tr><td>Instance ownership</td><td>Creates the client for each slot on first load and returns it through get_llm_client(), get_audio_client() and get_search_client().</td>
 </tr>
-<tr><td>Loading</td><td>Calls initialize(); tracks loading booleans and the latest loading error.</td>
+<tr><td>Loading</td><td>load_*_model(settings) validates and saves submitted settings, then initializes the client. It is refused while that model is loading or in use; failures are stored in the *_loading_error fields.</td>
 </tr>
-<tr><td>Readiness</td><td>Checks whether a client exists and reports status loaded.</td>
+<tr><td>Readiness</td><td>A model is ready when its client exists and its state is ModelState.LOADED.</td>
 </tr>
-<tr><td>Settings</td><td>Forwards configure(settings) to clients.</td>
+<tr><td>Use tracking</td><td>Tasks call acquire_llm() / acquire_audio() / acquire_search() before using a model and release_*() when done. GET /utils/running reports these flags.</td>
 </tr>
-<tr><td>Execution</td><td>Offers llm_infer() and audio transcription wrappers; some task code also calls a retrieved client directly.</td>
-</tr>
-<tr><td>Output writing</td><td>audio_transcribe_file() also names and saves the generated subtitle file.</td>
+<tr><td>Shutdown</td><td>shutdown() refuses further loads and use, then releases every client.</td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>Removing ModelManager would require moving its lifecycle, readiness, settings and file-writing responsibilities to other components.
+<p>The manager does not run inference or save files; tasks call the clients directly. To use a different provider, change <code>LLM_PROVIDER</code>, <code>AUDIO_PROVIDER</code> or <code>SEARCH_PROVIDER</code> in <code>backend/models/manager.py</code>.
 </p>
 </section>
 <section id="contracts">
 <h2>Model interfaces
 </h2>
-<p><code>LLMInterface</code> combines inference with initialization, shutdown, configuration/schema methods, status, running state, device access, model access and temperature access. <code>AudioModelInterface</code> has a similar shape, with line/file transcription and available-device methods instead of inference and temperature.
+<p><code>LLMInterface</code> and <code>AudioModelInterface</code> expose only <code>provider_id</code>, <code>config</code>, <code>state</code>, <code>configure(config)</code>, <code>initialize()</code>, <code>shutdown()</code> and the operation: <code>infer()</code>, or <code>transcribe_line()</code> and <code>transcribe_file()</code>. <code>transcribe_file()</code> returns subtitles without saving them.
 </p>
-<p>Both contain a helper for finding configuration files in <code>backend/files/config/</code>. Provider implementations handle their actual settings persistence. Sharing configuration behavior is a possible future design choice; there is no common configuration interface today.
+<p>Each provider declares its settings once as a <code>ModelConfig</code> dataclass, with one field per setting and an option type (text, number, integer, boolean or dropdown). The base class reads and writes the JSON file in <code>backend/files/config/</code> and builds the Settings-page form, so adding a setting means declaring one field. Saved API keys are never sent to the browser.
+</p>
+<p>Source: <code>backend/models/config.py</code>.
 </p>
 <p>Source: <code>backend/llm/interface.py</code> and <code>backend/audio/interface.py</code>.
 </p>
@@ -141,12 +141,8 @@
 <section id="status">
 <h2>Model status
 </h2>
-<p><strong>Loaded</strong> means initialization succeeded. <strong>Loading</strong> is a manager flag while initialization runs. <strong>Running</strong> can mean either an active orchestrator task or a client flag controlled by task code. These are separate pieces of state.
+<p>Each provider owns a <code>ModelState</code>: <strong>NOT_LOADED</strong>, <strong>LOADED</strong> or <strong>ERROR</strong>. A failed request does not change it. <strong>Loading</strong> and <strong>in use</strong> are ModelManager flags; <code>GET /utils/running</code> reports both for the LLM, audio model and search.
 </p>
-<div class="note">
-<p><code>GET /utils/running</code> uses the orchestrator's active task type and the LLM/audio task-type sets. It does not use the manager's <code>is_llm_running()</code> or <code>is_audio_running()</code> methods.
-</p>
-</div>
 <p>The settings load request includes a <code>provider</code> field, but the current load handlers use <code>request.settings</code> and do not select a provider from that field. See <code>backend/routes/utils.py</code>.
 </p>
 </section>

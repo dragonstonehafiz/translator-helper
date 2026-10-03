@@ -166,7 +166,7 @@
 <ul>
 <li><code>TASK_TYPES</code> names the final backend task for each workflow. Changing the final task requires coordinating backend polling registration and frontend constants.
 </li>
-<li>The Settings UI consumes provider schemas, but the backend currently still selects its providers in ModelManager.
+<li>The Settings page renders whatever fields the provider schemas declare, by type. Which provider fills each slot is chosen in <code>backend/models/manager.py</code>.
 </li>
 <li>Download sections name backend folders directly. Moving outputs requires updating writers and these consumers together.
 </li>

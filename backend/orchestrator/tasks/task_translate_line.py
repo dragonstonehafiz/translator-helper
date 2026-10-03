@@ -1,5 +1,5 @@
 from orchestrator.base_task import BaseTask
-from model_manager import ModelManager
+from models.manager import ModelManager
 from orchestrator.result_handler import ResultHandler
 from prompts.translate import generate_translate_sub_prompt
 
@@ -38,8 +38,8 @@ class TaskTranslateLine(BaseTask):
         )
 
         try:
-            llm_client.set_running(True)
-            translated_text = model_manager.llm_infer(
+            model_manager.acquire_llm()
+            translated_text = model_manager.get_llm_client().infer(
                 prompt=text,
                 system_prompt=system_prompt,
             )
@@ -50,4 +50,4 @@ class TaskTranslateLine(BaseTask):
             result_handler.set_error(self.task_type, str(exc))
             raise
         finally:
-            llm_client.set_running(False)
+            model_manager.release_llm()

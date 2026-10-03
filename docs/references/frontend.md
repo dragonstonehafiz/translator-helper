@@ -52,7 +52,7 @@ Add app-wide overlays to `AppComponent`, never to a page.
 | Path | Component | Purpose |
 |---|---|---|
 | `/` | `HomeComponent` | Landing page |
-| `/settings` | `SettingsComponent` | Model status; audio/LLM/search settings forms built from `/utils/settings-schema`; load models |
+| `/settings` | `SettingsComponent` | Model status; audio/LLM/search forms rendered from `/utils/settings-schema` by field type, with no field names hardcoded; reload models |
 | `/library` | `LibraryComponent` | Series list; create series |
 | `/library/:seriesId` | `LibraryDetailComponent` | Series metadata, characters, glossary; run library update and accept/reject proposals |
 | `/transcribe` | `TranscribeComponent` | Record/transcribe a line; transcribe an audio file; downloads |

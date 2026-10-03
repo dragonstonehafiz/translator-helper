@@ -1,216 +1,111 @@
 from __future__ import annotations
 
-import json
-from typing import Optional
-import os
+from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar, Optional
+
 from llama_cpp import Llama
+
 from llm.interface import LLMInterface
+from models.config import Choice, ConfigField, DropdownOption, IntegerOption, ModelConfig, NumberOption, setting
+from models.state import ModelState
+
+MODEL_DIR = Path(__file__).resolve().parents[1] / "model-files"
 
 
-class LLMLlamaCpp(LLMInterface):
-    CONFIG_FILE = "llm_llamacpp.json"
+def _model_file_choices() -> tuple[Choice, ...]:
+    """List the .gguf files in backend/model-files/ for the model dropdown."""
+    if not MODEL_DIR.exists():
+        return ()
+    return tuple(
+        Choice(entry.name, entry.name)
+        for entry in sorted(MODEL_DIR.iterdir())
+        if entry.is_file() and entry.suffix.lower() == ".gguf"
+    )
+
+
+@dataclass
+class LlamaCppConfig(ModelConfig):
+    """Settings for the local llama.cpp provider, saved to llm_llamacpp.json."""
+
+    CONFIG_FILE: ClassVar[str] = "llm_llamacpp.json"
+    PROVIDER: ClassVar[str] = "llm_llamacpp"
+    TITLE: ClassVar[str] = "Llama.cpp (GGUF)"
+
+    model_file: ConfigField[str] = setting("Model File", DropdownOption(_model_file_choices), "", required=True)
+    n_ctx: ConfigField[int] = setting("Context Size", IntegerOption(min=512, max=16384, step=256), 4096)
+    n_gpu_layers: ConfigField[int] = setting(
+        "GPU Layers (-1 = auto)", IntegerOption(min=-1, max=120), -1,
+        help="How many model layers to offload to GPU. Higher = faster but uses more VRAM. -1 lets llama.cpp auto-select.",
+    )
+    n_threads: ConfigField[int] = setting(
+        "CPU Threads", IntegerOption(min=1, max=128), 8,
+        help="Number of CPU threads used for inference. Set near your physical core count; too high can reduce responsiveness.",
+    )
+    temperature: ConfigField[float] = setting("Temperature", NumberOption(min=0, max=2, step=0.1), 0.5)
+
+
+class LLMLlamaCpp(LLMInterface[LlamaCppConfig]):
+    """LLM backend that runs a local GGUF model through llama.cpp."""
 
     def __init__(self):
-        self._model_file = ""
-        self._n_ctx = 4096
-        self._n_gpu_layers = -1
-        self._n_threads = 8
-        self._temperature = 0.5
-        self._running = False
+        """Load the saved llama.cpp settings."""
+        super().__init__(LlamaCppConfig.load())
         self._llm: Optional[Llama] = None
-        self._status = "not_loaded"
 
-        _data_path = self._get_config_path(self.CONFIG_FILE)
-        if os.path.isfile(_data_path):
-            with open(_data_path, "r", encoding="utf-8") as _f:
-                _cfg = json.load(_f)
-            self._model_file = _cfg.get("model_file", self._model_file)
-            self._n_ctx = int(_cfg.get("n_ctx", self._n_ctx))
-            self._n_gpu_layers = int(_cfg.get("n_gpu_layers", self._n_gpu_layers))
-            self._n_threads = int(_cfg.get("n_threads", self._n_threads))
-            self._temperature = float(_cfg.get("temperature", self._temperature))
-        else:
-            os.makedirs(os.path.dirname(_data_path), exist_ok=True)
-            with open(_data_path, "w", encoding="utf-8") as _f:
-                json.dump({"model_file": self._model_file, "n_ctx": self._n_ctx, "n_gpu_layers": self._n_gpu_layers, "n_threads": self._n_threads, "temperature": self._temperature}, _f, indent=2)
-
-    def configure(self, settings: dict):
-        if not settings:
-            return
-
-        if "model_file" in settings:
-            self._model_file = str(settings["model_file"])
-        if "n_ctx" in settings:
-            self._n_ctx = int(settings["n_ctx"])
-        if "n_gpu_layers" in settings:
-            self._n_gpu_layers = int(settings["n_gpu_layers"])
-        if "n_threads" in settings:
-            self._n_threads = int(settings["n_threads"])
-        if "temperature" in settings:
-            self._temperature = float(settings["temperature"])
-
-        _data_path = self._get_config_path(self.CONFIG_FILE)
-        os.makedirs(os.path.dirname(_data_path), exist_ok=True)
-        with open(_data_path, "w", encoding="utf-8") as _f:
-            json.dump({"model_file": self._model_file, "n_ctx": self._n_ctx, "n_gpu_layers": self._n_gpu_layers, "n_threads": self._n_threads, "temperature": self._temperature}, _f, indent=2)
-
-    def get_settings_schema(self) -> dict:
-        return {
-            "provider": "llm_llamacpp",
-            "title": "Llama.cpp (GGUF)",
-            "fields": [
-                {
-                    "key": "model_file",
-                    "label": "Model File",
-                    "type": "select",
-                    "options": self._get_model_options(),
-                    "required": True
-                },
-                {
-                    "key": "n_ctx",
-                    "label": "Context Size",
-                    "type": "number",
-                    "min": 512,
-                    "max": 16384,
-                    "step": 256,
-                    "default": self._n_ctx
-                },
-                {
-                    "key": "n_gpu_layers",
-                    "label": "GPU Layers (-1 = auto)",
-                    "type": "number",
-                    "min": -1,
-                    "max": 120,
-                    "step": 1,
-                    "default": self._n_gpu_layers,
-                    "help": "How many model layers to offload to GPU. Higher = faster but uses more VRAM. -1 lets llama.cpp auto-select."
-                },
-                {
-                    "key": "n_threads",
-                    "label": "CPU Threads",
-                    "type": "number",
-                    "min": 1,
-                    "max": 128,
-                    "step": 1,
-                    "default": self._n_threads,
-                    "help": "Number of CPU threads used for inference. Set near your physical core count; too high can reduce responsiveness."
-                },
-                {
-                    "key": "temperature",
-                    "label": "Temperature",
-                    "type": "number",
-                    "min": 0,
-                    "max": 2,
-                    "step": 0.1,
-                    "default": self._temperature
-                }
-            ]
-        }
-
-    def initialize(self):
+    def initialize(self) -> None:
+        """Load the configured GGUF model."""
         try:
             self._llm = self._build_llm()
-            self._status = "loaded"
+            self._state = ModelState.LOADED
         except Exception:
-            self._status = "error"
+            self._llm = None
+            self._state = ModelState.ERROR
             raise
 
-    def change_model(self, model_name: str):
-        self._model_file = model_name
-        if self._llm is not None:
-            self._llm = self._build_llm()
-
-    def get_model(self) -> str:
-        return self._model_file
-
-    def set_device(self, device: str):
-        # llama.cpp handles device via n_gpu_layers
-        pass
-
-    def get_device(self) -> str:
-        return "local"
-
-    def set_temperature(self, temperature: float):
-        self._temperature = temperature
-
-    def get_temperature(self) -> float:
-        return self._temperature
-
-    def get_server_variables(self) -> list[dict]:
-        return [
-            {"key": "model_file", "label": "Model File", "value": self._model_file},
-            {"key": "n_ctx", "label": "Context Size", "value": self._n_ctx},
-            {"key": "n_gpu_layers", "label": "GPU Layers", "value": self._n_gpu_layers},
-            {"key": "n_threads", "label": "CPU Threads", "value": self._n_threads},
-            {"key": "temperature", "label": "Temperature", "value": self._temperature}
-        ]
+    def shutdown(self) -> None:
+        """Release the model."""
+        self._llm = None
+        self._state = ModelState.NOT_LOADED
 
     def infer(
         self,
         prompt: str,
         system_prompt: str | None = None,
         temperature: float | None = None,
-        max_tokens: int | None = None
-    ):
-        llm = self._llm or self._build_llm()
+        max_tokens: int | None = None,
+    ) -> str:
+        """Run a chat completion with the loaded model."""
+        if self._llm is None:
+            raise RuntimeError("Llama.cpp model is not initialized.")
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        response = llm.create_chat_completion(
+        response = self._llm.create_chat_completion(
             messages=messages,
-            temperature=self._temperature if temperature is None else temperature,
-            max_tokens=max_tokens
+            temperature=self._config.temperature.value if temperature is None else temperature,
+            max_tokens=max_tokens,
         )
         return response["choices"][0]["message"]["content"].strip()
 
-    def shutdown(self):
-        self._llm = None
-        self._status = "not_loaded"
-
-    def get_status(self) -> str:
-        return self._status
-
-    def is_running(self) -> bool:
-        return self._running
-
-    def set_running(self, running: bool):
-        self._running = running
-
-    def _build_llm(self):
-        if not self._model_file:
+    def _build_llm(self) -> Llama:
+        """Construct a Llama instance from the configured model file and runtime settings."""
+        if not self._config.model_file.value:
             raise ValueError("Model file is required to initialize Llama.cpp.")
 
-        model_path = self._resolve_model_path(self._model_file)
-
         return Llama(
-            model_path=str(model_path),
-            n_ctx=self._n_ctx,
-            n_gpu_layers=self._n_gpu_layers,
-            n_threads=self._n_threads,
-            verbose=False
+            model_path=str(self._resolve_model_path(self._config.model_file.value)),
+            n_ctx=self._config.n_ctx.value,
+            n_gpu_layers=self._config.n_gpu_layers.value,
+            n_threads=self._config.n_threads.value,
+            verbose=False,
         )
 
     def _resolve_model_path(self, model_file: str) -> Path:
+        """Resolve a model file name against backend/model-files/ unless it is already absolute."""
         path = Path(model_file)
         if path.is_absolute():
             return path
-
-        backend_dir = Path(__file__).resolve().parents[1]
-        model_dir = backend_dir / "model-files"
-        return model_dir / model_file
-
-    def _get_model_options(self) -> list[dict]:
-        model_dir = Path(__file__).resolve().parents[1] / "model-files"
-        options = []
-        if model_dir.exists():
-            for entry in sorted(model_dir.iterdir()):
-                if entry.is_file() and entry.suffix.lower() == ".gguf":
-                    options.append({"label": entry.name, "value": entry.name})
-        if self._model_file:
-            current_name = Path(self._model_file).name
-            if current_name and all(opt["value"] != current_name for opt in options):
-                options.append({"label": current_name, "value": current_name})
-        return options
+        return MODEL_DIR / model_file

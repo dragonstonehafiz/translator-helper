@@ -2,14 +2,17 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 
 export type SettingsFieldType = 'select' | 'text' | 'password' | 'number' | 'boolean';
+export type SettingsValue = string | number | boolean;
 export type TaskStatus = 'idle' | 'processing' | 'complete' | 'error';
 
 export interface SettingsField {
   key: string;
   label: string;
   type: SettingsFieldType;
-  default?: string | number | boolean;
-  required?: boolean;
+  value: SettingsValue;
+  default: SettingsValue;
+  required: boolean;
+  is_set?: boolean;
   options?: {label: string; value: string}[];
   min?: number;
   max?: number;

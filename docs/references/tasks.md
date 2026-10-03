@@ -42,7 +42,7 @@ def run_task(self) -> dict:
     data = self.get_data()
     result_handler.set_processing(self.task_type)
     try:
-        llm_client.set_running(True)
+        model_manager.acquire_llm()   # raises if the LLM is not loaded, loading or in use
         # ... work, calling progress_handler.set(self.task_type, {...}) as it advances ...
         result_handler.set_complete(self.task_type)   # pass a result dict only in a chain's final task
         return {**data, "new_key": value}
@@ -50,10 +50,10 @@ def run_task(self) -> dict:
         result_handler.set_error(self.task_type, str(exc))
         raise
     finally:
-        llm_client.set_running(False)
+        model_manager.release_llm()
 ```
 
-LLM calls go through `model_manager.llm_infer(...)`; transcription through `model_manager.audio_transcribe_line/file(...)`. Tasks that receive an uploaded temp file delete it in `finally`.
+Tasks call the client directly: `llm_client.infer(...)`, `audio_client.transcribe_line/file(...)`, `search_client.search(...)`. Read provider settings through `llm_client.config`, e.g. `llm_client.config.temperature.value`. `TaskTranscribeFile` saves the returned subtitles itself. Tasks that receive an uploaded temp file delete it in `finally`.
 
 ## Orchestrator
 
@@ -101,8 +101,7 @@ Multi-task chains run through a runner function in the route module (`run_transl
 | Set | Purpose |
 |---|---|
 | `LIBRARY_TASK_TYPES` | All six library-update tasks |
-| `LLM_TASK_TYPES` | Tasks that use the LLM client — drives `running_llm` in `GET /utils/running` |
-| `AUDIO_TASK_TYPES` | Transcription tasks — drives `running_audio` |
+| `AUDIO_TASK_TYPES` | Transcription tasks |
 | `TRANSLATE_TASK_TYPES` | `TaskTranslateLine`, `TaskTranslateFile`, `TaskRetranslateReviewedLines` |
 | `TRANSCRIBE_TASK_TYPES` | `TaskTranscribeLine`, `TaskTranscribeFile` |
 
@@ -124,7 +123,7 @@ Each multi-task chain writes numbered JSON files into its per-run `log_dir` (`fi
 
 ## Prompts
 
-System-prompt builders live in `backend/prompts/`, one module per domain (`translate.py`, `translate_file.py`, `review_file.py`, `library.py`, `library_context.py`, `context.py`, shared `helpers.py`). They are plain functions that return a string used as the `system_prompt`; the user message (subtitle lines, etc.) is built in the task and passed as `prompt` to `model_manager.llm_infer(...)`. There is no wrapper class.
+System-prompt builders live in `backend/prompts/`, one module per domain (`translate.py`, `translate_file.py`, `review_file.py`, `library.py`, `library_context.py`, `context.py`, shared `helpers.py`). They are plain functions that return a string used as the `system_prompt`; the user message (subtitle lines, etc.) is built in the task and passed as `prompt` to `llm_client.infer(...)`. There is no wrapper class.
 
 ## Adding a task
 

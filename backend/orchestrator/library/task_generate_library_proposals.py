@@ -2,7 +2,7 @@ import json
 import os
 
 from orchestrator.base_task import BaseTask
-from model_manager import ModelManager
+from models.manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from prompts.library import generate_library_proposals_prompt
@@ -43,7 +43,7 @@ class TaskGenerateLibraryProposals(BaseTask):
         progress_handler.set(self.task_type, {"current": 0, "total": 1, "status": "Generating library update proposals", "eta_seconds": 0})
 
         try:
-            llm_client.set_running(True)
+            model_manager.acquire_llm()
             transcript = "\n".join(load_sub_data(file_path, include_speaker=True))
 
             prompt_parts = [
@@ -56,7 +56,7 @@ class TaskGenerateLibraryProposals(BaseTask):
 
             prompt = "\n".join(prompt_parts)
 
-            raw = model_manager.llm_infer(
+            raw = model_manager.get_llm_client().infer(
                 prompt=prompt,
                 system_prompt=generate_library_proposals_prompt(series_name, input_lang, output_lang),
                 temperature=0.2,
@@ -73,7 +73,7 @@ class TaskGenerateLibraryProposals(BaseTask):
             result_handler.set_error(self.task_type, str(exc))
             raise
         finally:
-            llm_client.set_running(False)
+            model_manager.release_llm()
 
     def _parse_proposals(self, raw: str) -> dict:
         """Parse the LLM's proposals JSON and filter updated_characters to only valid field names; raises ValueError on malformed output."""

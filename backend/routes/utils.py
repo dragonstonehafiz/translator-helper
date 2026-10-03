@@ -7,13 +7,11 @@ import os
 from fastapi import APIRouter, File, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
-from search.tavily import SearchTavily
+from models.config import TextOption
 from utils.api_response import error_response, success_response
 from utils.subtitles import analyze_subtitle_file
 
 from .shared import (
-    AUDIO_TASK_TYPES,
-    LLM_TASK_TYPES,
     UpdateSettingsRequest,
     model_manager,
     save_upload_to_temp,
@@ -23,30 +21,43 @@ from .shared import (
 router = APIRouter(prefix="/utils")
 
 
+def _status_values(client) -> list[dict]:
+    """Return a client's non-secret setting values as label/value pairs for the status display."""
+    if client is None:
+        return []
+    return [
+        {"key": f.name, "label": f.label, "value": f.value}
+        for f in client.config.get_fields()
+        if not (isinstance(f.option, TextOption) and f.option.password)
+    ]
+
+
+def _schema(client) -> dict | None:
+    """Return a client's Settings-page schema, or None if the client could not be created."""
+    return client.config.to_frontend() if client is not None else None
+
+
 @router.get("/running")
 async def get_running_status():
-    """Return whether LLM or audio tasks are currently running and which task type is active."""
-    active_task_type = task_orchestrator.get_active_task_type()
-    running = task_orchestrator.is_running()
+    """Return which models are in use or loading, and which task type is active."""
     return success_response({
-        "running_llm": bool(running and active_task_type in LLM_TASK_TYPES),
-        "running_audio": bool(running and active_task_type in AUDIO_TASK_TYPES),
-        "loading_audio_model": model_manager.loading_audio_model,
+        "running_llm": model_manager.llm_in_use,
+        "running_audio": model_manager.audio_in_use,
+        "running_search": model_manager.search_in_use,
         "loading_llm_model": model_manager.loading_llm_model,
-        "active_task_type": active_task_type,
+        "loading_audio_model": model_manager.loading_audio_model,
+        "loading_search_model": model_manager.loading_search_model,
+        "active_task_type": task_orchestrator.get_active_task_type(),
     })
 
 
 @router.get("/server-variables")
 async def get_server_variables():
-    """Return runtime variables and readiness flags for all loaded model backends."""
-    llm_client = model_manager.get_llm_client()
-    audio_client = model_manager.get_audio_client()
-    search_client = model_manager.get_search_client()
+    """Return current setting values, readiness and loading errors for the three model clients."""
     return success_response({
-        "audio": (audio_client.get_server_variables() if audio_client else []),
-        "llm": (llm_client.get_server_variables() if llm_client else []),
-        "search": (search_client.get_server_variables() if search_client else []),
+        "audio": _status_values(model_manager.get_audio_client()),
+        "llm": _status_values(model_manager.get_llm_client()),
+        "search": _status_values(model_manager.get_search_client()),
         "llm_ready": model_manager.is_llm_ready(),
         "audio_ready": model_manager.is_audio_ready(),
         "search_ready": model_manager.is_search_ready(),
@@ -58,50 +69,39 @@ async def get_server_variables():
 
 @router.get("/settings-schema")
 async def get_settings_schema():
-    """Return the settings schemas for all model backends (audio, LLM, search)."""
-    audio_client = model_manager.get_audio_client()
-    llm_client = model_manager.get_llm_client()
-    search_client = model_manager.get_search_client()
-    audio_schema = audio_client.get_settings_schema() if audio_client else {}
-    llm_schema = llm_client.get_settings_schema() if llm_client else {}
-    search_schema = SearchTavily().get_settings_schema()
-    return success_response({"audio": audio_schema, "llm": llm_schema, "search": search_schema})
+    """Return the Settings-page schema for each model client; a group is null if its client could not be created."""
+    return success_response({
+        "audio": _schema(model_manager.get_audio_client()),
+        "llm": _schema(model_manager.get_llm_client()),
+        "search": _schema(model_manager.get_search_client()),
+    })
+
+
+async def _load(load, settings: dict, message: str):
+    """Run a manager load in a worker thread and turn a rejection or failure into an error envelope."""
+    try:
+        await run_in_threadpool(load, settings or None)
+    except Exception as exc:
+        return error_response(str(exc))
+    return success_response(message=message)
 
 
 @router.post("/load-audio-model")
 async def load_audio_model(request: UpdateSettingsRequest):
-    """Apply audio settings and load the audio model; returns an error if it is already loading."""
-    if model_manager.loading_audio_model:
-        return error_response("Audio model is already loading")
-    model_manager.update_audio_settings(request.settings or {})
-    loaded = await run_in_threadpool(model_manager.load_audio_model)
-    if not loaded:
-        return error_response(model_manager.audio_loading_error or "Failed to load audio model")
-    return success_response(message="Audio model loaded")
+    """Save submitted audio settings and initialize the audio model."""
+    return await _load(model_manager.load_audio_model, request.settings, "Audio model loaded")
 
 
 @router.post("/load-llm-model")
 async def load_llm_model(request: UpdateSettingsRequest):
-    """Apply LLM settings and load the LLM; returns an error if it is already loading."""
-    if model_manager.loading_llm_model:
-        return error_response("LLM is already loading")
-    model_manager.update_llm_settings(request.settings or {})
-    loaded = await run_in_threadpool(model_manager.load_llm_model)
-    if not loaded:
-        return error_response(model_manager.llm_loading_error or "Failed to load LLM")
-    return success_response(message="LLM loaded")
+    """Save submitted LLM settings and initialize the LLM."""
+    return await _load(model_manager.load_llm_model, request.settings, "LLM loaded")
 
 
 @router.post("/load-search-model")
 async def load_search_model(request: UpdateSettingsRequest):
-    """Apply search settings and load the Tavily search model; returns an error if it is already loading."""
-    if model_manager.loading_search_model:
-        return error_response("Search model is already loading")
-    model_manager.update_search_settings(request.settings or {})
-    loaded = await run_in_threadpool(model_manager.load_search_model)
-    if not loaded:
-        return error_response(model_manager.search_loading_error or "Failed to load search model")
-    return success_response(message="Search model loaded")
+    """Save submitted search settings and initialize web search."""
+    return await _load(model_manager.load_search_model, request.settings, "Search model loaded")
 
 
 @router.post("/get-subtitle-file-info")

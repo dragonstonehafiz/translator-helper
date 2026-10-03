@@ -2,7 +2,7 @@ import json
 import os
 
 from orchestrator.base_task import BaseTask
-from model_manager import ModelManager
+from models.manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from prompts.library import check_against_library_prompt
@@ -40,9 +40,9 @@ class TaskCheckAgainstLibrary(BaseTask):
         progress_handler.set(self.task_type, {"current": 0, "total": 1, "status": "Classifying findings against library", "eta_seconds": 0})
 
         try:
-            llm_client.set_running(True)
+            model_manager.acquire_llm()
             prompt = json.dumps(findings, ensure_ascii=False)
-            raw = model_manager.llm_infer(
+            raw = model_manager.get_llm_client().infer(
                 prompt=prompt,
                 system_prompt=check_against_library_prompt(series_name, known_names, known_terms),
                 temperature=0.0,
@@ -61,7 +61,7 @@ class TaskCheckAgainstLibrary(BaseTask):
             result_handler.set_error(self.task_type, str(exc))
             raise
         finally:
-            llm_client.set_running(False)
+            model_manager.release_llm()
 
     def _parse_result(self, raw: str) -> dict:
         """Parse the LLM's {known, unknown} classification JSON; raises ValueError on malformed output."""

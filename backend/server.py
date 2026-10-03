@@ -2,26 +2,44 @@
 FastAPI server for Translator Helper backend.
 """
 
+import asyncio
 import threading
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from model_manager import ModelManager
+from models.manager import ModelManager
 from routes import router
 from utils.api_response import register_exception_handlers
 
 
+def _background_load(load: Callable[[], None]) -> None:
+    """Run one startup model load; ModelManager has already logged and stored any failure."""
+    try:
+        load()
+    except Exception:
+        pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Start background model loading on startup; shutdown handling arrives with the ModelManager rework."""
+    """Start the three model loads without waiting for them; on shutdown, wait for them and release the models."""
     model_manager = ModelManager.get_instance()
-    threading.Thread(target=model_manager.load_llm_model, daemon=True).start()
-    threading.Thread(target=model_manager.load_audio_model, daemon=True).start()
-    threading.Thread(target=model_manager.load_search_model, daemon=True).start()
-    yield
+    loaders = [
+        threading.Thread(target=_background_load, args=(load,), daemon=True)
+        for load in (model_manager.load_llm_model, model_manager.load_audio_model, model_manager.load_search_model)
+    ]
+    for loader in loaders:
+        loader.start()
+    try:
+        yield
+    finally:
+        for loader in loaders:
+            await asyncio.to_thread(loader.join)
+        await asyncio.to_thread(model_manager.shutdown)
 
 
 # Initialize FastAPI app

@@ -8,7 +8,7 @@ from anthropic import RateLimitError as AnthropicRateLimitError
 from openai import RateLimitError as OpenAIRateLimitError
 
 from orchestrator.base_task import BaseTask
-from model_manager import ModelManager
+from models.manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from prompts.translate import generate_translate_sub_prompt
@@ -66,7 +66,7 @@ class TaskTranslateFile(BaseTask):
             )
 
         try:
-            llm_client.set_running(True)
+            model_manager.acquire_llm()
             subs = pysubs2.load(file_path)
             progress_handler.set(
                 self.task_type,
@@ -86,7 +86,7 @@ class TaskTranslateFile(BaseTask):
                 context=context,
                 input_lang=input_lang,
                 target_lang=output_lang,
-                temperature=llm_client.get_temperature(),
+                temperature=llm_client.config.temperature.value,
                 log_dir=log_dir,
                 progress_callback=on_progress,
             )
@@ -120,7 +120,7 @@ class TaskTranslateFile(BaseTask):
             result_handler.set_error(self.task_type, str(exc))
             raise
         finally:
-            llm_client.set_running(False)
+            model_manager.release_llm()
             if file_path:
                 try:
                     os.remove(file_path)

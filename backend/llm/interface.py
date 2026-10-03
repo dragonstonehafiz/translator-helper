@@ -1,38 +1,47 @@
 from abc import ABC, abstractmethod
+from typing import Generic, TypeVar
 
-from utils.config import CONFIG_DIR
+from models.config import ModelConfig
+from models.state import ModelState
+
+ConfigT = TypeVar("ConfigT", bound=ModelConfig)
 
 
-class LLMInterface(ABC):
-    """Abstract interface that all LLM backend implementations must satisfy."""
+class LLMInterface(ABC, Generic[ConfigT]):
+    """Contract every LLM provider satisfies: typed settings, a lifecycle state and inference."""
 
-    def _get_config_path(self, filename: str) -> str:
-        """Return the absolute path to the provider config file <filename> under CONFIG_DIR."""
-        return str(CONFIG_DIR / filename)
-    
+    def __init__(self, config: ConfigT):
+        """Store the provider's settings; the client starts NOT_LOADED."""
+        self._config = config
+        self._state = ModelState.NOT_LOADED
+
+    @property
+    def provider_id(self) -> str:
+        """Return the provider identifier declared by the config class."""
+        return self._config.PROVIDER
+
+    @property
+    def config(self) -> ConfigT:
+        """Return the provider's current settings."""
+        return self._config
+
+    @property
+    def state(self) -> ModelState:
+        """Return whether the client is initialized."""
+        return self._state
+
+    def configure(self, config: ConfigT) -> None:
+        """Replace the settings; they take effect on the next initialize()."""
+        self._config = config
+
     @abstractmethod
-    def initialize(self):
-        """Initialize the LLM backend."""
+    def initialize(self) -> None:
+        """Build the client from the current settings; sets LOADED, or ERROR and re-raises on failure."""
         raise NotImplementedError
 
     @abstractmethod
-    def change_model(self, model_name: str):
-        """Swap or update the underlying model configuration."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_model(self) -> str:
-        """Return the current model identifier."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def configure(self, settings: dict):
-        """Set provider-specific configuration values."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_settings_schema(self) -> dict:
-        """Return a schema describing configurable settings."""
+    def shutdown(self) -> None:
+        """Release the client and return to NOT_LOADED."""
         raise NotImplementedError
 
     @abstractmethod
@@ -41,52 +50,7 @@ class LLMInterface(ABC):
         prompt: str,
         system_prompt: str | None = None,
         temperature: float | None = None,
-        max_tokens: int | None = None
-    ):
-        """Run inference with the current model."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_status(self) -> str:
-        """Return current model status: 'loaded', 'not_loaded', or 'error'."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def is_running(self) -> bool:
-        """Check if the model is currently running a task."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def set_running(self, running: bool):
-        """Set whether the model is currently running a task."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def set_device(self, device: str):
-        """Set the device identifier for the model backend."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_device(self) -> str:
-        """Return the current device identifier."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def set_temperature(self, temperature: float):
-        """Set the default temperature for inference."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_temperature(self) -> float:
-        """Return the current default temperature."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_server_variables(self) -> dict:
-        """Return current server variables for status display."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def shutdown(self):
-        """Release model resources."""
+        max_tokens: int | None = None,
+    ) -> str:
+        """Run one inference request; a failed request does not change the state."""
         raise NotImplementedError

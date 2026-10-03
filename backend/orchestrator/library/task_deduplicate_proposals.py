@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from orchestrator.base_task import BaseTask
-from model_manager import ModelManager
+from models.manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from prompts.library import deduplicate_proposals_prompt
@@ -74,7 +74,7 @@ class TaskDeduplicateProposals(BaseTask):
         progress_handler.set(self.task_type, {"current": 0, "total": total_calls, "status": "Deduplicating proposals", "eta_seconds": 0})
 
         try:
-            llm_client.set_running(True)
+            model_manager.acquire_llm()
 
             # Personality — one call per character
             for char_id, proposals_list in personality_groups.items():
@@ -109,7 +109,7 @@ class TaskDeduplicateProposals(BaseTask):
                 progress_handler.set(self.task_type, {"current": completed, "total": total_calls, "status": f"Checked relationship: {rel_char}", "eta_seconds": 0})
 
         finally:
-            llm_client.set_running(False)
+            model_manager.release_llm()
 
         deduped_proposals = {**proposals, "updated_characters": kept}
         progress_handler.set(self.task_type, {"current": total_calls, "total": total_calls, "status": f"Kept {len(kept)}/{len(updated)} updated_characters proposals", "eta_seconds": 0})
@@ -153,7 +153,7 @@ class TaskDeduplicateProposals(BaseTask):
         proposed_lines = "\n".join(f"{i + 1}. {p[label_key]}" for i, p in enumerate(proposals_list))
         prompt = f"=== EXISTING {field.upper()} ENTRIES ===\n{existing_text}\n\n=== PROPOSED ADDITIONS ===\n{proposed_lines}"
         try:
-            raw = model_manager.llm_infer(
+            raw = model_manager.get_llm_client().infer(
                 prompt=prompt,
                 system_prompt=deduplicate_proposals_prompt(field),
                 temperature=0.0,

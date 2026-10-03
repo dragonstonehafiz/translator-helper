@@ -5,7 +5,7 @@ from pathlib import Path
 import pysubs2
 
 from orchestrator.base_task import BaseTask
-from model_manager import ModelManager
+from models.manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from prompts.review_file import generate_batch_review_prompt
@@ -61,7 +61,7 @@ class TaskReviewTranslatedBatches(BaseTask):
                 },
             )
 
-            llm_client.set_running(True)
+            model_manager.acquire_llm()
             corrections_by_index: dict[int, dict[str, int | str]] = {}
             batch_logs = []
             failure_logs: list[dict] = []
@@ -71,7 +71,7 @@ class TaskReviewTranslatedBatches(BaseTask):
                 end_index = int(batch["end_index"])
                 original_lines = self._build_indexed_lines(original_subs, start_index, end_index)
                 translated_lines = self._build_indexed_lines(translated_subs, start_index, end_index)
-                raw_output = model_manager.llm_infer(
+                raw_output = model_manager.get_llm_client().infer(
                     prompt=self._build_review_prompt(original_lines, translated_lines),
                     system_prompt=generate_batch_review_prompt(
                         context=context if context else None,
@@ -145,7 +145,7 @@ class TaskReviewTranslatedBatches(BaseTask):
             result_handler.set_error(self.task_type, str(exc))
             raise
         finally:
-            llm_client.set_running(False)
+            model_manager.release_llm()
 
     def _build_indexed_lines(self, subs, start_index: int, end_index: int) -> list[str]:
         """Return subtitle events in the given 1-based index range formatted as '1. Speaker: text'."""

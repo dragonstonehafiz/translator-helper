@@ -4,7 +4,7 @@ from pathlib import Path
 import pysubs2
 
 from orchestrator.base_task import BaseTask
-from model_manager import ModelManager
+from models.manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from prompts.library_context import select_library_context_prompt
@@ -54,14 +54,14 @@ class TaskSelectLibraryContext(BaseTask):
         progress_handler.set(self.task_type, {"current": 0, "total": 1, "status": "Selecting relevant library entries for this episode", "eta_seconds": 0})
 
         try:
-            llm_client.set_running(True)
+            model_manager.acquire_llm()
             transcript = self._load_transcript(file_path)
             character_ids = [c["id"] for c in characters]
             character_names = [c["name"] for c in characters]
             glossary_ids = [t["id"] for t in glossary]
             glossary_terms = [t["term"] for t in glossary]
 
-            raw = model_manager.llm_infer(
+            raw = model_manager.get_llm_client().infer(
                 prompt=transcript,
                 system_prompt=select_library_context_prompt(
                     series_name=series_name,
@@ -111,7 +111,7 @@ class TaskSelectLibraryContext(BaseTask):
             result_handler.set_error(self.task_type, str(exc))
             raise
         finally:
-            llm_client.set_running(False)
+            model_manager.release_llm()
 
     def _load_transcript(self, file_path: str) -> str:
         """Load subtitle lines as a numbered transcript string."""

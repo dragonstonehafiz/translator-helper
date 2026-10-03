@@ -80,21 +80,22 @@
 <div class="endpoint-list">
 <article class="endpoint">
 <div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/utils/server-variables</span></div>
-<p>Runtime values and readiness for the three clients. A provider list is empty until its client exists.</p>
+<p>Each client's current non-password settings, readiness and last loading error. A list is empty until its client exists.</p>
 <div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
   "status": "success",
   "message": null,
   "data": {
     "audio": [
-      {"key": "whisperx_model", "label": "Model", "value": "medium"},
+      {"key": "model_name", "label": "Model", "value": "medium"},
       {"key": "device", "label": "Device", "value": "cpu"},
-      {"key": "compute_type", "label": "Compute Type", "value": "float32"}
+      {"key": "compute_type", "label": "Compute Type", "value": "float32"},
+      {"key": "batch_size", "label": "Batch Size", "value": 16}
     ],
     "llm": [
-      {"key": "deepseek_model", "label": "Model", "value": "deepseek-v4-flash"},
+      {"key": "model_name", "label": "Model", "value": "deepseek-v4-flash"},
       {"key": "temperature", "label": "Temperature", "value": 0.5}
     ],
-    "search": [{"key": "tavily_status", "label": "Status", "value": "loaded"}],
+    "search": [],
     "llm_ready": true,
     "audio_ready": true,
     "search_ready": true,
@@ -106,14 +107,17 @@
 </article>
 <article class="endpoint">
 <div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/utils/running</span></div>
+<p>A <code>running_*</code> flag is true while a task holds that model.</p>
 <div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
   "status": "success",
   "message": null,
   "data": {
     "running_llm": true,
     "running_audio": false,
-    "loading_audio_model": false,
+    "running_search": false,
     "loading_llm_model": false,
+    "loading_audio_model": false,
+    "loading_search_model": false,
     "active_task_type": "TaskTranslateFile"
   }
 }</code></pre></div></div>
@@ -123,11 +127,11 @@
 
 <section id="settings">
 <h2>Settings page</h2>
-<p>Settings reads each client's field definitions, shows runtime state, and asks the backend to configure and initialize each client.</p>
+<p>Settings renders each client's fields from its schema, shows runtime state, and saves settings then initializes each model.</p>
 <div class="endpoint-list">
 <article class="endpoint">
 <div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/utils/settings-schema</span></div>
-<p>Field definitions for the Settings form. <code>audio</code> has the same shape, with <code>model_name</code>, <code>device</code>, <code>compute_type</code> and <code>batch_size</code> fields.</p>
+<p>One schema per client, or <code>null</code> if the client could not be created. <code>audio</code> has the same shape, with <code>model_name</code>, <code>device</code>, <code>compute_type</code> and <code>batch_size</code>. Password fields never include the stored key; <code>is_set</code> says whether one is saved.</p>
 <div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
   "status": "success",
   "message": null,
@@ -141,28 +145,34 @@
           "key": "model_name",
           "label": "Model",
           "type": "select",
+          "value": "deepseek-v4-flash",
+          "default": "deepseek-v4-flash",
+          "required": true,
           "options": [
             {"label": "deepseek-v4-flash", "value": "deepseek-v4-flash"},
             {"label": "deepseek-v4-pro", "value": "deepseek-v4-pro"}
-          ],
-          "default": "deepseek-v4-flash",
-          "required": true
+          ]
         },
         {
           "key": "api_key",
           "label": "API Key",
           "type": "password",
-          "placeholder": "sk-...",
-          "required": true
+          "value": "",
+          "default": "",
+          "required": true,
+          "is_set": true,
+          "placeholder": "sk-..."
         },
         {
           "key": "temperature",
           "label": "Temperature",
           "type": "number",
+          "value": 0.5,
+          "default": 0.5,
+          "required": false,
           "min": 0,
           "max": 2,
-          "step": 0.1,
-          "default": 0.5
+          "step": 0.1
         }
       ]
     },
@@ -174,8 +184,11 @@
           "key": "api_key",
           "label": "API Key",
           "type": "password",
-          "placeholder": "tvly-...",
-          "required": true
+          "value": "",
+          "default": "",
+          "required": true,
+          "is_set": false,
+          "placeholder": "tvly-..."
         }
       ]
     }
@@ -184,6 +197,7 @@
 </article>
 <article class="endpoint">
 <div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/utils/load-audio-model</span></div>
+<p>Omitted keys keep their saved values; leave a password blank to keep the stored key. Settings are saved before the model initializes, so they survive a failed load.</p>
 <div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
   "provider": "audio",
   "settings": {"model_name": "medium", "device": "cuda:0", "compute_type": "float16", "batch_size": 16}
@@ -193,27 +207,29 @@
   "data": null
 }</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
   "status": "error",
-  "message": "Audio model is already loading",
+  "message": "Audio model is in use. Wait for the current task to finish.",
   "data": null
 }</code></pre></div></div>
 </article>
 <article class="endpoint">
 <div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/utils/load-llm-model</span></div>
+<p>Omitted keys keep their saved values; leave a password blank to keep the stored key. Settings are saved before the model initializes, so they survive a failed load.</p>
 <div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
   "provider": "llm",
-  "settings": {"model_name": "deepseek-v4-flash", "api_key": "sk-...", "temperature": 0.5}
+  "settings": {"model_name": "deepseek-v4-flash", "temperature": 0.5}
 }</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
   "status": "success",
   "message": "LLM loaded",
   "data": null
 }</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
   "status": "error",
-  "message": "LLM is already loading",
+  "message": "Temperature: must be at most 2",
   "data": null
 }</code></pre></div></div>
 </article>
 <article class="endpoint">
 <div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/utils/load-search-model</span></div>
+<p>Omitted keys keep their saved values; leave a password blank to keep the stored key. Settings are saved before the model initializes, so they survive a failed load.</p>
 <div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
   "provider": "search",
   "settings": {"api_key": "tvly-..."}
@@ -223,7 +239,7 @@
   "data": null
 }</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
   "status": "error",
-  "message": "Search model is already loading",
+  "message": "Search model is already loading.",
   "data": null
 }</code></pre></div></div>
 </article>

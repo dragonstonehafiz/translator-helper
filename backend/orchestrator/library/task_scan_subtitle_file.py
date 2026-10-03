@@ -2,7 +2,7 @@ import json
 import os
 
 from orchestrator.base_task import BaseTask
-from model_manager import ModelManager
+from models.manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from prompts.library import scan_subtitle_file_prompt
@@ -43,9 +43,9 @@ class TaskScanSubtitleFile(BaseTask):
         progress_handler.set(self.task_type, {"current": 0, "total": 1, "status": "Scanning subtitle file for characters and terms", "eta_seconds": 0})
 
         try:
-            llm_client.set_running(True)
+            model_manager.acquire_llm()
             transcript = "\n".join(load_sub_data(file_path, include_speaker=True))
-            raw = model_manager.llm_infer(
+            raw = model_manager.get_llm_client().infer(
                 prompt=transcript,
                 system_prompt=scan_subtitle_file_prompt(series_name, input_lang, output_lang, known_names, known_terms),
                 temperature=0.1,
@@ -62,7 +62,7 @@ class TaskScanSubtitleFile(BaseTask):
             result_handler.set_error(self.task_type, str(exc))
             raise
         finally:
-            llm_client.set_running(False)
+            model_manager.release_llm()
 
     def _parse_findings(self, raw: str) -> dict:
         """Parse the LLM's JSON findings into {characters, terms, events} lists; raises ValueError on malformed output."""

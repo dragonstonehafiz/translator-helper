@@ -1,86 +1,57 @@
 from abc import ABC, abstractmethod
+from typing import Generic, TypeVar
 
-from utils.config import CONFIG_DIR
+import pysubs2
+
+from models.config import ModelConfig
+from models.state import ModelState
+
+ConfigT = TypeVar("ConfigT", bound=ModelConfig)
 
 
-class AudioModelInterface(ABC):
-    """Abstract interface that all audio transcription backend implementations must satisfy."""
+class AudioModelInterface(ABC, Generic[ConfigT]):
+    """Contract every audio transcription provider satisfies: typed settings, a lifecycle state and transcription."""
 
-    def _get_config_path(self, filename: str) -> str:
-        """Return the absolute path to the provider config file <filename> under CONFIG_DIR."""
-        return str(CONFIG_DIR / filename)
+    def __init__(self, config: ConfigT):
+        """Store the provider's settings; the client starts NOT_LOADED."""
+        self._config = config
+        self._state = ModelState.NOT_LOADED
+
+    @property
+    def provider_id(self) -> str:
+        """Return the provider identifier declared by the config class."""
+        return self._config.PROVIDER
+
+    @property
+    def config(self) -> ConfigT:
+        """Return the provider's current settings."""
+        return self._config
+
+    @property
+    def state(self) -> ModelState:
+        """Return whether the model is initialized."""
+        return self._state
+
+    def configure(self, config: ConfigT) -> None:
+        """Replace the settings; they take effect on the next initialize()."""
+        self._config = config
 
     @abstractmethod
-    def initialize(self):
-        """Initialize the audio model backend."""
+    def initialize(self) -> None:
+        """Load the model from the current settings; sets LOADED, or ERROR and re-raises on failure."""
         raise NotImplementedError
 
     @abstractmethod
-    def change_model(self, model_name: str):
-        """Swap or update the underlying model configuration."""
+    def shutdown(self) -> None:
+        """Release the model and return to NOT_LOADED."""
         raise NotImplementedError
 
     @abstractmethod
-    def configure(self, settings: dict):
-        """Set provider-specific configuration values."""
+    def transcribe_line(self, audio_path: str, language: str) -> str:
+        """Transcribe a short clip to one line of text."""
         raise NotImplementedError
 
     @abstractmethod
-    def get_settings_schema(self) -> dict:
-        """Return a schema describing configurable settings."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def transcribe_line(self, audio_path: str, language: str):
-        """Transcribe audio to a single text line."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def transcribe_file(self, audio_path: str, language: str):
-        """Transcribe audio to a subtitle file representation."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_status(self) -> str:
-        """Return current model status: 'loaded', 'not_loaded', or 'error'."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_model(self) -> str:
-        """Return the current model identifier."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def is_running(self) -> bool:
-        """Check if the model is currently running a task."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def set_running(self, running: bool):
-        """Set whether the model is currently running a task."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def set_device(self, device: str):
-        """Set the device identifier for the model backend."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_device(self) -> str:
-        """Return the current device identifier."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_available_devices(self) -> dict:
-        """Return available device options."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_server_variables(self) -> dict:
-        """Return current server variables for status display."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def shutdown(self):
-        """Release model resources."""
+    def transcribe_file(self, audio_path: str, language: str) -> pysubs2.SSAFile:
+        """Transcribe a full audio file to subtitles without saving them."""
         raise NotImplementedError

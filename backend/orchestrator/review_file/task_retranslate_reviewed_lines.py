@@ -5,7 +5,7 @@ from pathlib import Path
 import pysubs2
 
 from orchestrator.base_task import BaseTask
-from model_manager import ModelManager
+from models.manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from prompts.review_file import generate_line_retranslation_prompt
@@ -64,7 +64,7 @@ class TaskRetranslateReviewedLines(BaseTask):
                 },
             )
 
-            llm_client.set_running(True)
+            model_manager.acquire_llm()
             correction_logs = []
             for correction_number, correction in enumerate(corrections, start=1):
                 index = int(correction["index"])
@@ -74,14 +74,14 @@ class TaskRetranslateReviewedLines(BaseTask):
 
                 original_line = original_subs[index - 1]
                 translated_line = translated_subs[index - 1]
-                corrected_text = model_manager.llm_infer(
+                corrected_text = model_manager.get_llm_client().infer(
                     prompt=self._build_retranslation_prompt(index, original_line, translated_line, reason),
                     system_prompt=generate_line_retranslation_prompt(
                         context=context if context else None,
                         input_lang=input_lang,
                         output_lang=output_lang,
                     ),
-                    temperature=llm_client.get_temperature(),
+                    temperature=llm_client.config.temperature.value,
                 ).strip()
                 previous_text = translated_line.text
                 translated_line.text = corrected_text.replace("\\N", " ").strip()
@@ -121,7 +121,7 @@ class TaskRetranslateReviewedLines(BaseTask):
             result_handler.set_error(self.task_type, str(exc))
             raise
         finally:
-            llm_client.set_running(False)
+            model_manager.release_llm()
 
     def _build_retranslation_prompt(self, index: int, original_line, translated_line, reason: str) -> str:
         """Build the user-turn prompt containing the line index, original, current translation, and review reason."""

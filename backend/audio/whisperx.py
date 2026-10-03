@@ -1,13 +1,17 @@
 import gc
-import json
 import logging
 import os
 import warnings
+from dataclasses import dataclass
+from typing import ClassVar
 
 import pysubs2
 import whisperx
 
+from audio.devices import device_choices
 from audio.interface import AudioModelInterface
+from models.config import Choice, ConfigField, DropdownOption, IntegerOption, ModelConfig, setting
+from models.state import ModelState
 
 # Suppress verbose output from whisperx and its dependencies
 warnings.filterwarnings("ignore", category=UserWarning, module="pyannote")
@@ -16,137 +20,59 @@ logging.getLogger("whisperx").setLevel(logging.WARNING)
 logging.getLogger("pyannote").setLevel(logging.WARNING)
 
 
-class AudioWhisperX(AudioModelInterface):
+@dataclass
+class WhisperXConfig(ModelConfig):
+    """Settings for the WhisperX provider, saved to audio_whisperx.json."""
+
+    CONFIG_FILE: ClassVar[str] = "audio_whisperx.json"
+    PROVIDER: ClassVar[str] = "audio_whisperx"
+    TITLE: ClassVar[str] = "WhisperX"
+
+    model_name: ConfigField[str] = setting("Model", DropdownOption((
+        Choice("tiny", "tiny"),
+        Choice("base", "base"),
+        Choice("small", "small"),
+        Choice("medium", "medium"),
+        Choice("large-v2", "large-v2"),
+        Choice("turbo", "turbo"),
+    )), "medium", required=True)
+    device: ConfigField[str] = setting("Device", DropdownOption(device_choices), "cpu")
+    compute_type: ConfigField[str] = setting("Compute Type", DropdownOption((
+        Choice("float32", "float32"),
+        Choice("float16", "float16"),
+        Choice("int8", "int8"),
+    )), "float32", help="float16/int8 require CUDA GPU")
+    batch_size: ConfigField[int] = setting("Batch Size", IntegerOption(min=1, max=32), 16, help="Reduce if running out of memory")
+
+
+class AudioWhisperX(AudioModelInterface[WhisperXConfig]):
     """Audio transcription backend using WhisperX for word-aligned subtitle generation."""
 
-    CONFIG_FILE = "audio_whisperx.json"
-
     def __init__(self):
-        """Load saved config from disk or write defaults; sets up model name, device, compute type, and batch size."""
-        self._model_name = "medium"
-        self._device = "cpu"
-        self._compute_type = "float32"
-        self._batch_size = 16
+        """Load the saved WhisperX settings."""
+        super().__init__(WhisperXConfig.load())
         self._model = None
-        self._running = False
-        self._status = "not_loaded"
 
-        _data_path = self._get_config_path(self.CONFIG_FILE)
-        if os.path.isfile(_data_path):
-            with open(_data_path, "r", encoding="utf-8") as _f:
-                _cfg = json.load(_f)
-            self._model_name = _cfg.get("model_name", self._model_name)
-            self._device = _cfg.get("device", self._device)
-            self._compute_type = _cfg.get("compute_type", self._compute_type)
-            self._batch_size = _cfg.get("batch_size", self._batch_size)
-        else:
-            os.makedirs(os.path.dirname(_data_path), exist_ok=True)
-            self._save_config()
-
-    def _save_config(self):
-        """Persist the current model_name, device, compute_type, and batch_size to the config JSON file."""
-        _data_path = self._get_config_path(self.CONFIG_FILE)
-        os.makedirs(os.path.dirname(_data_path), exist_ok=True)
-        with open(_data_path, "w", encoding="utf-8") as _f:
-            json.dump({
-                "model_name": self._model_name,
-                "device": self._device,
-                "compute_type": self._compute_type,
-                "batch_size": self._batch_size
-            }, _f, indent=2)
-
-    def configure(self, settings: dict):
-        """Apply model_name, device, compute_type, and/or batch_size from settings and persist to the config file."""
-        if not settings:
-            return
-        if "model_name" in settings:
-            self._model_name = settings["model_name"]
-        if "device" in settings:
-            self._device = settings["device"]
-        if "compute_type" in settings:
-            self._compute_type = settings["compute_type"]
-        if "batch_size" in settings:
-            self._batch_size = int(settings["batch_size"])
-        self._save_config()
-
-    def get_settings_schema(self) -> dict:
-        """Return the settings schema describing model, device, compute type, and batch size fields for the settings UI."""
-        return {
-            "provider": "audio_whisperx",
-            "title": "WhisperX",
-            "fields": [
-                {
-                    "key": "model_name",
-                    "label": "Model",
-                    "type": "select",
-                    "options": [
-                        {"label": "tiny", "value": "tiny"},
-                        {"label": "base", "value": "base"},
-                        {"label": "small", "value": "small"},
-                        {"label": "medium", "value": "medium"},
-                        {"label": "large-v2", "value": "large-v2"},
-                        {"label": "turbo", "value": "turbo"},
-                    ],
-                    "default": self._model_name,
-                    "required": True
-                },
-                {
-                    "key": "device",
-                    "label": "Device",
-                    "type": "select",
-                    "options": [
-                        {"label": label, "value": value}
-                        for label, value in self.get_available_devices().items()
-                    ],
-                    "default": self._device
-                },
-                {
-                    "key": "compute_type",
-                    "label": "Compute Type",
-                    "type": "select",
-                    "options": [
-                        {"label": "float32", "value": "float32"},
-                        {"label": "float16", "value": "float16"},
-                        {"label": "int8", "value": "int8"},
-                    ],
-                    "default": self._compute_type,
-                    "help": "float16/int8 require CUDA GPU"
-                },
-                {
-                    "key": "batch_size",
-                    "label": "Batch Size",
-                    "type": "number",
-                    "default": self._batch_size,
-                    "min": 1,
-                    "max": 32,
-                    "step": 1,
-                    "help": "Reduce if running out of memory"
-                }
-            ]
-        }
-
-    def initialize(self):
-        """Load the WhisperX model onto the configured device; sets status to 'loaded' or 'error'."""
+    def initialize(self) -> None:
+        """Load the WhisperX model onto the configured device."""
         try:
             self._model = self._build_model()
-            self._status = "loaded"
+            self._state = ModelState.LOADED
         except Exception:
-            self._status = "error"
+            self._model = None
+            self._state = ModelState.ERROR
             raise
 
-    def change_model(self, model_name: str):
-        """Switch to a different Whisper model size and reload if a model is already in memory."""
-        self._model_name = model_name
-        if self._model is not None:
-            self._model = self._build_model()
+    def shutdown(self) -> None:
+        """Release the model."""
+        self._model = None
+        self._state = ModelState.NOT_LOADED
 
     def transcribe_line(self, audio_path: str, language: str) -> str:
         """Transcribe the first segment of an audio file to a plain text string."""
-        if not os.path.isfile(audio_path):
-            return "File not detected. Did you put the right path?"
-        model = self._model or self._build_model()
+        model = self._require_model(audio_path)
         audio = whisperx.load_audio(audio_path)
-        result = model.transcribe(audio, language=language, batch_size=self._batch_size)
+        result = model.transcribe(audio, language=language, batch_size=self._config.batch_size.value)
 
         segments = result.get("segments", [])
         if not segments:
@@ -155,13 +81,11 @@ class AudioWhisperX(AudioModelInterface):
 
     def transcribe_file(self, audio_path: str, language: str) -> pysubs2.SSAFile:
         """Transcribe an audio file into a pysubs2.SSAFile with word-aligned timestamps via WhisperX alignment."""
-        if not os.path.isfile(audio_path):
-            return "File not detected. Did you put the right path?"
-        model = self._model or self._build_model()
+        model = self._require_model(audio_path)
 
-        device = "cuda" if self._device.startswith("cuda") else self._device
+        device = self._runtime_device()
         audio = whisperx.load_audio(audio_path)
-        result = model.transcribe(audio, language=language, batch_size=self._batch_size, chunk_size=10)
+        result = model.transcribe(audio, language=language, batch_size=self._config.batch_size.value, chunk_size=10)
 
         # Align for accurate word-level timestamps
         model_a, metadata = whisperx.load_align_model(language_code=language, device=device)
@@ -200,48 +124,6 @@ class AudioWhisperX(AudioModelInterface):
 
         return subs
 
-    def shutdown(self):
-        """Release the model reference and reset status to 'not_loaded'."""
-        self._model = None
-        self._status = "not_loaded"
-
-    def get_status(self) -> str:
-        """Return the current load status: 'not_loaded', 'loaded', or 'error'."""
-        return self._status
-
-    def get_model(self) -> str:
-        """Return the current Whisper model size name."""
-        return self._model_name
-
-    def is_running(self) -> bool:
-        """Return True if a transcription call is currently in progress."""
-        return self._running
-
-    def set_running(self, running: bool):
-        """Set the running flag; called by tasks before and after transcription to prevent concurrent use."""
-        self._running = running
-
-    def set_device(self, device: str):
-        """Set the device string (e.g. 'cpu', 'cuda:0') used for model inference."""
-        self._device = device
-
-    def get_device(self) -> str:
-        """Return the current device string."""
-        return self._device
-
-    def get_available_devices(self) -> dict:
-        """Return a dict of human-readable device labels to torch device strings for the settings UI."""
-        from audio.devices import get_device_map
-        return get_device_map()
-
-    def get_server_variables(self) -> list[dict]:
-        """Return model name, device, and compute type as key-value pairs for the server-variables status endpoint."""
-        return [
-            {"key": "whisperx_model", "label": "Model", "value": self._model_name},
-            {"key": "device", "label": "Device", "value": self._device},
-            {"key": "compute_type", "label": "Compute Type", "value": self._compute_type},
-        ]
-
     def _build_model(self):
         """Load and return a WhisperX model instance for the configured model name, device, and compute type."""
         try:
@@ -250,6 +132,17 @@ class AudioWhisperX(AudioModelInterface):
                 torch.cuda.empty_cache()
         except Exception:
             pass
-        # ctranslate2 only accepts "cuda" or "cpu", not "cuda:0"
-        device = "cuda" if self._device.startswith("cuda") else self._device
-        return whisperx.load_model(self._model_name, device, compute_type=self._compute_type)
+        return whisperx.load_model(self._config.model_name.value, self._runtime_device(), compute_type=self._config.compute_type.value)
+
+    def _runtime_device(self) -> str:
+        """Return the device name ctranslate2 accepts: "cuda" or "cpu", not "cuda:0"."""
+        device = self._config.device.value
+        return "cuda" if device.startswith("cuda") else device
+
+    def _require_model(self, audio_path: str):
+        """Return the loaded model, raising when it is not initialized or the audio file is missing."""
+        if self._model is None:
+            raise RuntimeError("WhisperX model is not initialized.")
+        if not os.path.isfile(audio_path):
+            raise FileNotFoundError(f"Audio file not found: {audio_path}")
+        return self._model

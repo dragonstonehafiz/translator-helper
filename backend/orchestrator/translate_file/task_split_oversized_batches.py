@@ -6,7 +6,7 @@ from pathlib import Path
 import pysubs2
 
 from orchestrator.base_task import BaseTask
-from model_manager import ModelManager
+from models.manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from utils.logger import setup_logger
@@ -60,7 +60,7 @@ class TaskSplitOversizedBatches(BaseTask):
                     },
                 )
 
-            llm_client.set_running(True)
+            model_manager.acquire_llm()
             repaired_batches = self._split_oversized_batches(
                 indexed_lines=indexed_lines,
                 batches=batches,
@@ -91,7 +91,7 @@ class TaskSplitOversizedBatches(BaseTask):
             result_handler.set_error(self.task_type, str(exc))
             raise
         finally:
-            llm_client.set_running(False)
+            model_manager.release_llm()
 
     def _load_indexed_lines(self, file_path: str) -> tuple[list[str], int]:
         """Load a subtitle file and return lines formatted as '1. Speaker: text' plus the total line count."""
@@ -192,7 +192,7 @@ class TaskSplitOversizedBatches(BaseTask):
             slice_lines = indexed_lines[start_index - 1:end_index]
             raw_output = ""
             try:
-                raw_output = model_manager.llm_infer(
+                raw_output = model_manager.get_llm_client().infer(
                     prompt=self._build_lines_prompt(slice_lines),
                     system_prompt=generate_split_batch_plan_prompt(
                         context=context if context else None,

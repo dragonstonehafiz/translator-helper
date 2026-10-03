@@ -1,7 +1,7 @@
 import os
 
 from orchestrator.base_task import BaseTask
-from model_manager import ModelManager
+from models.manager import ModelManager
 from orchestrator.result_handler import ResultHandler
 
 
@@ -30,8 +30,8 @@ class TaskTranscribeLine(BaseTask):
 
         result_handler.set_processing(self.task_type)
         try:
-            audio_client.set_running(True)
-            transcript = model_manager.audio_transcribe_line(file_path, language)
+            model_manager.acquire_audio()
+            transcript = audio_client.transcribe_line(file_path, language)
             payload = {"text": transcript}
             result_handler.set_complete(self.task_type, payload)
             return payload
@@ -39,7 +39,7 @@ class TaskTranscribeLine(BaseTask):
             result_handler.set_error(self.task_type, str(exc))
             raise
         finally:
-            audio_client.set_running(False)
+            model_manager.release_audio()
             if file_path:
                 try:
                     os.remove(file_path)

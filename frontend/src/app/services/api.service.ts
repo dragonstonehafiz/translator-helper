@@ -12,8 +12,10 @@ export interface ApiResponse<TData = unknown> {
 export interface RunningStatusData {
   running_llm: boolean;
   running_audio: boolean;
-  loading_audio_model: boolean;
+  running_search: boolean;
   loading_llm_model: boolean;
+  loading_audio_model: boolean;
+  loading_search_model: boolean;
   active_task_type: string | null;
 }
 

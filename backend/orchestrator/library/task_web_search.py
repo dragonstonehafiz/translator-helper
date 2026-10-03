@@ -2,7 +2,7 @@ import json
 import os
 
 from orchestrator.base_task import BaseTask
-from model_manager import ModelManager
+from models.manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from utils.logger import setup_logger
@@ -45,7 +45,7 @@ class TaskWebSearch(BaseTask):
             result_handler.set_error(self.task_type, msg)
             raise RuntimeError(msg)
         if not model_manager.is_search_ready():
-            status = search_client.get_status()
+            status = search_client.state.value
             load_error = model_manager.search_loading_error or "unknown error"
             msg = f"Tavily search is in '{status}' state. Load error: {load_error}. Please reload the search model in Settings."
             result_handler.set_error(self.task_type, msg)
@@ -54,6 +54,7 @@ class TaskWebSearch(BaseTask):
         progress_handler.set(self.task_type, {"current": 0, "total": len(queries), "status": "Running web searches", "eta_seconds": 0})
 
         try:
+            model_manager.acquire_search()
             search_results = []
             for i, q in enumerate(queries):
                 subject = q.get("subject", "")
@@ -76,6 +77,8 @@ class TaskWebSearch(BaseTask):
         except Exception as exc:
             result_handler.set_error(self.task_type, str(exc))
             raise
+        finally:
+            model_manager.release_search()
 
     def _write_log(self, log_dir: str, search_results: list) -> None:
         """Write search results to 04-web-search.json in the run's log directory."""

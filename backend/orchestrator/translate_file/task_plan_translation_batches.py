@@ -5,7 +5,7 @@ from pathlib import Path
 import pysubs2
 
 from orchestrator.base_task import BaseTask
-from model_manager import ModelManager
+from models.manager import ModelManager
 from orchestrator.progress_handler import ProgressHandler
 from orchestrator.result_handler import ResultHandler
 from prompts.translate_file import generate_batch_plan_prompt
@@ -53,8 +53,8 @@ class TaskPlanTranslationBatches(BaseTask):
                 },
             )
 
-            llm_client.set_running(True)
-            raw_output = model_manager.llm_infer(
+            model_manager.acquire_llm()
+            raw_output = model_manager.get_llm_client().infer(
                 prompt=self._build_lines_prompt(indexed_lines),
                 system_prompt=generate_batch_plan_prompt(
                     context=context if context else None,
@@ -89,7 +89,7 @@ class TaskPlanTranslationBatches(BaseTask):
             result_handler.set_error(self.task_type, str(exc))
             raise
         finally:
-            llm_client.set_running(False)
+            model_manager.release_llm()
 
     def _load_indexed_lines(self, file_path: str) -> tuple[list[str], int]:
         """Load a subtitle file and return lines formatted as '1. Speaker: text' plus the total line count."""
