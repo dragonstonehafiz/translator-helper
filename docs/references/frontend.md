@@ -41,7 +41,7 @@ The project was generated with Angular SSR (`server.ts`, `main.server.ts`, `app.
 
 - `app-confirm-dialog`, driven by `ConfirmationService.dialog$`.
 - `app-error-dialog`, driven by `ErrorDialogService.dialog$`.
-- The progress overlay. It appears when a task state has `status === 'processing'` and a `progress` object, and shows `app-progress-bar` for the first matching task in this priority order: `reviewTranslatedFile` → `translateFile` → `translateLine` → `transcribeFile` → `transcribeLine` → `updateLibrary`.
+- The progress overlay. It appears while a workflow is processing (`StateService.getActiveWorkflow()`) and shows `app-progress-bar` with that workflow's label, `current`/`total`, `message` and `etaSeconds`.
 
 On startup it calls `getServerVariables()` and navigates to `/settings` if the LLM or audio model isn't ready.
 
@@ -65,33 +65,32 @@ Add app-wide overlays to `AppComponent`, never to a page.
 
 `services/api.service.ts` holds every backend HTTP call. The base URL `http://localhost:8000` is hardcoded. Always add new calls here; never inject `HttpClient` into a component.
 
-- It exports the response and payload interfaces: `ApiResponse<TData>`, `SeriesData`, `SeriesCharacter`, `SeriesGlossaryTerm`, `SeriesSummary`, `LibraryProposals`, `SubtitleFileInfoData`, `FileListData`, `RunningStatusData`, `ServerVariablesData`, `TaskStartData`, `TaskResultData` and `TaskResultResponse`.
+- It exports the response and payload interfaces: `ApiResponse<TData>`, `SeriesData`, `SeriesCharacter`, `SeriesGlossaryTerm`, `SeriesSummary`, `SubtitleFileInfoData`, `FileListData`, `RunningStatusData` and `ServerVariablesData`. Workflow start and result types live in `shared/workflow-types.ts`.
 - File uploads and task starts send `FormData`. Library CRUD and model loading send JSON.
-- `getTaskResult(taskType)` calls `GET /task-results/{task_type}`.
+- `getWorkflowResult(workflow)` calls `GET /task-results/{workflow}`.
 - `listFiles`, `getFileBlob` and `deleteFile` take a `folder` (`translated`, `reviewed`, `transcribed`), sent as a query parameter.
 
 ### StateService
 
 `services/state.service.ts` holds cross-component state in BehaviorSubjects. It survives route changes but not a browser refresh.
 
-`TASK_TYPES` maps friendly names to each chain's final backend task type. Always use it instead of hardcoding the strings:
+`shared/workflow-types.ts` holds `WORKFLOW_TYPES`, which maps friendly names to the backend workflow IDs. Always use it instead of hardcoding the strings:
 
 ```ts
-TASK_TYPES.updateLibrary        // 'TaskDeduplicateProposals'
-TASK_TYPES.translateLine        // 'TaskTranslateLine'
-TASK_TYPES.translateFile        // 'TaskTranslateFile'
-TASK_TYPES.reviewTranslatedFile // 'TaskRetranslateReviewedLines'
-TASK_TYPES.transcribeLine       // 'TaskTranscribeLine'
-TASK_TYPES.transcribeFile       // 'TaskTranscribeFile'
+WORKFLOW_TYPES.translateLine        // 'translate_line'
+WORKFLOW_TYPES.translateFile        // 'translate_file'
+WORKFLOW_TYPES.reviewTranslatedFile // 'review_file'
+WORKFLOW_TYPES.transcribeClip       // 'transcribe_clip'
+WORKFLOW_TYPES.transcribeFile       // 'transcribe_file'
+WORKFLOW_TYPES.updateLibrary        // 'update_library'
 ```
 
-Task state API:
+It also defines the result types (`TextResult`, `FileResult`, `ReviewFileResult`, `ProposalResult`, with `isTextResult`/`isProposalResult` guards), `LibraryProposals`, and `WorkflowState`: `{ workflow, status, activeTask, current, total, message, etaSeconds, result, error, seriesId }`.
 
-- `getTaskState(taskType)` returns a `StoredTaskState`, or an idle default.
-- `setTaskState(taskType, patch)` applies a partial update.
-- `clearTaskState(taskType)`.
-- `hasActiveTask(taskTypes?)`.
-- `StoredTaskState` is `{ taskType, status, result, message, progress, isPolling }`.
+Workflow state API:
+
+- `trackWorkflow(workflow, message, seriesId?)` — call after the backend accepts a start request; starts polling (see [Polling pattern](#polling-pattern)).
+- `workflowStates$`, `getWorkflowState(workflow)` (an idle default if it never ran), `getActiveWorkflow()`, `hasActiveWorkflow()`.
 
 Shared file state, used by both the Library and Translate pages:
 
@@ -123,39 +122,24 @@ this.errorDialogService.show({ title: 'Import Failed', message: '...', acknowled
 
 ## Polling pattern
 
-```ts
-// 1. Start
-this.apiService.translateFile(...).subscribe({
-  next: () => {
-    this.stateService.setTaskState(taskType, { status: 'processing', isPolling: true });
-    this.pollTaskResult(taskType);
-  },
-  error: () => this.errorDialogService.show({ title: '...', message: '...' }),
-});
+Pages never poll. They send the start request and, once the backend accepts it, hand the returned workflow ID to `StateService`:
 
-// 2. Poll every second until complete or error
-private pollTaskResult(taskType: string): void {
-  this.apiService.getTaskResult(taskType).subscribe({
-    next: (response) => {
-      if (response.status === 'processing') {
-        this.stateService.setTaskState(taskType, { progress: response.data?.progress ?? null });
-        setTimeout(() => this.pollTaskResult(taskType), 1000);
-      } else if (response.status === 'complete') {
-        this.stateService.setTaskState(taskType, { status: 'complete', result: response.data?.result ?? null, isPolling: false });
-      } else if (response.status === 'error') {
-        this.stateService.setTaskState(taskType, { status: 'error', message: response.message, isPolling: false });
-        this.errorDialogService.show({ title: 'Task Failed', message: response.message ?? 'Unknown error' });
-      }
-    },
-    error: () => {
-      this.stateService.setTaskState(taskType, { status: 'error', isPolling: false });
-      this.errorDialogService.show({ title: 'Polling Failed', message: 'Lost connection to backend.' });
-    },
-  });
-}
+```ts
+this.apiService.translateFile(...).subscribe({
+  next: (response) => {
+    if (response.status === 'processing' && response.data) {
+      this.stateService.trackWorkflow(response.data.workflow, 'Preparing subtitle file translation');
+    } else {
+      this.errorDialogService.show(response.message || 'Failed to start file translation.');
+    }
+  },
+  error: () => this.errorDialogService.show('Failed to start file translation. Please try again.'),
+});
 ```
 
-Always poll the chain's **final** task through `TASK_TYPES.*` (see [`tasks.md`](tasks.md#polling)).
+`StateService` polls `GET /task-results/{workflow}` every second (one request at a time) and stops on `complete`, `error` or `idle`. It keeps polling when the user leaves the page, and shows the error dialog itself when a workflow fails or polling loses the backend, so errors aren't missed. Starting a new workflow stops the previous poll and ignores its late responses.
+
+Pages subscribe to `workflowStates$` to update their busy flags and react when one of their workflows completes: show text results, refresh download lists, or show library proposals. A library update records the series it was started for (`seriesId`), and the Library page only shows its proposals on that series. On returning to a page, it restores finished results from `getWorkflowState()`.
 
 ## Shared components
 

@@ -1,127 +1,80 @@
 import json
-from pathlib import Path
+from dataclasses import replace
+from typing import TypeVar
 
-import pysubs2
-
-from orchestrator.base_task import BaseTask
 from models.manager import ModelManager
-from orchestrator.progress_handler import ProgressHandler
-from orchestrator.result_handler import ResultHandler
+from orchestrator.base_task import BaseTask, ReportProgress, WriteLog
+from orchestrator.task_data.library_types import CharacterEntry, GlossaryEntry, LibraryContext
+from orchestrator.task_data.translation import TranslationData
 from prompts.library_context import select_library_context_prompt
+from utils.subtitles import numbered_lines
+
+PlannedT = TypeVar("PlannedT", bound=TranslationData)
 
 
-class TaskSelectLibraryContext(BaseTask):
-    """Select relevant characters and glossary terms from the series library for this subtitle file."""
+class TaskSelectLibraryContext(BaseTask[PlannedT, PlannedT]):
+    """Shared translation/review stage: pick the series characters and glossary terms relevant to this file.
 
-    TASK_TYPE = "TaskSelectLibraryContext"
-    LOG_FILENAME = "03-select-library-context.json"
+    Construct it with the concrete data class it runs on; it returns that same class unchanged except for
+    `context` and `library_context`.
+    """
 
-    @property
-    def task_type(self) -> str:
-        return self.TASK_TYPE
+    def __init__(self, data_type: type[PlannedT]):
+        """Run on (and return) `data_type`, e.g. PlannedTranslationData or PlannedReviewData."""
+        super().__init__()
+        self.input_type = data_type
+        self.output_type = data_type
 
-    def run_task(self) -> dict:
-        """Read the subtitle file and series library, ask the LLM to select relevant entries, merge into context."""
-        model_manager = ModelManager.get_instance()
-        result_handler = ResultHandler.get_instance()
-        progress_handler = ProgressHandler.get_instance()
-
+    def run_task(self, report_progress: ReportProgress, write_log: WriteLog) -> PlannedT:
+        """Ask the LLM which library entries appear in the file and add them to the prompt context."""
         data = self.get_data()
-        file_path = str(data.get("file_path", ""))
-        series = data.get("series") or {}
-        context = dict(data.get("context") or {})
-        input_lang = str(data.get("input_lang", "ja"))
-        output_lang = str(data.get("output_lang", "en"))
-        log_dir = str(data.get("log_dir", ""))
+        series = data.series
+        characters = series["characters"] if series else []
+        glossary = series["glossary"] if series else []
+        series_name = series["name"] if series else ""
 
-        result_handler.set_processing(self.task_type)
-
-        characters = series.get("characters") or []
-        glossary = series.get("glossary") or []
-        series_name = series.get("name", "")
-
-        # No series or empty library — pass through without an LLM call.
         if not series_name or (not characters and not glossary):
-            progress_handler.set(self.task_type, {"current": 1, "total": 1, "status": "No library data — skipping context selection", "eta_seconds": 0})
-            result_handler.set_complete(self.task_type)
-            return {**data}
+            report_progress(1, 1, "No library data — skipping context selection", 0.0)
+            return data
 
-        llm_client = model_manager.get_llm_client()
-        if llm_client is None:
-            result_handler.set_error(self.task_type, "LLM model not initialized")
-            raise RuntimeError("LLM model not initialized")
-
-        progress_handler.set(self.task_type, {"current": 0, "total": 1, "status": "Selecting relevant library entries for this episode", "eta_seconds": 0})
-
+        report_progress(0, 1, "Selecting relevant library entries for this episode", 0.0)
+        model_manager = ModelManager.get_instance()
+        llm = model_manager.acquire_llm()
         try:
-            model_manager.acquire_llm()
-            transcript = self._load_transcript(file_path)
-            character_ids = [c["id"] for c in characters]
-            character_names = [c["name"] for c in characters]
-            glossary_ids = [t["id"] for t in glossary]
-            glossary_terms = [t["term"] for t in glossary]
-
-            raw = model_manager.get_llm_client().infer(
-                prompt=transcript,
+            raw = llm.infer(
+                prompt="\n".join(numbered_lines(data.subtitles)),
                 system_prompt=select_library_context_prompt(
                     series_name=series_name,
-                    input_lang=input_lang,
-                    output_lang=output_lang,
-                    character_ids=character_ids,
-                    character_names=character_names,
-                    glossary_ids=glossary_ids,
-                    glossary_terms=glossary_terms,
+                    input_lang=data.input_lang,
+                    output_lang=data.output_lang,
+                    character_ids=[c["id"] for c in characters],
+                    character_names=[c["name"] for c in characters],
+                    glossary_ids=[t["id"] for t in glossary],
+                    glossary_terms=[t["term"] for t in glossary],
                 ),
                 temperature=0.1,
             )
-
-            selected_char_ids, selected_glossary_ids = self._parse_selection(raw)
-
-            char_lookup = {c["id"]: c for c in characters}
-            term_lookup = {t["id"]: t for t in glossary}
-            selected_characters = [char_lookup[cid] for cid in selected_char_ids if cid in char_lookup]
-            selected_glossary = [term_lookup[tid] for tid in selected_glossary_ids if tid in term_lookup]
-
-            if selected_characters:
-                context["characters"] = self._format_characters(selected_characters)
-            if selected_glossary:
-                context["glossary"] = self._format_glossary(selected_glossary)
-
-            library_context = {
-                "selected_characters": selected_characters,
-                "selected_glossary": selected_glossary,
-            }
-
-            if log_dir:
-                self._write_log(log_dir, raw, series_name, len(characters), len(glossary), library_context)
-
-            progress_handler.set(
-                self.task_type,
-                {
-                    "current": 1,
-                    "total": 1,
-                    "status": f"Selected {len(selected_characters)} characters and {len(selected_glossary)} glossary terms",
-                    "eta_seconds": 0,
-                },
-            )
-            result_handler.set_complete(self.task_type)
-            return {**data, "context": context, "library_context": library_context}
-
-        except Exception as exc:
-            result_handler.set_error(self.task_type, str(exc))
-            raise
         finally:
             model_manager.release_llm()
 
-    def _load_transcript(self, file_path: str) -> str:
-        """Load subtitle lines as a numbered transcript string."""
-        subs = pysubs2.load(file_path)
-        lines = []
-        for index, line in enumerate(subs, start=1):
-            speaker = line.name.strip() if line.name else "Unknown"
-            text = line.text.strip() or "[EMPTY]"
-            lines.append(f"{index}. {speaker}: {text}")
-        return "\n".join(lines)
+        selected_char_ids, selected_glossary_ids = self._parse_selection(raw)
+        char_lookup = {c["id"]: c for c in characters}
+        term_lookup = {t["id"]: t for t in glossary}
+        selected_characters = [char_lookup[cid] for cid in selected_char_ids if cid in char_lookup]
+        selected_glossary = [term_lookup[tid] for tid in selected_glossary_ids if tid in term_lookup]
+
+        context = dict(data.context)
+        if selected_characters:
+            context["characters"] = self._format_characters(selected_characters)
+        if selected_glossary:
+            context["glossary"] = self._format_glossary(selected_glossary)
+        library_context: LibraryContext = {
+            "selected_characters": selected_characters,
+            "selected_glossary": selected_glossary,
+        }
+
+        report_progress(1, 1, f"Selected {len(selected_characters)} characters and {len(selected_glossary)} glossary terms", 0.0)
+        return replace(data, context=context, library_context=library_context)
 
     def _parse_selection(self, raw: str) -> tuple[list[str], list[str]]:
         """Parse the LLM JSON response into character and glossary ID lists."""
@@ -135,7 +88,7 @@ class TaskSelectLibraryContext(BaseTask):
         glossary_ids = [str(tid) for tid in parsed.get("glossary_ids", [])]
         return char_ids, glossary_ids
 
-    def _format_characters(self, characters: list[dict]) -> str:
+    def _format_characters(self, characters: list[CharacterEntry]) -> str:
         """Format selected character entries as a readable text block."""
         blocks = []
         for char in characters:
@@ -156,7 +109,7 @@ class TaskSelectLibraryContext(BaseTask):
             blocks.append("\n".join(lines))
         return "\n\n".join(blocks)
 
-    def _format_glossary(self, glossary: list[dict]) -> str:
+    def _format_glossary(self, glossary: list[GlossaryEntry]) -> str:
         """Format selected glossary entries as a readable text block."""
         lines = []
         for term in glossary:
@@ -166,29 +119,3 @@ class TaskSelectLibraryContext(BaseTask):
                 entry += f" ({notes})"
             lines.append(entry)
         return "\n".join(lines)
-
-    def _write_log(
-        self,
-        log_dir: str,
-        raw: str,
-        series_name: str,
-        total_characters: int,
-        total_glossary: int,
-        library_context: dict,
-    ) -> None:
-        """Write the selection log to the per-run log directory."""
-        output_dir = Path(log_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        log_payload = {
-            "task_type": self.task_type,
-            "series_name": series_name,
-            "total_characters": total_characters,
-            "total_glossary": total_glossary,
-            "selected_character_count": len(library_context["selected_characters"]),
-            "selected_glossary_count": len(library_context["selected_glossary"]),
-            "selected_characters": library_context["selected_characters"],
-            "selected_glossary": library_context["selected_glossary"],
-            "raw_output": raw,
-        }
-        with open(output_dir / self.LOG_FILENAME, "w", encoding="utf-8") as f:
-            json.dump(log_payload, f, ensure_ascii=False, indent=2)

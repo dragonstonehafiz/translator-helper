@@ -2,170 +2,92 @@
 Translation routes.
 """
 
-from datetime import datetime
-import os
+from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile
 
-from orchestrator.translate_file.task_plan_translation_batches import TaskPlanTranslationBatches
-from orchestrator.translate_file.task_select_library_context import TaskSelectLibraryContext
-from orchestrator.review_file.task_plan_translation_review_batches import TaskPlanTranslationReviewBatches
-from orchestrator.review_file.task_retranslate_reviewed_lines import TaskRetranslateReviewedLines
-from orchestrator.review_file.task_review_translated_batches import TaskReviewTranslatedBatches
-from orchestrator.review_file.task_select_library_context_for_review import TaskSelectLibraryContextForReview
-from orchestrator.translate_file.task_split_oversized_batches import TaskSplitOversizedBatches
-from orchestrator.translate_file.task_translate_file import TaskTranslateFile
-from orchestrator.tasks.task_translate_line import TaskTranslateLine
 from library.repository import SeriesNotFoundError, load_series
+from models.manager import ModelManager
+from orchestrator.task_data.library_types import SeriesSnapshot
+from orchestrator.task_orchestrator import TaskOrchestrator
+from orchestrator.workflows.review_file import start_review_file
+from orchestrator.workflows.translate_file import start_translate_file
+from orchestrator.workflows.translate_line import start_translate_line
 from utils.api_response import error_response, processing_response
-from utils.config import LOGS_DIR
 
-from .shared import (
-    model_manager,
-    parse_json_form,
-    result_handler,
-    run_single_task,
-    save_upload_to_temp,
-    task_orchestrator,
-)
+from .shared import parse_json_form, remove_temp_files, save_upload_to_temp
 
 router = APIRouter(prefix="/translate")
 
 
-def _safe_log_filename(filename: str) -> str:
-    """Sanitize a filename for use in a log directory name by replacing non-alphanumeric characters."""
-    original_filename = os.path.basename(str(filename or "subtitles")).strip() or "subtitles"
-    return "".join(
-        char if char.isalnum() or char in "._-" else "_" for char in original_filename
-    ).strip("._") or "subtitles"
+def _busy_or_unready(busy_message: str) -> dict | None:
+    """Return an error envelope if a workflow is running or the LLM is not loaded, else None."""
+    if TaskOrchestrator.get_instance().get_running_state() is not None:
+        return error_response(busy_message)
+    if not ModelManager.get_instance().is_llm_ready():
+        return error_response("LLM not loaded")
+    return None
 
 
-def run_translation_file_chain(data: dict):
-    """Run the 4-task file translation chain in a background thread; records errors to ResultHandler on failure."""
-    final_task_type = TaskTranslateFile.TASK_TYPE
+def _series_or_none(series_id: str) -> SeriesSnapshot | None:
+    """Load the series for library context; an unknown series means no library context."""
+    if not series_id:
+        return None
     try:
-        data = dict(data)
-        safe_filename = _safe_log_filename(str(data.get("original_filename", "subtitles")))
-        log_dir = LOGS_DIR / "translate_file" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_filename}"
-        log_dir.mkdir(parents=True, exist_ok=True)
-        data["log_dir"] = str(log_dir)
-        result_handler.clear(final_task_type)
-        task_orchestrator.clear_tasks()
-        task_orchestrator.add_task(TaskPlanTranslationBatches())
-        task_orchestrator.add_task(TaskSplitOversizedBatches())
-        task_orchestrator.add_task(TaskSelectLibraryContext())
-        task_orchestrator.add_task(TaskTranslateFile())
-        task_orchestrator.run_tasks(initial_data=data)
-    except Exception as exc:
-        result_handler.set_error(final_task_type, str(exc))
-
-
-def run_review_translated_file_chain(data: dict):
-    """Run the 4-task review chain in a background thread; cleans up temp files afterward and records errors on failure."""
-    final_task_type = TaskRetranslateReviewedLines.TASK_TYPE
-    temp_paths = []
-    try:
-        data = dict(data)
-        temp_paths = [
-            str(data.get("file_path", "")),
-            str(data.get("translated_file_path", "")),
-        ]
-        safe_filename = _safe_log_filename(str(data.get("translated_filename") or data.get("original_filename") or "subtitles"))
-        log_dir = LOGS_DIR / "review_file" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_filename}"
-        log_dir.mkdir(parents=True, exist_ok=True)
-        data["log_dir"] = str(log_dir)
-        result_handler.clear(final_task_type)
-        task_orchestrator.clear_tasks()
-        task_orchestrator.add_task(TaskPlanTranslationReviewBatches())
-        task_orchestrator.add_task(TaskSelectLibraryContextForReview())
-        task_orchestrator.add_task(TaskReviewTranslatedBatches())
-        task_orchestrator.add_task(TaskRetranslateReviewedLines())
-        task_orchestrator.run_tasks(initial_data=data)
-    except Exception as exc:
-        result_handler.set_error(final_task_type, str(exc))
-    finally:
-        for temp_path in temp_paths:
-            if temp_path:
-                try:
-                    os.remove(temp_path)
-                except Exception:
-                    pass
+        return load_series(series_id)
+    except SeriesNotFoundError:
+        return None
 
 
 @router.post("/translate-line")
 async def api_translate_line(
-    background_tasks: BackgroundTasks,
     text: str = Form(...),
     context: str = Form("{}"),
     input_lang: str = Form("ja"),
     output_lang: str = Form("en"),
 ):
-    """Start a single-line translation task in the background."""
-    if task_orchestrator.is_running():
-        return error_response("Translation is already running")
-    if not model_manager.is_llm_ready():
-        return error_response("LLM not loaded")
-
+    """Start translating one line."""
+    rejection = _busy_or_unready("Translation is already running")
+    if rejection:
+        return rejection
     try:
-        context_dict = parse_json_form(context)
-        background_tasks.add_task(
-            run_single_task,
-            TaskTranslateLine(),
-            {
-                "text": text,
-                "context": context_dict,
-                "input_lang": input_lang,
-                "output_lang": output_lang,
-            },
-        )
-        return processing_response({"task_type": TaskTranslateLine.TASK_TYPE}, "Translation started")
+        start_translate_line(text=text, context=parse_json_form(context), input_lang=input_lang, output_lang=output_lang)
     except Exception as exc:
         return error_response(str(exc))
+    return processing_response({"workflow": "translate_line"}, "Translation started")
 
 
 @router.post("/translate-file")
 async def api_translate_file(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     input_lang: str = Form("ja"),
     output_lang: str = Form("en"),
     batch_size: int = Form(3),
     series_id: str = Form(""),
 ):
-    """Upload a subtitle file and start the file translation chain in the background."""
-    if task_orchestrator.is_running():
-        return error_response("Translation is already running")
-    if not model_manager.is_llm_ready():
-        return error_response("LLM not loaded")
-
+    """Upload a subtitle file and start translating it."""
+    rejection = _busy_or_unready("Translation is already running")
+    if rejection:
+        return rejection
+    tmp_path: Path | None = None
     try:
-        tmp_file_path = await save_upload_to_temp(file)
-        series = None
-        if series_id:
-            try:
-                series = load_series(series_id)
-            except SeriesNotFoundError:
-                series = None
-        background_tasks.add_task(
-            run_translation_file_chain,
-            {
-                "file_path": tmp_file_path,
-                "original_filename": file.filename,
-                "context": {},
-                "input_lang": input_lang,
-                "output_lang": output_lang,
-                "batch_size": batch_size,
-                "series": series,
-            },
+        tmp_path = await save_upload_to_temp(file)
+        start_translate_file(
+            file_path=tmp_path,
+            original_filename=file.filename or "subtitles",
+            input_lang=input_lang,
+            output_lang=output_lang,
+            batch_size=batch_size,
+            series=_series_or_none(series_id),
         )
-        return processing_response({"task_type": TaskTranslateFile.TASK_TYPE}, "Translation started")
     except Exception as exc:
+        remove_temp_files(tmp_path)
         return error_response(str(exc))
+    return processing_response({"workflow": "translate_file"}, "Translation started")
 
 
 @router.post("/review-translated-file")
 async def api_review_translated_file(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     translated_file: UploadFile = File(...),
     input_lang: str = Form("ja"),
@@ -173,35 +95,26 @@ async def api_review_translated_file(
     batch_size: int = Form(50),
     series_id: str = Form(""),
 ):
-    """Upload original and translated subtitle files and start the review chain in the background."""
-    if task_orchestrator.is_running():
-        return error_response("Translation review is already running")
-    if not model_manager.is_llm_ready():
-        return error_response("LLM not loaded")
-
+    """Upload original and translated subtitle files and start reviewing the translation."""
+    rejection = _busy_or_unready("Translation review is already running")
+    if rejection:
+        return rejection
+    tmp_path: Path | None = None
+    tmp_translated_path: Path | None = None
     try:
-        tmp_file_path = await save_upload_to_temp(file)
-        tmp_translated_file_path = await save_upload_to_temp(translated_file)
-        series = None
-        if series_id:
-            try:
-                series = load_series(series_id)
-            except SeriesNotFoundError:
-                series = None
-        background_tasks.add_task(
-            run_review_translated_file_chain,
-            {
-                "file_path": tmp_file_path,
-                "translated_file_path": tmp_translated_file_path,
-                "original_filename": file.filename,
-                "translated_filename": translated_file.filename,
-                "context": {},
-                "input_lang": input_lang,
-                "output_lang": output_lang,
-                "batch_size": batch_size,
-                "series": series,
-            },
+        tmp_path = await save_upload_to_temp(file)
+        tmp_translated_path = await save_upload_to_temp(translated_file)
+        start_review_file(
+            file_path=tmp_path,
+            translated_file_path=tmp_translated_path,
+            original_filename=file.filename or "subtitles",
+            translated_filename=translated_file.filename or "translated.ass",
+            input_lang=input_lang,
+            output_lang=output_lang,
+            batch_size=batch_size,
+            series=_series_or_none(series_id),
         )
-        return processing_response({"task_type": TaskRetranslateReviewedLines.TASK_TYPE}, "Translation review started")
     except Exception as exc:
+        remove_temp_files(tmp_path, tmp_translated_path)
         return error_response(str(exc))
+    return processing_response({"workflow": "review_file"}, "Translation review started")

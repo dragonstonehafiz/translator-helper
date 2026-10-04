@@ -107,18 +107,20 @@
 </article>
 <article class="endpoint">
 <div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/utils/running</span></div>
-<p>A <code>running_*</code> flag is true while a task holds that model.</p>
+<p><code>workflow</code> and <code>active_task</code> are null when nothing is running. A <code>running_*</code> flag is true while a task holds that model.</p>
 <div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
   "status": "success",
   "message": null,
   "data": {
+    "running": true,
+    "workflow": "translate_file",
+    "active_task": "TaskTranslateBatches",
     "running_llm": true,
     "running_audio": false,
     "running_search": false,
     "loading_llm_model": false,
     "loading_audio_model": false,
-    "loading_search_model": false,
-    "active_task_type": "TaskTranslateFile"
+    "loading_search_model": false
   }
 }</code></pre></div></div>
 </article>
@@ -290,11 +292,18 @@ input_lang   "ja"                  // default
 output_lang  "en"                  // default</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
   "status": "processing",
   "message": "Translation started",
-  "data": {"task_type": "TaskTranslateLine"}
+  "data": {"workflow": "translate_line"}
 }</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
   "status": "complete",
   "message": null,
-  "data": {"task_type": "TaskTranslateLine", "result": {"text": "Hello"}, "progress": null}
+  "data": {
+    "workflow": "translate_line",
+    "active_task": null,
+    "progress": [1, 1],
+    "message": "Translation complete",
+    "eta_seconds": 0.0,
+    "result": {"text": "Hello"}
+  }
 }</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
   "status": "error",
   "message": "Translation is already running",
@@ -311,20 +320,17 @@ batch_size   3                     // default
 series_id    "my-show"             // optional</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
   "status": "processing",
   "message": "Translation started",
-  "data": {"task_type": "TaskTranslateFile"}
+  "data": {"workflow": "translate_file"}
 }</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
   "status": "complete",
   "message": null,
   "data": {
-    "task_type": "TaskTranslateFile",
-    "result": null,
-    "progress": {
-      "task_type": "TaskTranslateFile",
-      "current": 40,
-      "total": 40,
-      "status": "Translating batch 40/40",
-      "eta_seconds": 0.0
-    }
+    "workflow": "translate_file",
+    "active_task": null,
+    "progress": [312, 312],
+    "message": "Batch 40/40 complete",
+    "eta_seconds": 0.0,
+    "result": {"output_filename": "episode01.en.ass", "folder": "translated"}
   }
 }</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
   "status": "error",
@@ -343,14 +349,17 @@ batch_size       50                    // default
 series_id        "my-show"             // optional</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
   "status": "processing",
   "message": "Translation review started",
-  "data": {"task_type": "TaskRetranslateReviewedLines"}
+  "data": {"workflow": "review_file"}
 }</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
   "status": "complete",
   "message": null,
   "data": {
-    "task_type": "TaskRetranslateReviewedLines",
-    "result": {"corrected_count": 14, "output_filename": "episode01.corrected.ass"},
-    "progress": null
+    "workflow": "review_file",
+    "active_task": null,
+    "progress": [14, 14],
+    "message": "Retranslated line 14/14",
+    "eta_seconds": 0.0,
+    "result": {"output_filename": "episode01.en.corrected.ass", "folder": "reviewed", "corrected_count": 14}
   }
 }</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
   "status": "error",
@@ -372,11 +381,18 @@ series_id        "my-show"             // optional</code></pre></div><div class=
 language  "ja"                  // required</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
   "status": "processing",
   "message": "Transcription started",
-  "data": {"task_type": "TaskTranscribeLine"}
+  "data": {"workflow": "transcribe_clip"}
 }</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
   "status": "complete",
   "message": null,
-  "data": {"task_type": "TaskTranscribeLine", "result": {"text": "こんにちは"}, "progress": null}
+  "data": {
+    "workflow": "transcribe_clip",
+    "active_task": null,
+    "progress": [1, 1],
+    "message": "Transcription complete",
+    "eta_seconds": 0.0,
+    "result": {"text": "こんにちは"}
+  }
 }</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
   "status": "error",
   "message": "Transcription is already running",
@@ -390,11 +406,18 @@ language  "ja"                  // required</code></pre></div><div class="io-pan
 language  "ja"                  // required</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
   "status": "processing",
   "message": "File transcription started",
-  "data": {"task_type": "TaskTranscribeFile"}
+  "data": {"workflow": "transcribe_file"}
 }</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
   "status": "complete",
   "message": null,
-  "data": {"task_type": "TaskTranscribeFile", "result": null, "progress": null}
+  "data": {
+    "workflow": "transcribe_file",
+    "active_task": null,
+    "progress": [1, 1],
+    "message": "Transcribed 412 subtitle lines",
+    "eta_seconds": 0.0,
+    "result": {"output_filename": "episode01.ja.ass", "folder": "transcribed"}
+  }
 }</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
   "status": "error",
   "message": "Transcription is already running",
@@ -554,18 +577,21 @@ language  "ja"                  // required</code></pre></div><div class="io-pan
 </article>
 <article class="endpoint task">
 <div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/library/{series_id}/update</span></div>
-<p>The start response names an intermediate task; the frontend polls <code>TaskDeduplicateProposals</code>, the last stage.</p>
+<p>Completes only after the last stage has deduplicated the proposals.</p>
 <div class="io"><div class="io-panel"><h4>Request · multipart</h4><pre><code>file  episode01.ass         // required</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
   "status": "processing",
   "message": "Library update started",
-  "data": {"task_type": "TaskGenerateLibraryProposals"}
+  "data": {"workflow": "update_library"}
 }</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
   "status": "complete",
   "message": null,
   "data": {
-    "task_type": "TaskDeduplicateProposals",
-    "result": {"proposals": <a href="#shape-proposals">LibraryProposals</a>},
-    "progress": null
+    "workflow": "update_library",
+    "active_task": null,
+    "progress": [3, 3],
+    "message": "Kept 4/6 updated_characters proposals",
+    "eta_seconds": 0.0,
+    "result": {"proposals": <a href="#shape-proposals">LibraryProposals</a>}
   }
 }</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
   "status": "error",
@@ -581,34 +607,45 @@ language  "ja"                  // required</code></pre></div><div class="io-pan
 <p>Translate, Transcribe and Library Detail poll task results. Translate and Transcribe also list, download and delete generated files.</p>
 <div class="endpoint-list">
 <article class="endpoint task">
-<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/task-results/{task_type}</span></div>
-<p>Status is <code>idle</code>, <code>processing</code>, <code>complete</code> or <code>error</code>. An unregistered task type returns HTTP 400.</p>
+<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/task-results/{workflow}</span></div>
+<p>One snapshot of the workflow's state. <code>progress</code> is <code>[current, total]</code> for the active task. On error, the envelope <code>message</code> is the error and the data keeps the failed task and its last progress. A workflow that has not run since the server started is <code>idle</code>. Any other ID returns HTTP 400.</p>
 <div class="io"><div class="io-panel"><h4>Processing</h4><pre><code>{
   "status": "processing",
   "message": null,
   "data": {
-    "task_type": "TaskTranslateFile",
-    "result": null,
-    "progress": {
-      "task_type": "TaskTranslateFile",
-      "current": 12,
-      "total": 40,
-      "status": "Translating batch 12/40",
-      "eta_seconds": 84.0
-    }
+    "workflow": "translate_file",
+    "active_task": "TaskTranslateBatches",
+    "progress": [96, 312],
+    "message": "Batch 12/40 complete",
+    "eta_seconds": 84.0,
+    "result": null
   }
 }</code></pre></div><div class="io-panel"><h4>Complete</h4><pre><code>{
   "status": "complete",
   "message": null,
-  "data": {"task_type": "TaskTranslateLine", "result": {"text": "Hello"}, "progress": null}
+  "data": {
+    "workflow": "translate_file",
+    "active_task": null,
+    "progress": [312, 312],
+    "message": "Batch 40/40 complete",
+    "eta_seconds": 0.0,
+    "result": {"output_filename": "episode01.en.ass", "folder": "translated"}
+  }
 }</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
   "status": "error",
-  "message": "LLM not loaded",
-  "data": {"task_type": "TaskTranslateFile", "result": null, "progress": null}
+  "message": "LLM is not loaded.",
+  "data": {
+    "workflow": "translate_file",
+    "active_task": "TaskPrepareTranslationBatches",
+    "progress": [0, 0],
+    "message": "",
+    "eta_seconds": 0.0,
+    "result": null
+  }
 }</code></pre></div><div class="io-panel"><h4>Idle</h4><pre><code>{
   "status": "idle",
   "message": null,
-  "data": {"task_type": "TaskTranslateFile", "result": null, "progress": null}
+  "data": {"workflow": "transcribe_file"}
 }</code></pre></div></div>
 </article>
 <article class="endpoint file">
@@ -652,19 +689,14 @@ Content-Disposition: attachment; filename="episode01.en.ass"
 </article>
 </div>
 <p>Output folders are <code>translated</code>, <code>reviewed</code> and <code>transcribed</code>, under <code>backend/files/outputs/</code>. Folder names may only contain letters, digits, hyphens and underscores.</p>
-<h3>Registered polling types</h3>
+<h3>Workflow IDs</h3>
 <ul class="route-index">
-<li><code>TaskTranslateLine</code></li>
-<li><code>TaskTranslateFile</code></li>
-<li><code>TaskRetranslateReviewedLines</code></li>
-<li><code>TaskTranscribeLine</code></li>
-<li><code>TaskTranscribeFile</code></li>
-<li><code>TaskScanSubtitleFile</code></li>
-<li><code>TaskCheckAgainstLibrary</code></li>
-<li><code>TaskGenerateSearchQueries</code></li>
-<li><code>TaskWebSearch</code></li>
-<li><code>TaskGenerateLibraryProposals</code></li>
-<li><code>TaskDeduplicateProposals</code></li>
+<li><code>translate_line</code></li>
+<li><code>translate_file</code></li>
+<li><code>review_file</code></li>
+<li><code>transcribe_clip</code></li>
+<li><code>transcribe_file</code></li>
+<li><code>update_library</code></li>
 </ul>
 </section>
 

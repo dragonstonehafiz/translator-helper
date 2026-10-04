@@ -2,21 +2,16 @@
 Utility and backend status routes.
 """
 
-import os
-
 from fastapi import APIRouter, File, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
 from models.config import TextOption
+from models.manager import ModelManager
+from orchestrator.task_orchestrator import TaskOrchestrator
 from utils.api_response import error_response, success_response
 from utils.subtitles import analyze_subtitle_file
 
-from .shared import (
-    UpdateSettingsRequest,
-    model_manager,
-    save_upload_to_temp,
-    task_orchestrator,
-)
+from .shared import UpdateSettingsRequest, remove_temp_files, save_upload_to_temp
 
 router = APIRouter(prefix="/utils")
 
@@ -39,21 +34,26 @@ def _schema(client) -> dict | None:
 
 @router.get("/running")
 async def get_running_status():
-    """Return which models are in use or loading, and which task type is active."""
+    """Return the running workflow and its active stage, and which models are in use or loading."""
+    model_manager = ModelManager.get_instance()
+    state = TaskOrchestrator.get_instance().get_running_state()
     return success_response({
+        "running": state is not None,
+        "workflow": state.workflow if state else None,
+        "active_task": state.active_task if state else None,
         "running_llm": model_manager.llm_in_use,
         "running_audio": model_manager.audio_in_use,
         "running_search": model_manager.search_in_use,
         "loading_llm_model": model_manager.loading_llm_model,
         "loading_audio_model": model_manager.loading_audio_model,
         "loading_search_model": model_manager.loading_search_model,
-        "active_task_type": task_orchestrator.get_active_task_type(),
     })
 
 
 @router.get("/server-variables")
 async def get_server_variables():
     """Return current setting values, readiness and loading errors for the three model clients."""
+    model_manager = ModelManager.get_instance()
     return success_response({
         "audio": _status_values(model_manager.get_audio_client()),
         "llm": _status_values(model_manager.get_llm_client()),
@@ -70,6 +70,7 @@ async def get_server_variables():
 @router.get("/settings-schema")
 async def get_settings_schema():
     """Return the Settings-page schema for each model client; a group is null if its client could not be created."""
+    model_manager = ModelManager.get_instance()
     return success_response({
         "audio": _schema(model_manager.get_audio_client()),
         "llm": _schema(model_manager.get_llm_client()),
@@ -89,19 +90,19 @@ async def _load(load, settings: dict, message: str):
 @router.post("/load-audio-model")
 async def load_audio_model(request: UpdateSettingsRequest):
     """Save submitted audio settings and initialize the audio model."""
-    return await _load(model_manager.load_audio_model, request.settings, "Audio model loaded")
+    return await _load(ModelManager.get_instance().load_audio_model, request.settings, "Audio model loaded")
 
 
 @router.post("/load-llm-model")
 async def load_llm_model(request: UpdateSettingsRequest):
     """Save submitted LLM settings and initialize the LLM."""
-    return await _load(model_manager.load_llm_model, request.settings, "LLM loaded")
+    return await _load(ModelManager.get_instance().load_llm_model, request.settings, "LLM loaded")
 
 
 @router.post("/load-search-model")
 async def load_search_model(request: UpdateSettingsRequest):
     """Save submitted search settings and initialize web search."""
-    return await _load(model_manager.load_search_model, request.settings, "Search model loaded")
+    return await _load(ModelManager.get_instance().load_search_model, request.settings, "Search model loaded")
 
 
 @router.post("/get-subtitle-file-info")
@@ -112,16 +113,11 @@ async def api_get_subtitle_file_info(file: UploadFile = File(...)):
     if not any(filename_lower.endswith(ext) for ext in allowed_extensions):
         return error_response("Only .ass or .srt files are supported for this endpoint")
 
-    tmp_path = ""
+    tmp_path = None
     try:
         tmp_path = await save_upload_to_temp(file, default_suffix=".ass")
-        stats = analyze_subtitle_file(tmp_path)
-        return success_response(stats)
+        return success_response(analyze_subtitle_file(str(tmp_path)))
     except Exception as exc:
         return error_response(str(exc))
     finally:
-        if tmp_path and os.path.exists(tmp_path):
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
+        remove_temp_files(tmp_path)

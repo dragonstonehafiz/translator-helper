@@ -1,4 +1,5 @@
 import { Component, ViewChild, ChangeDetectorRef, OnDestroy, OnInit, HostListener } from '@angular/core';
+import { Observable, Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SubsectionComponent } from '../../components/subsection/subsection.component';
@@ -11,10 +12,13 @@ import { DownloadsListComponent } from '../../components/downloads-list/download
 import { WaveformPlayerComponent } from '../../components/waveform-player/waveform-player.component';
 import { TabsComponent } from '../../components/tabs/tabs.component';
 import { TabComponent } from '../../components/tabs/tab.component';
-import { ApiService, TaskResultResponse } from '../../services/api.service';
-import { StateService, TASK_TYPES, TaskProgress } from '../../services/state.service';
+import { ApiResponse, ApiService } from '../../services/api.service';
+import { StateService } from '../../services/state.service';
 import { ConfirmationService } from '../../services/confirmation.service';
 import { ErrorDialogService } from '../../services/error-dialog.service';
+import { WORKFLOW_TYPES, WorkflowId, WorkflowStartData, WorkflowState, WorkflowStatus, isTextResult } from '../../shared/workflow-types';
+
+const PAGE_WORKFLOWS: WorkflowId[] = [WORKFLOW_TYPES.transcribeClip, WORKFLOW_TYPES.transcribeFile];
 
 @Component({
   selector: 'app-transcribe',
@@ -30,11 +34,6 @@ import { ErrorDialogService } from '../../services/error-dialog.service';
   styleUrl: './transcribe.component.scss'
 })
 export class TranscribeComponent implements OnInit, OnDestroy {
-  private readonly defaultTaskProgress = {
-    [TASK_TYPES.transcribeLine]: { current: 0, total: 1, status: 'Transcribing the selected audio clip', eta_seconds: 0 },
-    [TASK_TYPES.transcribeFile]: { current: 0, total: 1, status: 'Transcribing the uploaded audio file', eta_seconds: 0 },
-  } as const;
-
   @ViewChild('lineWaveform') lineWaveform!: WaveformPlayerComponent;
   @ViewChild('fileWaveform') fileWaveform!: WaveformPlayerComponent;
 
@@ -53,7 +52,6 @@ export class TranscribeComponent implements OnInit, OnDestroy {
 
   // --- Section-level (non-waveform) state ---
   transcript = '';
-  isTranscribing = false;
   inputLanguage = 'ja';
   fileInputLanguage = 'ja';
   languageOptions = [
@@ -84,9 +82,10 @@ export class TranscribeComponent implements OnInit, OnDestroy {
   // --- Private implementation details ---
   private mediaRecorder?: MediaRecorder;
   private audioChunks: Blob[] = [];
-  private pollingInterval?: any;
-  private filePollingInterval?: any;
-  private lastShownTaskError: Record<string, string> = {};
+  /** Workflow whose start request is in flight, before the backend has accepted it. */
+  private startingWorkflow: WorkflowId | null = null;
+  private lastStatuses: Partial<Record<WorkflowId, WorkflowStatus>> = {};
+  private workflowSubscription?: Subscription;
 
   constructor(
     private cdr: ChangeDetectorRef,
@@ -184,26 +183,13 @@ export class TranscribeComponent implements OnInit, OnDestroy {
   }
 
   async transcribeAudio(): Promise<void> {
-    if (!this.transcribeLineState.audioBlob || this.isTranscribing || this.stateService.hasActiveTask()) return;
+    if (!this.transcribeLineState.audioBlob || this.isAnyTaskRunning()) return;
 
+    this.startingWorkflow = WORKFLOW_TYPES.transcribeClip;
     try {
-      this.isTranscribing = true;
-      this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
-        status: 'processing',
-        result: null,
-        message: null,
-        progress: this.defaultProgress(TASK_TYPES.transcribeLine),
-        isPolling: true,
-      });
-
       const clippedBlob = await this.lineWaveform.getActiveBlob();
       if (!clippedBlob) {
-        this.isTranscribing = false;
-        this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
-          status: 'error',
-          message: 'Failed to get audio blob. Please try again.',
-          isPolling: false,
-        });
+        this.startingWorkflow = null;
         this.errorDialogService.show('Failed to get audio blob. Please try again.');
         return;
       }
@@ -213,42 +199,14 @@ export class TranscribeComponent implements OnInit, OnDestroy {
         ? 'wav'
         : (mimeType.includes('webm') ? 'webm' : 'mp4');
       const audioFile = new File([clippedBlob], `recording.${extension}`, { type: mimeType });
-
-      this.apiService.transcribeAudio(audioFile, this.inputLanguage).subscribe({
-        next: (response) => {
-          if (response.status === 'processing') {
-            this.startPolling();
-          } else {
-            const errorMessage = response.message || 'Failed to start transcription.';
-            this.isTranscribing = false;
-            this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
-              status: 'error',
-              message: errorMessage,
-              isPolling: false,
-            });
-            this.showTaskError(TASK_TYPES.transcribeLine, errorMessage);
-          }
-        },
-        error: (error) => {
-          console.error('Transcription request failed:', error);
-          this.errorDialogService.show('Failed to start transcription. Please try again.');
-          this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
-            status: 'error',
-            message: 'Failed to start transcription. Please try again.',
-            isPolling: false,
-          });
-          this.isTranscribing = false;
-        }
-      });
+      this.startWorkflow(
+        'Transcribing the selected audio clip',
+        this.apiService.transcribeAudio(audioFile, this.inputLanguage),
+      );
     } catch (error) {
       console.error('Error starting transcription:', error);
+      this.startingWorkflow = null;
       this.errorDialogService.show('Failed to start transcription. Please try again.');
-      this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
-        status: 'error',
-        message: 'Failed to start transcription. Please try again.',
-        isPolling: false,
-      });
-      this.isTranscribing = false;
     }
   }
 
@@ -269,52 +227,6 @@ export class TranscribeComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Failed to download clipped audio:', error);
       this.errorDialogService.show('Failed to download clipped audio. Please try again.');
-    }
-  }
-
-  private startPolling(): void {
-    if (this.pollingInterval) {
-      return;
-    }
-    this.pollingInterval = setInterval(() => {
-      this.apiService.getTaskResult(TASK_TYPES.transcribeLine).subscribe({
-        next: (response: TaskResultResponse) => {
-          const taskData = response.data;
-          this.stateService.setTaskState(TASK_TYPES.transcribeLine, {
-            status: response.status,
-            result: taskData?.result ?? null,
-            message: response.message ?? null,
-            progress: taskData?.progress ?? this.getExistingProgress(TASK_TYPES.transcribeLine),
-            isPolling: response.status === 'processing',
-          });
-          if (response.status === 'complete' && taskData?.result) {
-            this.transcript = taskData.result.text ?? '';
-            this.isTranscribing = false;
-            this.stopPolling();
-            this.cdr.detectChanges();
-          } else if (response.status === 'error') {
-            console.error('Transcription error:', response.message);
-            this.showTaskError(TASK_TYPES.transcribeLine, response.message || 'Transcription failed.');
-            this.isTranscribing = false;
-            this.stopPolling();
-          } else if (response.status === 'idle') {
-            this.isTranscribing = false;
-            this.stopPolling();
-          }
-        },
-        error: (error) => {
-          console.error('Polling error:', error);
-          this.isTranscribing = false;
-          this.stopPolling();
-        }
-      });
-    }, 1000);
-  }
-
-  private stopPolling(): void {
-    if (this.pollingInterval) {
-      clearInterval(this.pollingInterval);
-      this.pollingInterval = undefined;
     }
   }
 
@@ -348,102 +260,48 @@ export class TranscribeComponent implements OnInit, OnDestroy {
   }
 
   async transcribeFileAudio(): Promise<void> {
-    if (!this.transcribeFileState.audioBlob || this.isTranscribing || this.stateService.hasActiveTask()) return;
+    if (!this.transcribeFileState.audioBlob || this.isAnyTaskRunning()) return;
 
-    try {
-      this.isTranscribing = true;
-      this.stateService.setTaskState(TASK_TYPES.transcribeFile, {
-        status: 'processing',
-        result: null,
-        message: null,
-        progress: this.defaultProgress(TASK_TYPES.transcribeFile),
-        isPolling: true,
-      });
-      const filename = this.transcribeFileState.audioFile?.name || 'audio.wav';
-      const audioFile = new File([this.transcribeFileState.audioBlob], filename, { type: 'audio/wav' });
-      const formData = new FormData();
-      formData.append('file', audioFile);
-      formData.append('language', this.fileInputLanguage);
-
-      this.apiService.transcribeFile(formData).subscribe({
-        next: (response) => {
-          if (response.status === 'processing') {
-            this.startFilePolling();
-          } else {
-            const errorMessage = response.message || 'Failed to start transcription.';
-            this.isTranscribing = false;
-            this.stateService.setTaskState(TASK_TYPES.transcribeFile, {
-              status: 'error',
-              message: errorMessage,
-              isPolling: false,
-            });
-            this.showTaskError(TASK_TYPES.transcribeFile, errorMessage);
-          }
-        },
-        error: (error) => {
-          console.error('Transcribe file request failed:', error);
-          this.errorDialogService.show('Failed to start transcription. Please try again.');
-          this.stateService.setTaskState(TASK_TYPES.transcribeFile, {
-            status: 'error',
-            message: 'Failed to start transcription. Please try again.',
-            isPolling: false,
-          });
-          this.isTranscribing = false;
-        }
-      });
-    } catch (error) {
-      console.error('Error starting file transcription:', error);
-      this.stateService.setTaskState(TASK_TYPES.transcribeFile, {
-        status: 'error',
-        message: 'Failed to start transcription. Please try again.',
-        isPolling: false,
-      });
-      this.isTranscribing = false;
-    }
+    this.startingWorkflow = WORKFLOW_TYPES.transcribeFile;
+    const filename = this.transcribeFileState.audioFile?.name || 'audio.wav';
+    const audioFile = new File([this.transcribeFileState.audioBlob], filename, { type: 'audio/wav' });
+    const formData = new FormData();
+    formData.append('file', audioFile);
+    formData.append('language', this.fileInputLanguage);
+    this.startWorkflow('Transcribing the uploaded audio file', this.apiService.transcribeFile(formData));
   }
 
-  private startFilePolling(): void {
-    if (this.filePollingInterval) {
-      return;
-    }
-    this.filePollingInterval = setInterval(() => {
-      this.apiService.getTaskResult(TASK_TYPES.transcribeFile).subscribe({
-        next: (response: TaskResultResponse) => {
-          const taskData = response.data;
-          this.stateService.setTaskState(TASK_TYPES.transcribeFile, {
-            status: response.status,
-            result: taskData?.result ?? null,
-            message: response.message ?? null,
-            progress: taskData?.progress ?? this.getExistingProgress(TASK_TYPES.transcribeFile),
-            isPolling: response.status === 'processing',
-          });
-          if (response.status === 'complete') {
-            this.isTranscribing = false;
-            this.stopFilePolling();
-            this.refreshFileDownloads();
-            this.cdr.detectChanges();
-          } else if (response.status === 'error' || response.status === 'idle') {
-            if (response.status === 'error') {
-              this.showTaskError(TASK_TYPES.transcribeFile, response.message || 'Transcription failed.');
-            }
-            this.isTranscribing = false;
-            this.stopFilePolling();
-          }
-        },
-        error: (error) => {
-          console.error('File polling error:', error);
-          this.isTranscribing = false;
-          this.stopFilePolling();
+  /** Send a start request; once the backend accepts it, StateService polls the returned workflow. */
+  private startWorkflow(message: string, request: Observable<ApiResponse<WorkflowStartData>>): void {
+    request.subscribe({
+      next: (response) => {
+        this.startingWorkflow = null;
+        if (response.status === 'processing' && response.data) {
+          this.stateService.trackWorkflow(response.data.workflow, message);
+        } else {
+          this.errorDialogService.show(response.message || 'Failed to start transcription.');
         }
-      });
-    }, 1000);
+      },
+      error: (error: unknown) => {
+        console.error('Transcription request failed:', error);
+        this.startingWorkflow = null;
+        this.errorDialogService.show('Failed to start transcription. Please try again.');
+      }
+    });
   }
 
-  private stopFilePolling(): void {
-    if (this.filePollingInterval) {
-      clearInterval(this.filePollingInterval);
-      this.filePollingInterval = undefined;
+  /** React when a transcription finishes: show the clip transcript or refresh the file list. */
+  private onWorkflowState(state: WorkflowState): void {
+    const previous = this.lastStatuses[state.workflow];
+    this.lastStatuses[state.workflow] = state.status;
+    if (previous === state.status || state.status !== 'complete') return;
+
+    if (state.workflow === WORKFLOW_TYPES.transcribeClip && isTextResult(state.result)) {
+      this.transcript = state.result.text;
+    } else {
+      this.refreshFileDownloads();
     }
+    this.cdr.detectChanges();
   }
 
   refreshFileDownloads(): void {
@@ -586,27 +444,30 @@ export class TranscribeComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.stopPolling();
-    this.stopFilePolling();
+    this.workflowSubscription?.unsubscribe();
+  }
+
+  get isTranscribing(): boolean {
+    return this.startingWorkflow !== null
+      || PAGE_WORKFLOWS.some(workflow => this.stateService.getWorkflowState(workflow).status === 'processing');
   }
 
   isAnyTaskRunning(): boolean {
-    return this.stateService.hasActiveTask();
+    return this.startingWorkflow !== null || this.stateService.hasActiveWorkflow();
   }
 
   private restoreTaskState(): void {
-    const lineTask = this.stateService.getTaskState(TASK_TYPES.transcribeLine);
-    const fileTask = this.stateService.getTaskState(TASK_TYPES.transcribeFile);
-
-    this.transcript = lineTask.result?.text ?? '';
-    this.isTranscribing = lineTask.status === 'processing' || fileTask.status === 'processing';
-
-    if (lineTask.status === 'processing' || lineTask.isPolling) {
-      this.startPolling();
+    const clipState = this.stateService.getWorkflowState(WORKFLOW_TYPES.transcribeClip);
+    this.transcript = isTextResult(clipState.result) ? clipState.result.text : '';
+    for (const workflow of PAGE_WORKFLOWS) {
+      this.lastStatuses[workflow] = this.stateService.getWorkflowState(workflow).status;
     }
-    if (fileTask.status === 'processing' || fileTask.isPolling) {
-      this.startFilePolling();
-    }
+    this.workflowSubscription = this.stateService.workflowStates$.subscribe(states => {
+      for (const workflow of PAGE_WORKFLOWS) {
+        const state = states[workflow];
+        if (state) this.onWorkflowState(state);
+      }
+    });
   }
 
   private isSpacebar(event: KeyboardEvent): boolean {
@@ -622,22 +483,4 @@ export class TranscribeComponent implements OnInit, OnDestroy {
     return Boolean(editableAncestor);
   }
 
-  private defaultProgress(taskType: keyof typeof this.defaultTaskProgress): TaskProgress {
-    return {
-      task_type: taskType,
-      ...this.defaultTaskProgress[taskType],
-    };
-  }
-
-  private getExistingProgress(taskType: string): TaskProgress | null {
-    return this.stateService.getTaskState(taskType).progress;
-  }
-
-  private showTaskError(taskType: string, message: string): void {
-    if (this.lastShownTaskError[taskType] === message) {
-      return;
-    }
-    this.lastShownTaskError[taskType] = message;
-    this.errorDialogService.show(message);
-  }
 }

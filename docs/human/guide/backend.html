@@ -52,7 +52,7 @@
 <tbody>
 <tr><td>server.py</td><td>Creates the FastAPI app, installs CORS and exception handlers, and starts model loading through the lifespan hook.</td><td><code>backend/server.py</code></td>
 </tr>
-<tr><td>routes/</td><td>HTTP boundary; builds task input dictionaries and assembles chains.</td><td><code>backend/routes/__init__.py</code></td>
+<tr><td>routes/</td><td>HTTP boundary: parses requests, saves uploads and calls a workflow's start function.</td><td><code>backend/routes/__init__.py</code></td>
 </tr>
 <tr><td>models/</td><td>ModelManager, the ModelState enum and the shared ModelConfig settings classes.</td><td><code>backend/models/manager.py</code></td>
 </tr>
@@ -64,7 +64,7 @@
 </tr>
 <tr><td>library/</td><td>Series library persistence; raises its own errors instead of HTTP errors.</td><td><code>backend/library/repository.py</code></td>
 </tr>
-<tr><td>orchestrator/</td><td>BaseTask, sequential runner, result/progress stores, and domain-specific tasks.</td><td><code>backend/orchestrator/task_orchestrator.py</code></td>
+<tr><td>orchestrator/</td><td>Typed task data, BaseTask, the workflow runner and its state store, workflow start functions, and the tasks.</td><td><code>backend/orchestrator/task_orchestrator.py</code></td>
 </tr>
 <tr><td>prompts/</td><td>Functions that build system-prompt text; task code builds the corresponding user message.</td><td><code>backend/prompts/translate_file.py</code></td>
 </tr>

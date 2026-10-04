@@ -51,19 +51,6 @@ def error_response(message: str, data: Any = None) -> ApiResponse:
     return api_response("error", message=message, data=data)
 
 
-def task_result_data(
-    task_type: str,
-    result: dict[str, Any] | None = None,
-    progress: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Build the `data` payload shape returned by every task-result polling response."""
-    return {
-        "task_type": task_type,
-        "result": result,
-        "progress": progress,
-    }
-
-
 def register_exception_handlers(app: FastAPI) -> None:
     """Attach global exception handlers that return the standard API envelope for HTTP, library, validation, and unhandled errors."""
 

@@ -2,9 +2,10 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, KeyValuePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subscription, interval } from 'rxjs';
-import { ApiService, SeriesData, LibraryProposals, SeriesCharacter, SeriesGlossaryTerm } from '../../../services/api.service';
-import { StateService, TASK_TYPES } from '../../../services/state.service';
+import { Subscription } from 'rxjs';
+import { ApiService, SeriesData, SeriesCharacter, SeriesGlossaryTerm } from '../../../services/api.service';
+import { StateService } from '../../../services/state.service';
+import { LibraryProposals, WORKFLOW_TYPES, WorkflowState, isProposalResult } from '../../../shared/workflow-types';
 import { ConfirmationService } from '../../../services/confirmation.service';
 import { ErrorDialogService } from '../../../services/error-dialog.service';
 import { SubsectionComponent } from '../../../components/subsection/subsection.component';
@@ -60,10 +61,10 @@ export class LibraryDetailComponent implements OnInit, OnDestroy {
 
   // Library update
   updateSubtitleFile: File | null = null;  // mirrors shared activeSubtitleFile$
-  isUpdatingLibrary = false;
   proposals: LibraryProposals | null = null;
   searchReady: boolean | null = null;
-  private pollingSubscription?: Subscription;
+  private isStartingUpdate = false;
+  private workflowSubscription?: Subscription;
 
   // Expanded character cards
   expandedCharacterIds = new Set<string>();
@@ -86,11 +87,20 @@ export class LibraryDetailComponent implements OnInit, OnDestroy {
     this.updateSubtitleFile = this.stateService.getActiveSubtitleFile();
     this.stateService.activeSubtitleFile$.subscribe(f => this.updateSubtitleFile = f);
     this.loadSeries();
-    this.resumePollingIfNeeded();
+    this.workflowSubscription = this.stateService.workflowStates$.subscribe(states => {
+      const state = states[WORKFLOW_TYPES.updateLibrary];
+      if (state) this.onLibraryUpdateState(state);
+    });
   }
 
   ngOnDestroy(): void {
-    this.pollingSubscription?.unsubscribe();
+    this.workflowSubscription?.unsubscribe();
+  }
+
+  /** True while a library update for this series is starting or running. */
+  get isUpdatingLibrary(): boolean {
+    const state = this.stateService.getWorkflowState(WORKFLOW_TYPES.updateLibrary);
+    return this.isStartingUpdate || (state.status === 'processing' && state.seriesId === this.seriesId);
   }
 
   // ── Series ───────────────────────────────────────────────────────────────────
@@ -357,78 +367,35 @@ export class LibraryDetailComponent implements OnInit, OnDestroy {
 
   startLibraryUpdate(): void {
     if (!this.series || !this.updateSubtitleFile || this.isUpdatingLibrary) return;
-    if (this.stateService.hasActiveTask()) {
+    if (this.stateService.hasActiveWorkflow()) {
       this.errorDialogService.show('Another task is already running.');
       return;
     }
-    this.isUpdatingLibrary = true;
+    const seriesId = this.series.id;
+    this.isStartingUpdate = true;
     this.proposals = null;
 
-    this.stateService.setTaskState(TASK_TYPES.updateLibrary, {
-      status: 'processing',
-      result: null,
-      message: null,
-      progress: { task_type: TASK_TYPES.updateLibrary, current: 0, total: 1, status: 'Starting library update', eta_seconds: 0 },
-      isPolling: true,
-    });
-
-    this.apiService.startLibraryUpdate(this.series.id, this.updateSubtitleFile).subscribe({
+    this.apiService.startLibraryUpdate(seriesId, this.updateSubtitleFile).subscribe({
       next: (response) => {
-        if (response.status === 'processing') {
-          this.startPolling();
+        this.isStartingUpdate = false;
+        if (response.status === 'processing' && response.data) {
+          this.stateService.trackWorkflow(response.data.workflow, 'Starting library update', seriesId);
         } else {
-          this.isUpdatingLibrary = false;
-          this.stateService.setTaskState(TASK_TYPES.updateLibrary, { status: 'error', isPolling: false });
           this.errorDialogService.show(response.message || 'Failed to start library update.');
         }
       },
       error: () => {
-        this.isUpdatingLibrary = false;
-        this.stateService.setTaskState(TASK_TYPES.updateLibrary, { status: 'error', isPolling: false });
+        this.isStartingUpdate = false;
         this.errorDialogService.show('Failed to start library update.');
       }
     });
   }
 
-  private startPolling(): void {
-    this.pollingSubscription?.unsubscribe();
-    this.pollingSubscription = interval(1500).subscribe(() => {
-      this.apiService.getTaskResult(TASK_TYPES.updateLibrary).subscribe({
-        next: (response) => {
-          const taskData = response.data;
-          this.stateService.setTaskState(TASK_TYPES.updateLibrary, {
-            status: response.status as any,
-            result: taskData?.result ?? null,
-            progress: taskData?.progress ?? null,
-            isPolling: response.status === 'processing',
-          });
-          if (response.status === 'complete') {
-            this.isUpdatingLibrary = false;
-            this.proposals = (taskData?.result as any)?.proposals ?? null;
-            this.pollingSubscription?.unsubscribe();
-          } else if (response.status === 'error') {
-            this.isUpdatingLibrary = false;
-            this.errorDialogService.show(response.message || 'Library update failed.');
-            this.pollingSubscription?.unsubscribe();
-          }
-        },
-        error: (err) => {
-          this.isUpdatingLibrary = false;
-          this.stateService.setTaskState(TASK_TYPES.updateLibrary, { status: 'error', isPolling: false });
-          this.errorDialogService.show(err?.error?.message || 'Failed to poll library update status.');
-          this.pollingSubscription?.unsubscribe();
-        }
-      });
-    });
-  }
-
-  private resumePollingIfNeeded(): void {
-    const taskState = this.stateService.getTaskState(TASK_TYPES.updateLibrary);
-    if (taskState.status === 'processing' || taskState.isPolling) {
-      this.isUpdatingLibrary = true;
-      this.startPolling();
-    } else if (taskState.status === 'complete') {
-      this.proposals = (taskState.result as any)?.proposals ?? null;
+  /** Show proposals from a finished library update, but only on the page of the series it was started for. */
+  private onLibraryUpdateState(state: WorkflowState): void {
+    if (state.seriesId !== this.seriesId) return;
+    if (state.status === 'complete' && isProposalResult(state.result)) {
+      this.proposals = state.result.proposals;
     }
   }
 

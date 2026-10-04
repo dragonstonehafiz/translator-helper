@@ -40,7 +40,7 @@ Prefix `/utils` (`routes/utils.py`).
 
 | Method & path | Body | `data` on success |
 |---|---|---|
-| `GET /utils/running` | — | `running_llm`, `running_audio`, `running_search` (a task holds the model), `loading_llm_model`, `loading_audio_model`, `loading_search_model`, `active_task_type` |
+| `GET /utils/running` | — | `running`, `workflow`, `active_task` (the running workflow and its stage, or `false`/`null`), `running_llm`, `running_audio`, `running_search` (a task holds the model), `loading_llm_model`, `loading_audio_model`, `loading_search_model` |
 | `GET /utils/server-variables` | — | `audio`, `llm`, `search` (each client's non-password settings as `[{key, label, value}]`, empty until the client exists), `llm_ready`, `audio_ready`, `search_ready`, `llm_loading_error`, `audio_loading_error`, `search_loading_error` |
 | `GET /utils/settings-schema` | — | `audio`, `llm`, `search`: each `{provider, title, fields}` from `config.to_frontend()`, or `null` if the client could not be created |
 | `POST /utils/load-audio-model` | JSON `{provider, settings}` | `null`; error if loading, in use, a value is invalid, or initialization fails |
@@ -56,30 +56,40 @@ A schema field is `{key, label, type, value, default, required}` plus `help`, `p
 
 | Method & path | `data` |
 |---|---|
-| `GET /task-results/{task_type}` | `{task_type, result, progress}` |
+| `GET /task-results/{workflow}` | `{workflow, active_task, progress: [current, total], message, eta_seconds, result}` |
 
-`status` is `idle`, `processing`, `complete`, or `error`. `progress` is `{task_type, current, total, status, eta_seconds}` or `null`. Unregistered task types return 400. See [`tasks.md`](tasks.md#polling) for how the status is resolved.
+`workflow` is one of `translate_line`, `translate_file`, `review_file`, `transcribe_clip`, `transcribe_file`, `update_library`; anything else returns 400. `status` is `idle` (the workflow has not run since the server started; `data` is only `{workflow}`), `processing`, `complete`, or `error`. On `error`, the envelope `message` is the error and `data.message` is the failed stage's last progress text. `result` is null until `complete`:
+
+| Workflow | `result` |
+|---|---|
+| `translate_line`, `transcribe_clip` | `{text}` |
+| `translate_file` | `{output_filename, folder: "translated"}` |
+| `transcribe_file` | `{output_filename, folder: "transcribed"}` |
+| `review_file` | `{output_filename, folder: "reviewed", corrected_count}` |
+| `update_library` | `{proposals: {new_characters, updated_characters, new_glossary, updated_glossary}}` |
+
+Responses never include absolute paths or temp file names. See [`tasks.md`](tasks.md#polling).
 
 ## Translate
 
-Prefix `/translate` (`routes/translate.py`). All are multipart form posts that start background work and return `processing` with `data: {task_type}`. Each returns an error envelope if a task is already running or the LLM isn't loaded.
+Prefix `/translate` (`routes/translate.py`). All are multipart form posts that start a workflow and return `processing` with `data: {workflow}`. Each returns an error envelope if a workflow is already running, the LLM isn't loaded, or the input is rejected (for review, files with different line counts).
 
-| Path | Form fields | Polled task type | Output |
+| Path | Form fields | Workflow | Output |
 |---|---|---|---|
-| `POST /translate/translate-line` | `text` (required), `context` (JSON string, default `{}`), `input_lang` (`ja`), `output_lang` (`en`) | `TaskTranslateLine` | `result` in the poll response |
-| `POST /translate/translate-file` | `file`, `input_lang` (`ja`), `output_lang` (`en`), `batch_size` (`3`), `series_id` (optional) | `TaskTranslateFile` | `files/outputs/translated/<base>.<output_lang>.<ext>` |
-| `POST /translate/review-translated-file` | `file` (original), `translated_file`, `input_lang` (`ja`), `output_lang` (`en`), `batch_size` (`50`), `series_id` (optional) | `TaskRetranslateReviewedLines` | `files/outputs/reviewed/` and `result` in the poll response |
+| `POST /translate/translate-line` | `text` (required), `context` (JSON string, default `{}`), `input_lang` (`ja`), `output_lang` (`en`) | `translate_line` | `result` in the poll response |
+| `POST /translate/translate-file` | `file`, `input_lang` (`ja`), `output_lang` (`en`), `batch_size` (`3`), `series_id` (optional) | `translate_file` | `files/outputs/translated/<base>.<output_lang>.<ext>` |
+| `POST /translate/review-translated-file` | `file` (original), `translated_file`, `input_lang` (`ja`), `output_lang` (`en`), `batch_size` (`50`), `series_id` (optional) | `review_file` | `files/outputs/reviewed/<translated stem>.corrected<ext>` |
 
-An unknown `series_id` is ignored and the chain runs without library context.
+An unknown `series_id` is ignored and the workflow runs without library context.
 
 ## Transcribe
 
-Prefix `/transcribe` (`routes/transcribe.py`). Multipart posts with `file` (audio) and `language` (required). They return `processing` with `data: {task_type}`, or an error if a task is running or the audio model isn't loaded.
+Prefix `/transcribe` (`routes/transcribe.py`). Multipart posts with `file` (audio) and `language` (required). They return `processing` with `data: {workflow}`, or an error if a workflow is running or the audio model isn't loaded.
 
-| Path | Polled task type | Output |
+| Path | Workflow | Output |
 |---|---|---|
-| `POST /transcribe/transcribe-line` | `TaskTranscribeLine` | `result` in the poll response |
-| `POST /transcribe/transcribe-file` | `TaskTranscribeFile` | `.ass` file in `files/outputs/transcribed/` |
+| `POST /transcribe/transcribe-line` | `transcribe_clip` | `result` in the poll response |
+| `POST /transcribe/transcribe-file` | `transcribe_file` | `.ass` file in `files/outputs/transcribed/` |
 
 ## Library
 
@@ -98,11 +108,11 @@ Prefix `/library` (`routes/library.py`). JSON bodies; every mutating endpoint re
 | `POST /library/{series_id}/glossary` | `{term, translation, notes=""}` | Series |
 | `PATCH /library/{series_id}/glossary/{term_id}` | Any of `term`, `translation`, `notes` | Series |
 | `DELETE /library/{series_id}/glossary/{term_id}` | — | Series |
-| `POST /library/{series_id}/update` | multipart `file` (subtitle) | `processing`; starts the library update chain |
+| `POST /library/{series_id}/update` | multipart `file` (subtitle) | `processing` with `{workflow: "update_library"}` |
 
 `relationships` is a dict keyed by character name, with a list of strings as each value. IDs are kebab-case slugs generated by the server.
 
-For `/update`, the frontend polls `TaskDeduplicateProposals`, whose `result` is `{proposals}`. The start response's `data.task_type` currently says `TaskGenerateLibraryProposals`; the frontend ignores it and uses `TASK_TYPES.updateLibrary`.
+`/update` completes only after deduplication; its `result` is `{proposals}`.
 
 ## File management
 

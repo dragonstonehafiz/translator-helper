@@ -1,161 +1,96 @@
 import json
 import re
-from pathlib import Path
 
-import pysubs2
-
-from orchestrator.base_task import BaseTask
 from models.manager import ModelManager
-from orchestrator.progress_handler import ProgressHandler
-from orchestrator.result_handler import ResultHandler
+from orchestrator.base_task import BaseTask, ReportProgress, WriteLog
+from orchestrator.task_data.base import extend
+from orchestrator.task_data.translation import Correction, PlannedReviewData, ReviewedData
 from prompts.review_file import generate_batch_review_prompt
+from utils.subtitles import numbered_lines
 
 
-class TaskReviewTranslatedBatches(BaseTask):
-    """Review chain task (slot 03): compare original and translated subtitle batches and collect correction indices."""
+class TaskReviewTranslatedBatches(BaseTask[PlannedReviewData, ReviewedData]):
+    """Review stage 3: compare original and translated lines batch by batch and collect lines to correct."""
 
-    TASK_TYPE = "TaskReviewTranslatedBatches"
+    input_type = PlannedReviewData
+    output_type = ReviewedData
 
-    @property
-    def task_type(self) -> str:
-        """Return the task type identifier."""
-        return self.TASK_TYPE
-
-    def run_task(self) -> dict:
-        """Review each batch with the LLM, parse correction entries, and pass a merged corrections list forward."""
-        model_manager = ModelManager.get_instance()
-        result_handler = ResultHandler.get_instance()
-        progress_handler = ProgressHandler.get_instance()
-        llm_client = model_manager.get_llm_client()
-        if llm_client is None:
-            result_handler.set_error(self.task_type, "LLM model not initialized")
-            return {}
-
+    def run_task(self, report_progress: ReportProgress, write_log: WriteLog) -> ReviewedData:
+        """Review each batch with the LLM and merge the flagged lines into one sorted correction list."""
         data = self.get_data()
-        batches = data.get("batches") or []
-        file_path = str(data.get("file_path", ""))
-        translated_file_path = str(data.get("translated_file_path", ""))
-        context = data.get("context") or {}
-        input_lang = str(data.get("input_lang", "ja"))
-        output_lang = str(data.get("output_lang", "en"))
-        log_dir = str(data.get("log_dir", ""))
+        batches = data.batches
+        model_manager = ModelManager.get_instance()
+        corrections_by_index: dict[int, Correction] = {}
+        batch_logs = []
 
-        result_handler.set_processing(self.task_type)
+        llm = model_manager.acquire_llm()
         try:
-            original_subs = pysubs2.load(file_path)
-            translated_subs = pysubs2.load(translated_file_path)
-            if len(original_subs) != len(translated_subs):
-                raise ValueError(
-                    "Original and translated subtitle files must contain the same number of subtitle lines."
-                )
-            if not batches:
-                raise ValueError("Review requires at least one planned batch.")
-
-            progress_handler.set(
-                self.task_type,
-                {
-                    "current": 0,
-                    "total": len(batches),
-                    "status": f"Reviewing {len(batches)} translation batches",
-                    "eta_seconds": 0.0,
-                },
-            )
-
-            model_manager.acquire_llm()
-            corrections_by_index: dict[int, dict[str, int | str]] = {}
-            batch_logs = []
-            failure_logs: list[dict] = []
-
+            report_progress(0, len(batches), f"Reviewing {len(batches)} translation batches", 0.0)
             for batch_number, batch in enumerate(batches, start=1):
-                start_index = int(batch["start_index"])
-                end_index = int(batch["end_index"])
-                original_lines = self._build_indexed_lines(original_subs, start_index, end_index)
-                translated_lines = self._build_indexed_lines(translated_subs, start_index, end_index)
-                raw_output = model_manager.get_llm_client().infer(
+                original_lines = numbered_lines(data.subtitles, batch.start_index, batch.end_index)
+                translated_lines = numbered_lines(data.translated_subtitles, batch.start_index, batch.end_index)
+                raw_output = llm.infer(
                     prompt=self._build_review_prompt(original_lines, translated_lines),
                     system_prompt=generate_batch_review_prompt(
-                        context=context if context else None,
-                        input_lang=input_lang,
-                        output_lang=output_lang,
+                        context=data.context if data.context else None,
+                        input_lang=data.input_lang,
+                        output_lang=data.output_lang,
                     ),
                     temperature=0.1,
                 )
                 try:
-                    batch_corrections = self._parse_corrections(raw_output, start_index, end_index)
+                    batch_corrections = self._parse_corrections(raw_output, batch.start_index, batch.end_index)
                 except ValueError as exc:
-                    failure_logs.append(
-                        self._build_failure_log(
+                    write_log("03-review-translated-batch-failures.json", {
+                        "task_type": self.task_type,
+                        "failure_count": 1,
+                        "failures": [self._build_failure_log(
                             batch_number=batch_number,
                             total_batches=len(batches),
-                            start_index=start_index,
-                            end_index=end_index,
+                            start_index=batch.start_index,
+                            end_index=batch.end_index,
                             original_lines=original_lines,
                             translated_lines=translated_lines,
                             raw_output=raw_output,
                             failure=str(exc),
-                        )
-                    )
-                    self._write_failure_log(log_dir=log_dir, failure_logs=failure_logs)
+                        )],
+                    })
                     raise ValueError(
                         "Generated review output is malformed JSON. "
-                        f"Batch {start_index}-{end_index} must return exactly one JSON object with a 'corrections' array."
+                        f"Batch {batch.start_index}-{batch.end_index} must return exactly one JSON object with a 'corrections' array."
                     ) from exc
+
                 for correction in batch_corrections:
                     index = int(correction["index"])
                     reason = str(correction["reason"]).strip()
-                    if index in corrections_by_index:
-                        existing_reason = str(corrections_by_index[index]["reason"])
-                        if reason not in existing_reason:
-                            corrections_by_index[index]["reason"] = f"{existing_reason} {reason}".strip()
-                    else:
-                        corrections_by_index[index] = {"index": index, "reason": reason}
+                    existing = corrections_by_index.get(index)
+                    if existing is None:
+                        corrections_by_index[index] = Correction(index=index, reason=reason)
+                    elif reason not in existing.reason:
+                        existing.reason = f"{existing.reason} {reason}".strip()
 
-                batch_logs.append(
-                    {
-                        "batch": batch,
-                        "corrections": batch_corrections,
-                    }
-                )
-                progress_handler.set(
-                    self.task_type,
-                    {
-                        "current": batch_number,
-                        "total": len(batches),
-                        "status": f"Reviewed batch {batch_number}/{len(batches)}",
-                        "eta_seconds": 0.0,
-                    },
-                )
-
-            corrections = [corrections_by_index[index] for index in sorted(corrections_by_index)]
-            payload = dict(data)
-            payload["corrections"] = corrections
-
-            self._write_review_log(
-                log_dir=log_dir,
-                batch_count=len(batches),
-                correction_count=len(corrections),
-                batch_logs=batch_logs,
-                corrections=corrections,
-                original_subs=original_subs,
-                translated_subs=translated_subs,
-            )
-            result_handler.set_complete(self.task_type)
-            return payload
-        except Exception as exc:
-            result_handler.set_error(self.task_type, str(exc))
-            raise
+                batch_logs.append({"batch": batch.to_log(), "corrections": batch_corrections})
+                report_progress(batch_number, len(batches), f"Reviewed batch {batch_number}/{len(batches)}", 0.0)
         finally:
             model_manager.release_llm()
 
-    def _build_indexed_lines(self, subs, start_index: int, end_index: int) -> list[str]:
-        """Return subtitle events in the given 1-based index range formatted as '1. Speaker: text'."""
-        lines = []
-        for index in range(start_index, end_index + 1):
-            line = subs[index - 1]
-            speaker = line.name.strip() if line.name else "Unknown"
-            text = line.text.strip() or "[EMPTY]"
-            lines.append(f"{index}. {speaker}: {text}")
-        return lines
+        corrections = [corrections_by_index[index] for index in sorted(corrections_by_index)]
+        write_log("03-review-translated-batches.json", {
+            "task_type": self.task_type,
+            "batch_count": len(batches),
+            "correction_count": len(corrections),
+            "batches": batch_logs,
+            "corrections": [
+                {
+                    "index": c.index,
+                    "reason": c.reason,
+                    "original": data.subtitles[c.index - 1].text.strip(),
+                    "translated": data.translated_subtitles[c.index - 1].text.strip(),
+                }
+                for c in corrections
+            ],
+        })
+        return extend(data, ReviewedData, corrections=corrections)
 
     def _build_review_prompt(self, original_lines: list[str], translated_lines: list[str]) -> str:
         """Build the user-turn prompt pairing original and translated subtitle lines for the LLM reviewer."""
@@ -216,43 +151,6 @@ class TaskReviewTranslatedBatches(BaseTask):
             raise ValueError("Review did not return a JSON object.")
         return cleaned[start:end + 1].strip()
 
-    def _write_review_log(
-        self,
-        log_dir: str,
-        batch_count: int,
-        correction_count: int,
-        batch_logs: list[dict],
-        corrections: list[dict[str, int | str]],
-        original_subs=None,
-        translated_subs=None,
-    ):
-        """Write the review results as 03-review-translated-batches.json, enriching corrections with original and translated text."""
-        if not log_dir:
-            return
-
-        enriched_corrections = []
-        for c in corrections:
-            idx = int(c["index"])
-            entry = dict(c)
-            if original_subs is not None and translated_subs is not None:
-                orig_line = original_subs[idx - 1]
-                trans_line = translated_subs[idx - 1]
-                entry["original"] = orig_line.text.strip()
-                entry["translated"] = trans_line.text.strip()
-            enriched_corrections.append(entry)
-
-        output_dir = Path(log_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        log_payload = {
-            "task_type": self.task_type,
-            "batch_count": batch_count,
-            "correction_count": correction_count,
-            "batches": batch_logs,
-            "corrections": enriched_corrections,
-        }
-        with open(output_dir / "03-review-translated-batches.json", "w", encoding="utf-8") as file_handle:
-            json.dump(log_payload, file_handle, ensure_ascii=False, indent=2)
-
     def _build_failure_log(
         self,
         batch_number: int,
@@ -294,19 +192,3 @@ class TaskReviewTranslatedBatches(BaseTask):
                 "text": raw_output,
             },
         }
-
-    def _write_failure_log(self, log_dir: str, failure_logs: list[dict]):
-        """Write review failure entries to 03-review-translated-batch-failures.json; skips if there are no failures."""
-        if not log_dir or not failure_logs:
-            return
-
-        output_dir = Path(log_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / "03-review-translated-batch-failures.json"
-        log_payload = {
-            "task_type": self.task_type,
-            "failure_count": len(failure_logs),
-            "failures": failure_logs,
-        }
-        with open(output_path, "w", encoding="utf-8") as file_handle:
-            json.dump(log_payload, file_handle, ensure_ascii=False, indent=2)

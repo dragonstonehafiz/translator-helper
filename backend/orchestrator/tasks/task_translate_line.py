@@ -1,53 +1,32 @@
-from orchestrator.base_task import BaseTask
 from models.manager import ModelManager
-from orchestrator.result_handler import ResultHandler
+from orchestrator.base_task import BaseTask, ReportProgress, WriteLog
+from orchestrator.task_data.base import TextOutputData
+from orchestrator.task_data.general import TranslateLineData
 from prompts.translate import generate_translate_sub_prompt
 
 
-class TaskTranslateLine(BaseTask):
-    """Standalone task: translate a single subtitle line from input_lang to output_lang using the LLM."""
+class TaskTranslateLine(BaseTask[TranslateLineData, TextOutputData]):
+    """Translate a single subtitle line from input_lang to output_lang using the LLM."""
 
-    TASK_TYPE = "TaskTranslateLine"
+    input_type = TranslateLineData
+    output_type = TextOutputData
 
-    @property
-    def task_type(self) -> str:
-        """Return the task type identifier."""
-        return self.TASK_TYPE
-
-    def run_task(self) -> dict:
-        """Translate data['text'] and return a result dict with the translated text; final task so it stores a complete result."""
-        model_manager = ModelManager.get_instance()
-        result_handler = ResultHandler.get_instance()
-
+    def run_task(self, report_progress: ReportProgress, write_log: WriteLog) -> TextOutputData:
+        """Translate the line and return the translated text."""
         data = self.get_data()
-        text = str(data.get("text", ""))
-        context = data.get("context") or {}
-        input_lang = str(data.get("input_lang", "ja"))
-        output_lang = str(data.get("output_lang", "en"))
-
-        result_handler.set_processing(self.task_type)
-        llm_client = model_manager.get_llm_client()
-        if llm_client is None:
-            result_handler.set_error(self.task_type, "LLM model not initialized")
-            raise RuntimeError("LLM model not initialized")
-
-        system_prompt = generate_translate_sub_prompt(
-            context=context,
-            input_lang=input_lang,
-            target_lang=output_lang,
-        )
-
+        model_manager = ModelManager.get_instance()
+        llm = model_manager.acquire_llm()
         try:
-            model_manager.acquire_llm()
-            translated_text = model_manager.get_llm_client().infer(
-                prompt=text,
-                system_prompt=system_prompt,
+            report_progress(0, 1, "Translating the entered text", 0.0)
+            translated_text = llm.infer(
+                prompt=data.text,
+                system_prompt=generate_translate_sub_prompt(
+                    context=data.context,
+                    input_lang=data.input_lang,
+                    target_lang=data.output_lang,
+                ),
             )
-            payload = {"text": translated_text}
-            result_handler.set_complete(self.task_type, payload)
-            return payload
-        except Exception as exc:
-            result_handler.set_error(self.task_type, str(exc))
-            raise
         finally:
             model_manager.release_llm()
+        report_progress(1, 1, "Translation complete", 0.0)
+        return TextOutputData(text=translated_text)

@@ -90,7 +90,7 @@
 <tbody>
 <tr><td>ApiService</td><td>Defines HTTP methods and response interfaces; sends requests to the backend.</td><td>Does not run the LLM or save library JSON locally.</td>
 </tr>
-<tr><td>StateService</td><td>Holds shared values in RxJS BehaviorSubjects, which expose the latest value to subscribers.</td><td>Does not persist them across a browser refresh or execute polling timers.</td>
+<tr><td>StateService</td><td>Holds shared values in RxJS BehaviorSubjects, which expose the latest value to subscribers.</td><td>Polls the running workflow; does not persist state across a browser refresh.</td>
 </tr>
 <tr><td>ConfirmationService</td><td>Supplies dialog state and resolves the user's decision.</td><td>Does not itself delete the target file or library item.</td>
 </tr>
@@ -105,12 +105,12 @@
 <section id="state">
 <h2>Shared and page-local state
 </h2>
-<p>StateService keeps model readiness, loading flags, settings schemas, selected series, original/translated subtitle files, file statistics and task records. Task records include status, result, message, progress and an <code>isPolling</code> flag.
+<p>StateService keeps model readiness, loading flags, settings schemas, selected series, original/translated subtitle files, file statistics and one state record per workflow: status, active task, progress, message, ETA, result and error.
 </p>
-<p>The Translate page also has local form fields, download lists, UI booleans and polling interval handles. It restores task state when created and restarts polling for tasks marked active. Its destroy hook stops its polling intervals and unsubscribes from shared-state subscriptions.
+<p>StateService also owns the only polling loop. After a page's start request is accepted, it polls that workflow every second until it completes, fails or goes idle, and shows the error dialog on failure. The Translate page keeps only local form fields and download lists; it reads busy flags and results from StateService and refreshes its downloads when a workflow finishes.
 </p>
 <div class="note">
-<p>Leaving Translate does not cancel backend work. It stops that page's polling, so a visible global progress snapshot may remain stale until polling resumes. Keeping task state in a root service is different from keeping a global polling loop.
+<p>Leaving Translate does not stop polling or cancel backend work. The progress overlay keeps updating, and the result is waiting when the user returns.
 </p>
 </div>
 <p>Source: <code>frontend/src/app/pages/translate/translate.component.ts</code>.
@@ -164,7 +164,7 @@
 <h2>Refactoring dependencies
 </h2>
 <ul>
-<li><code>TASK_TYPES</code> names the final backend task for each workflow. Changing the final task requires coordinating backend polling registration and frontend constants.
+<li><code>WORKFLOW_TYPES</code> lists the backend workflow IDs. Adding a workflow means adding it on both sides.
 </li>
 <li>The Settings page renders whatever fields the provider schemas declare, by type. Which provider fills each slot is chosen in <code>backend/models/manager.py</code>.
 </li>

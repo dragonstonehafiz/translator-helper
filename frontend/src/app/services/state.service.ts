@@ -1,9 +1,11 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, Subscription, exhaustMap, timer } from 'rxjs';
+import { ApiService } from './api.service';
+import { ErrorDialogService } from './error-dialog.service';
+import { WorkflowId, WorkflowState, WorkflowStatus } from '../shared/workflow-types';
 
 export type SettingsFieldType = 'select' | 'text' | 'password' | 'number' | 'boolean';
 export type SettingsValue = string | number | boolean;
-export type TaskStatus = 'idle' | 'processing' | 'complete' | 'error';
 
 export interface SettingsField {
   key: string;
@@ -33,41 +35,14 @@ export interface SettingsSchemaBundle {
   search: SettingsSchema | null;
 }
 
-export interface TaskProgress {
-  task_type: string;
-  current: number;
-  total: number;
-  status: string;
-  eta_seconds: number;
-}
-
-export interface TaskResultPayload {
-  text?: string;
-}
-
-export interface StoredTaskState {
-  taskType: string;
-  status: TaskStatus;
-  result: TaskResultPayload | null;
-  message: string | null;
-  progress: TaskProgress | null;
-  isPolling: boolean;
-}
+/** How often the active workflow is polled. */
+const WORKFLOW_POLL_INTERVAL_MS = 1000;
 
 export interface SubtitleFileInfo {
   totalLines: string;
   characterCount: string;
   averageCharacterCount: string;
 }
-
-export const TASK_TYPES = {
-  updateLibrary: 'TaskDeduplicateProposals',
-  translateLine: 'TaskTranslateLine',
-  translateFile: 'TaskTranslateFile',
-  reviewTranslatedFile: 'TaskRetranslateReviewedLines',
-  transcribeLine: 'TaskTranscribeLine',
-  transcribeFile: 'TaskTranscribeFile',
-} as const;
 
 @Injectable({
   providedIn: 'root'
@@ -120,8 +95,10 @@ export class StateService {
   private translatedSubtitleFileInfoErrorSubject = new BehaviorSubject<string>('');
   public translatedSubtitleFileInfoError$: Observable<string> = this.translatedSubtitleFileInfoErrorSubject.asObservable();
 
-  private taskStatesSubject = new BehaviorSubject<Record<string, StoredTaskState>>({});
-  public taskStates$: Observable<Record<string, StoredTaskState>> = this.taskStatesSubject.asObservable();
+  private workflowStatesSubject = new BehaviorSubject<Partial<Record<WorkflowId, WorkflowState>>>({});
+  public workflowStates$: Observable<Partial<Record<WorkflowId, WorkflowState>>> = this.workflowStatesSubject.asObservable();
+  private pollSubscription: Subscription | null = null;
+  private pollGeneration = 0;
 
   private settingsSchemaSubject = new BehaviorSubject<SettingsSchemaBundle>({
     audio: null,
@@ -130,7 +107,10 @@ export class StateService {
   });
   public settingsSchema$: Observable<SettingsSchemaBundle> = this.settingsSchemaSubject.asObservable();
 
-  constructor() { }
+  constructor(
+    private apiService: ApiService,
+    private errorDialogService: ErrorDialogService,
+  ) { }
 
   setReady(ready: boolean): void {
     this.isReadySubject.next(ready);
@@ -266,40 +246,87 @@ export class StateService {
     return this.translatedSubtitleFileInfoErrorSubject.value;
   }
 
-  setTaskState(taskType: string, patch: Partial<StoredTaskState>): StoredTaskState {
-    const current = this.getTaskState(taskType);
-    const next: StoredTaskState = {
-      ...current,
-      ...patch,
-      taskType,
-    };
-    this.taskStatesSubject.next({
-      ...this.taskStatesSubject.value,
-      [taskType]: next,
+  /**
+   * Record that the backend accepted `workflow` and poll it until it completes, fails or goes idle.
+   * Polling lives here, not in pages, so it keeps running across navigation; only one workflow runs at a time.
+   */
+  trackWorkflow(workflow: WorkflowId, message: string, seriesId: string | null = null): void {
+    this.pollSubscription?.unsubscribe();
+    const generation = ++this.pollGeneration;
+    this.patchWorkflowState(workflow, {
+      status: 'processing',
+      activeTask: null,
+      current: 0,
+      total: 1,
+      message,
+      etaSeconds: 0,
+      result: null,
+      error: null,
+      seriesId,
     });
-    return next;
+
+    this.pollSubscription = timer(WORKFLOW_POLL_INTERVAL_MS, WORKFLOW_POLL_INTERVAL_MS).pipe(
+      exhaustMap(() => this.apiService.getWorkflowResult(workflow)),
+    ).subscribe({
+      next: (response) => {
+        if (generation !== this.pollGeneration) return;
+        const data = response.data;
+        const status = response.status as WorkflowStatus;
+        const [current, total] = data?.progress ?? [0, 0];
+        this.patchWorkflowState(workflow, {
+          status,
+          activeTask: data?.active_task ?? null,
+          current,
+          total,
+          message: data?.message || this.getWorkflowState(workflow).message,
+          etaSeconds: data?.eta_seconds ?? 0,
+          result: data?.result ?? null,
+          error: status === 'error' ? (response.message || 'The task failed.') : null,
+        });
+        if (status !== 'processing') {
+          this.stopPolling();
+          if (status === 'error') {
+            this.errorDialogService.show(response.message || 'The task failed.');
+          }
+        }
+      },
+      error: (error: unknown) => {
+        if (generation !== this.pollGeneration) return;
+        console.error('Workflow polling failed:', error);
+        const message = 'Lost contact with the backend while checking task progress.';
+        this.patchWorkflowState(workflow, { status: 'error', error: message });
+        this.stopPolling();
+        this.errorDialogService.show(message);
+      },
+    });
   }
 
-  getTaskState(taskType: string): StoredTaskState {
-    return this.taskStatesSubject.value[taskType] ?? this.createIdleTaskState(taskType);
+  getWorkflowState(workflow: WorkflowId): WorkflowState {
+    return this.workflowStatesSubject.value[workflow] ?? this.createIdleWorkflowState(workflow);
   }
 
-  getTaskStates(): Record<string, StoredTaskState> {
-    return this.taskStatesSubject.value;
+  getWorkflowStates(): Partial<Record<WorkflowId, WorkflowState>> {
+    return this.workflowStatesSubject.value;
   }
 
-  clearTaskState(taskType: string): void {
-    const next = { ...this.taskStatesSubject.value };
-    delete next[taskType];
-    this.taskStatesSubject.next(next);
+  /** Return the workflow that is currently processing, if any. */
+  getActiveWorkflow(): WorkflowState | null {
+    return Object.values(this.workflowStatesSubject.value).find(state => state?.status === 'processing') ?? null;
   }
 
-  hasActiveTask(taskTypes?: string[]): boolean {
-    return Object.values(this.taskStatesSubject.value).some(task => {
-      if (task.status !== 'processing') {
-        return false;
-      }
-      return !taskTypes || taskTypes.includes(task.taskType);
+  hasActiveWorkflow(): boolean {
+    return this.getActiveWorkflow() !== null;
+  }
+
+  private stopPolling(): void {
+    this.pollSubscription?.unsubscribe();
+    this.pollSubscription = null;
+  }
+
+  private patchWorkflowState(workflow: WorkflowId, patch: Partial<WorkflowState>): void {
+    this.workflowStatesSubject.next({
+      ...this.workflowStatesSubject.value,
+      [workflow]: { ...this.getWorkflowState(workflow), ...patch, workflow },
     });
   }
 
@@ -311,14 +338,18 @@ export class StateService {
     return this.settingsSchemaSubject.value;
   }
 
-  private createIdleTaskState(taskType: string): StoredTaskState {
+  private createIdleWorkflowState(workflow: WorkflowId): WorkflowState {
     return {
-      taskType,
+      workflow,
       status: 'idle',
+      activeTask: null,
+      current: 0,
+      total: 0,
+      message: '',
+      etaSeconds: 0,
       result: null,
-      message: null,
-      progress: null,
-      isPolling: false,
+      error: null,
+      seriesId: null,
     };
   }
 }

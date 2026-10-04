@@ -37,7 +37,7 @@
 </h1>
 <p>File submission, background processing, result polling and downloads.
 </p>
-<div class="meta-line"><span>Current implementation &middot; 3 October 2026</span>
+<div class="meta-line"><span>Current implementation &middot; 4 October 2026</span>
 </div>
 </header>
 <section id="start">
@@ -45,20 +45,16 @@
 </h2>
 <p>The Translate page gets its selected file and series from shared state, then calls <code>ApiService.translateFile()</code>. The service sends multipart form data to <code>POST /translate/translate-file</code>, including languages and batch size.
 </p>
-<p>The route checks orchestrator availability and LLM readiness. It copies the upload into an operating-system temporary file and optionally loads the selected series. It schedules <code>run_translation_file_chain</code> through FastAPI <code>BackgroundTasks</code>.
+<p>The route checks that nothing else is running and the LLM is ready. It copies the upload into an operating-system temporary file, optionally loads the selected series, and calls <code>start_translate_file()</code>. That function reads the subtitles into memory once and hands the workflow to the orchestrator, which accepts it and returns straight away. If anything is rejected first, the route deletes the temp file and returns an error.
 </p>
-<p>The initial response has status <code>processing</code> and task type <code>TaskTranslateFile</code>. It does not contain the finished subtitles or a unique job ID.
+<p>The initial response has status <code>processing</code> and <code>{workflow: "translate_file"}</code>. It does not contain the finished subtitles.
 </p>
 </section>
 <section id="work">
 <h2>2. Task execution
 </h2>
 <div class="flow" aria-label="Process in execution order">
-<div class="flow-step sync"><strong>Plan</strong><small>Ask the LLM for semantic groups of subtitle lines.</small>
-</div>
-<div class="flow-arrow" aria-hidden="true">
-</div>
-<div class="flow-step sync"><strong>Split</strong><small>Repair groups larger than the requested batch size.</small>
+<div class="flow-step sync"><strong>Prepare batches</strong><small>Ask the LLM for semantic groups, then split any group larger than the batch size.</small>
 </div>
 <div class="flow-arrow" aria-hidden="true">
 </div>
@@ -66,54 +62,56 @@
 </div>
 <div class="flow-arrow" aria-hidden="true">
 </div>
-<div class="flow-step db"><strong>Translate and save</strong><small>Translate batches and save under files/outputs/translated.</small>
+<div class="flow-step sync"><strong>Translate</strong><small>Translate each batch, with split and per-line fallbacks.</small>
+</div>
+<div class="flow-arrow" aria-hidden="true">
+</div>
+<div class="flow-step db"><strong>Save and clean up</strong><small>Save under files/outputs/translated, then delete the temp upload.</small>
 </div>
 </div>
-<p>The route runner creates a timestamped log directory and supplies it to every task. Tasks can write numbered JSON diagnostics. The final translation task preserves the input extension in the output filename and lets the subtitle library save that format.
+<p>The orchestrator creates a timestamped log folder for the run, and tasks write numbered JSON diagnostics into it. The saved file keeps the input's extension, so the subtitle library writes the same format.
 </p>
-<p>Source: <code>backend/routes/translate.py</code> and <code>backend/orchestrator/translate_file/task_translate_file.py</code>.
+<p>Source: <code>backend/orchestrator/workflows/translate_file.py</code> and <code>backend/orchestrator/translate_file/</code>.
 </p>
 </section>
 <section id="polling">
 <h2>3. Result polling
 </h2>
-<p>The page repeatedly calls <code>GET /task-results/TaskTranslateFile</code>. <code>build_task_response()</code> reads the result store and the orchestrator:
+<p>Once the start request is accepted, StateService calls <code>GET /task-results/translate_file</code> every second. The response is one snapshot of that workflow's state record:
 </p>
 <div class="table-wrap">
 <table>
 <thead>
-<tr><th scope="col">Condition</th><th scope="col">Response</th>
+<tr><th scope="col">State</th><th scope="col">Response</th>
 </tr>
 </thead>
 <tbody>
-<tr><td>No final record; orchestrator running</td><td>processing, with the currently active task's progress if available.</td>
+<tr><td>Not run since the server started</td><td>idle, with only the workflow ID.</td>
 </tr>
-<tr><td>No final record; orchestrator idle</td><td>idle.</td>
+<tr><td>Running</td><td>processing, with the active task, its progress, message and ETA.</td>
 </tr>
-<tr><td>Stored final record is processing</td><td>processing with progress for that final type.</td>
+<tr><td>Finished</td><td>complete, with the result: the saved file's name and folder.</td>
 </tr>
-<tr><td>Stored final record is complete</td><td>complete with its result payload, which may be null.</td>
-</tr>
-<tr><td>Stored final record is error</td><td>error with the stored message.</td>
+<tr><td>Failed</td><td>error, with the error message; the failed task and its last progress stay in the data.</td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>The frontend copies these updates into StateService. AppComponent reads that state to draw the global progress overlay. The overlay does not poll the backend itself.
+<p>Polling lives in StateService, so it continues if the user leaves the Translate page, and stops on complete, error or idle. AppComponent reads the same state to draw the global progress overlay; the overlay does not poll the backend itself.
 </p>
 <div class="note">
 <p>Progress counts belong to the active stage. <code>1 of 1</code> during planning is not the same unit as <code>100 of 200 lines</code> during translation. This is stage progress, not a weighted percentage for the entire chain.
 </p>
 </div>
-<p>Source: <code>backend/routes/shared.py</code>.
+<p>Source: <code>backend/routes/task_results.py</code> and <code>frontend/src/app/services/state.service.ts</code>.
 </p>
 </section>
 <section id="finish">
 <h2>4. Completion and downloads
 </h2>
-<p>File translation marks completion without a result payload. The page refreshes the file list for <code>translated</code>. Downloading is a separate request through <code>ApiService.getFileBlob()</code>.
+<p>When the workflow completes, the Translate page refreshes the file list for <code>translated</code>; if the user is on another page, the list is refreshed when they return. Downloading is a separate request through <code>ApiService.getFileBlob()</code>.
 </p>
-<p>Other operations have different results: line tasks return text; library updates return proposals; review returns a result payload and also writes a corrected file. File downloads require a separate request.
+<p>Other workflows have different results: line translation and clip transcription return text; library updates return proposals; review returns the corrected file's name and how many lines were corrected.
 </p>
 </section>
 <section id="errors">
@@ -121,7 +119,7 @@
 </h2>
 <p>JSON responses use <code>{status, message, data}</code>. Some route rejections return an error envelope with the normal HTTP response status; validation and unhandled exceptions also have HTTP error responses. Frontend code therefore needs to inspect both the envelope and transport failures.
 </p>
-<p>A background exception happens after the start response. The chain runner records it under the final task type so a later poll can report it. In-memory error records disappear when the backend restarts; diagnostic files can remain.
+<p>A failure during the run happens after the start response. The orchestrator records it in the workflow's state record, the next poll reports it, and StateService shows the error dialog even if the user has left the page. State records live in memory and disappear when the backend restarts; the run's log folder remains.
 </p>
 <p>Sources: <code>backend/utils/api_response.py</code> and <code>frontend/src/app/services/api.service.ts</code>.
 </p>

@@ -1,82 +1,52 @@
 import json
-import os
 
-from orchestrator.base_task import BaseTask
 from models.manager import ModelManager
-from orchestrator.progress_handler import ProgressHandler
-from orchestrator.result_handler import ResultHandler
+from orchestrator.base_task import BaseTask, ReportProgress, WriteLog
+from orchestrator.task_data.base import extend
+from orchestrator.task_data.library_update import CharacterUpdateProposal, LibraryProposals, ProposedLibraryData, SearchedLibraryData
 from prompts.library import generate_library_proposals_prompt
-from utils.subtitles import load_sub_data
+
+VALID_CHARACTER_UPDATE_FIELDS = {"personality", "relationships", "history"}
 
 
-class TaskGenerateLibraryProposals(BaseTask):
-    """Library update chain task (slot 05): generate structured proposals for new/updated characters and glossary terms."""
+class TaskGenerateLibraryProposals(BaseTask[SearchedLibraryData, ProposedLibraryData]):
+    """Library update stage 5: propose new and updated characters and glossary terms."""
 
-    TASK_TYPE = "TaskGenerateLibraryProposals"
+    input_type = SearchedLibraryData
+    output_type = ProposedLibraryData
 
-    @property
-    def task_type(self) -> str:
-        """Return the task type identifier."""
-        return self.TASK_TYPE
-
-    def run_task(self) -> dict:
-        """Build the LLM prompt from subtitle, library, and search results, then parse and return structured proposals."""
-        model_manager = ModelManager.get_instance()
-        result_handler = ResultHandler.get_instance()
-        progress_handler = ProgressHandler.get_instance()
-        llm_client = model_manager.get_llm_client()
-        if llm_client is None:
-            result_handler.set_error(self.task_type, "LLM model not initialized")
-            raise RuntimeError("LLM model not initialized")
-
+    def run_task(self, report_progress: ReportProgress, write_log: WriteLog) -> ProposedLibraryData:
+        """Build the prompt from the transcript, the library and any search results, then parse the proposals."""
         data = self.get_data()
-        file_path = str(data.get("file_path", ""))
-        series = data.get("series", {})
-        series_name = series.get("name", "Unknown Series")
-        input_lang = series.get("input_lang", "ja")
-        output_lang = series.get("output_lang", "en")
-        search_results = data.get("search_results", [])
-        known = data.get("known", {})
-        log_dir = data.get("log_dir", "")
+        series = data.series
+        known = {"characters": data.known.characters, "terms": data.known.terms}
+        prompt_parts = [
+            f"=== SUBTITLE FILE ===\n{data.transcript}",
+            f"\n=== EXISTING LIBRARY ===\n{json.dumps({'characters': series['characters'], 'glossary': series['glossary']}, ensure_ascii=False, indent=2)}",
+            f"\n=== ALREADY KNOWN (do not re-add) ===\n{json.dumps(known, ensure_ascii=False)}",
+        ]
+        if data.search_results:
+            prompt_parts.append(f"\n=== WEB SEARCH RESULTS ===\n{json.dumps(data.search_results, ensure_ascii=False, indent=2)}")
 
-        result_handler.set_processing(self.task_type)
-        progress_handler.set(self.task_type, {"current": 0, "total": 1, "status": "Generating library update proposals", "eta_seconds": 0})
-
+        model_manager = ModelManager.get_instance()
+        llm = model_manager.acquire_llm()
         try:
-            model_manager.acquire_llm()
-            transcript = "\n".join(load_sub_data(file_path, include_speaker=True))
-
-            prompt_parts = [
-                f"=== SUBTITLE FILE ===\n{transcript}",
-                f"\n=== EXISTING LIBRARY ===\n{json.dumps({'characters': series.get('characters', []), 'glossary': series.get('glossary', [])}, ensure_ascii=False, indent=2)}",
-                f"\n=== ALREADY KNOWN (do not re-add) ===\n{json.dumps(known, ensure_ascii=False)}",
-            ]
-            if search_results:
-                prompt_parts.append(f"\n=== WEB SEARCH RESULTS ===\n{json.dumps(search_results, ensure_ascii=False, indent=2)}")
-
-            prompt = "\n".join(prompt_parts)
-
-            raw = model_manager.get_llm_client().infer(
-                prompt=prompt,
-                system_prompt=generate_library_proposals_prompt(series_name, input_lang, output_lang),
+            report_progress(0, 1, "Generating library update proposals", 0.0)
+            raw = llm.infer(
+                prompt="\n".join(prompt_parts),
+                system_prompt=generate_library_proposals_prompt(series["name"], series["input_lang"], series["output_lang"]),
                 temperature=0.2,
             )
-            proposals = self._parse_proposals(raw)
-
-            if log_dir:
-                self._write_log(log_dir, raw, proposals)
-
-            progress_handler.set(self.task_type, {"current": 1, "total": 1, "status": "Proposals generated", "eta_seconds": 0})
-            result_handler.set_complete(self.task_type, {"proposals": proposals})
-            return {**data, "proposals": proposals}
-        except Exception as exc:
-            result_handler.set_error(self.task_type, str(exc))
-            raise
         finally:
             model_manager.release_llm()
 
-    def _parse_proposals(self, raw: str) -> dict:
-        """Parse the LLM's proposals JSON and filter updated_characters to only valid field names; raises ValueError on malformed output."""
+        proposals = self._parse_proposals(raw)
+        write_log("05-generate-library-proposals.json", {"raw_output": raw, "proposals": proposals})
+        report_progress(1, 1, "Proposals generated", 0.0)
+        return extend(data, ProposedLibraryData, proposals=proposals)
+
+    def _parse_proposals(self, raw: str) -> LibraryProposals:
+        """Parse the proposals JSON, keeping only character updates to personality, relationships or history."""
         text = raw.strip()
         start = text.find("{")
         end = text.rfind("}") + 1
@@ -84,22 +54,26 @@ class TaskGenerateLibraryProposals(BaseTask):
             text = text[start:end]
         try:
             parsed = json.loads(text)
-            valid_character_update_fields = {"personality", "relationships", "history"}
-            updated_characters = [
-                u for u in parsed.get("updated_characters", [])
-                if u.get("field") in valid_character_update_fields
-            ]
             return {
                 "new_characters": parsed.get("new_characters", []),
-                "updated_characters": updated_characters,
+                "updated_characters": [
+                    self._character_update(u) for u in parsed.get("updated_characters", [])
+                    if isinstance(u, dict) and u.get("field") in VALID_CHARACTER_UPDATE_FIELDS
+                ],
                 "new_glossary": parsed.get("new_glossary", []),
                 "updated_glossary": parsed.get("updated_glossary", []),
             }
         except Exception as exc:
-            raise ValueError(f"TaskGenerateLibraryProposals: failed to parse LLM output as JSON. Raw output:\n{raw}") from exc
+            raise ValueError(f"{self.task_type}: failed to parse LLM output as JSON. Raw output:\n{raw}") from exc
 
-    def _write_log(self, log_dir: str, raw: str, proposals: dict) -> None:
-        """Write raw output and parsed proposals to 05-generate-library-proposals.json in the run's log directory."""
-        path = os.path.join(log_dir, "05-generate-library-proposals.json")
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump({"raw_output": raw, "proposals": proposals}, f, ensure_ascii=False, indent=2)
+    @staticmethod
+    def _character_update(update: dict) -> CharacterUpdateProposal:
+        """Keep a character update's id, field, append text and, for relationships, the other character's name."""
+        proposal: CharacterUpdateProposal = {
+            "id": str(update.get("id", "")),
+            "field": str(update["field"]),
+            "append": str(update.get("append", "")),
+        }
+        if "character" in update:
+            proposal["character"] = str(update["character"])
+        return proposal

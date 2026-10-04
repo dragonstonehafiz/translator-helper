@@ -70,7 +70,7 @@ Check by hand that every relative link in changed Markdown files resolves and ev
 ## Adding a backend endpoint
 
 1. Add the handler to the matching module in `backend/routes/` (`library.py`, `translate.py`, `transcribe.py`, `file_management.py`, `utils.py`, `task_results.py`). A new module must be included in `routes/__init__.py`.
-2. Import singletons and helpers from `routes/shared.py`; return through the `utils/api_response.py` helpers with the payload under `data` (see [`api.md`](api.md#response-envelope)).
+2. Get singletons with `.get_instance()` inside the handler and HTTP helpers from `routes/shared.py`; return through the `utils/api_response.py` helpers with the payload under `data` (see [`api.md`](api.md#response-envelope)).
 3. Add the matching method to `ApiService` and the response interface if needed.
 4. Call it from the component through the service, with an error-dialog `error:` callback.
 5. Run `py_compile` on the changed Python files and `tsc` on the frontend.
@@ -78,7 +78,7 @@ Check by hand that every relative link in changed Markdown files resolves and ev
 
 ## Adding a task
 
-Follow [`tasks.md`](tasks.md#adding-a-task), then `py_compile` every changed file. Exercise the chain through the UI (ask the user) or a harness under `backend/tests/`.
+Follow [`tasks.md`](tasks.md#adding-a-task), then `py_compile` every changed file. Exercise the workflow through the UI (ask the user) or a harness under `backend/tests/`.
 
 ## Adding a frontend page
 
@@ -94,7 +94,7 @@ Follow [`tasks.md`](tasks.md#adding-a-task), then `py_compile` every changed fil
 | Change | References to load | Checks |
 |---|---|---|
 | Route or response shape | `api.md`, `frontend.md` | `py_compile` changed files; `tsc`; confirm the frontend interface matches |
-| Task or chain | `tasks.md` | `py_compile`; task type registered in `shared.py`; pass-through rule; run-log numbering |
+| Task or workflow | `tasks.md` | `py_compile`; input/output types match the neighbouring stages; run-log numbering |
 | Prompt | `tasks.md` | `py_compile`; a harness run or a manual run in the UI if the user wants one |
 | Model backend or settings | `architecture.md` | `py_compile`; Settings page loads the schema and loads the model (manual) |
 | Library storage | `architecture.md`, `api.md` | `py_compile`; never touch `files/library/` data without approval |

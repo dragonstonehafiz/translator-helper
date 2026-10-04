@@ -1,134 +1,141 @@
-# Tasks and Chains
+# Tasks and Workflows
 
 ## Purpose
 
-How long-running backend work is structured: the `BaseTask` pattern, `TaskOrchestrator`, result and progress handlers, the task chains and how routes start them, task-type registration, run logs, and prompts. Endpoint contracts live in [`api.md`](api.md); the frontend side of polling lives in [`frontend.md`](frontend.md#polling-pattern).
+How long-running backend work is structured: typed task data, the `BaseTask` pattern, `TaskOrchestrator` and its state store, the six workflows and how routes start them, polling, run logs, and prompts. Endpoint contracts live in [`api.md`](api.md); the frontend side of polling lives in [`frontend.md`](frontend.md#polling-pattern).
 
 ## Contents
 
+- [Typed task data](#typed-task-data)
 - [Task pattern](#task-pattern)
 - [Orchestrator](#orchestrator)
-- [Result and progress handlers](#result-and-progress-handlers)
-- [Chains](#chains)
-- [Starting a chain from a route](#starting-a-chain-from-a-route)
-- [Task-type sets](#task-type-sets)
+- [Workflows](#workflows)
+- [Starting a workflow from a route](#starting-a-workflow-from-a-route)
 - [Polling](#polling)
 - [Run logs](#run-logs)
 - [Prompts](#prompts)
 - [Adding a task](#adding-a-task)
 
+## Typed task data
+
+Every task input and output is a `@dataclass(kw_only=True)` subclass of `TaskData`, in the `orchestrator/task_data/` package: `base.py` (`TaskData`, `extend()`, shared outputs), `library_types.py` (series library shapes), `general.py` (translate line and both transcriptions), `translation.py` (translate file and review) and `library_update.py` (library update and proposals). Import from the specific module. Required fields have no defaults, so a stage that forgets one fails when the next object is built, not several stages later.
+
+- A stage that adds required fields builds the next class with `extend(data, NextClass, new_field=...)`, which copies every existing field.
+- A stage that only changes existing fields returns `dataclasses.replace(data, ...)`.
+- Subtitles are loaded **once**, by the workflow, and carried as `pysubs2.SSAFile` objects (`subtitles`, `translated_subtitles`). Tasks never open input files.
+- Series library data is carried as typed mappings (`SeriesSnapshot`, `CharacterEntry`, `GlossaryEntry`); library-update proposals use `LibraryProposals` and its four entry types.
+- `TaskData.run_label()` names the run's log folder (the uploaded filename where there is one).
+
+Main chains of types:
+
+| Workflow | Data, stage by stage |
+|---|---|
+| Translate file | `TranslationData` → `PlannedTranslationData` (+ `batches`) → same type with `context`/`library_context` → `TranslatedSubtitleData` → `FileOutputData` |
+| Review | `ReviewData` (adds `translated_filename`, `translated_subtitles`) → `PlannedReviewData` → same type with context → `ReviewedData` (+ `corrections`) → `CorrectedSubtitleData` → `ReviewFileOutputData` (+ `corrected_count`) |
+| Library update | `LibraryUpdateData` → `ExtractedLibraryData` (+ `findings`) → `ClassifiedLibraryData` (+ `known`, `unknown`) → `QueriedLibraryData` (+ `search_queries`) → `SearchedLibraryData` (+ `search_results`) → `ProposedLibraryData` (+ `proposals`) → `ProposalOutputData` |
+| Translate line / transcribe clip | `TranslateLineData` / `TranscribeClipData` → `TextOutputData` |
+| Transcribe file | `TranscribeFileData` → `TranscribedSubtitleData` → `FileOutputData` |
+
 ## Task pattern
 
-Every task extends `BaseTask` (`orchestrator/base_task.py`):
-
-- `TASK_TYPE` — class-level string constant (the class name, e.g. `"TaskTranslateFile"`), used as the key in every registry and by the frontend's `TASK_TYPES`.
-- `task_type` property — returns `self.TASK_TYPE`.
-- `run_task()` — reads `self.get_data()`, does the work, returns a dict.
-
-**Pass-through rule**: every non-final task's `run_task()` returns `{**data, ...new_keys}`. Returning only the new keys silently drops upstream data (`file_path`, `series`, `log_dir`, etc.) and breaks every downstream task. Final tasks may return `{}`.
-
-Standard body:
+Every task extends `BaseTask[InputData, OutputData]` (`orchestrator/base_task.py`) and declares `input_type` and `output_type`. The orchestrator supplies the input with `set_data()`; `get_data()` raises if none was supplied. The task name shown as the active stage is the class name.
 
 ```python
-def run_task(self) -> dict:
-    model_manager = ModelManager.get_instance()
-    result_handler = ResultHandler.get_instance()
-    progress_handler = ProgressHandler.get_instance()
-    llm_client = model_manager.get_llm_client()
-    if llm_client is None:
-        result_handler.set_error(self.task_type, "LLM model not initialized")
-        raise RuntimeError("LLM model not initialized")
+class TaskExample(BaseTask[PlannedTranslationData, PlannedTranslationData]):
+    input_type = PlannedTranslationData
+    output_type = PlannedTranslationData
 
-    data = self.get_data()
-    result_handler.set_processing(self.task_type)
-    try:
-        model_manager.acquire_llm()   # raises if the LLM is not loaded, loading or in use
-        # ... work, calling progress_handler.set(self.task_type, {...}) as it advances ...
-        result_handler.set_complete(self.task_type)   # pass a result dict only in a chain's final task
-        return {**data, "new_key": value}
-    except Exception as exc:
-        result_handler.set_error(self.task_type, str(exc))
-        raise
-    finally:
-        model_manager.release_llm()
+    def run_task(self, report_progress: ReportProgress, write_log: WriteLog) -> PlannedTranslationData:
+        data = self.get_data()
+        model_manager = ModelManager.get_instance()
+        llm = model_manager.acquire_llm()   # raises if the LLM is not loaded, loading or in use
+        try:
+            report_progress(0, 1, "Doing the thing", 0.0)
+            raw = llm.infer(prompt=..., system_prompt=...)
+        finally:
+            model_manager.release_llm()
+        write_log("01-example.json", {"raw_output": raw})
+        return replace(data, ...)
 ```
 
-Tasks call the client directly: `llm_client.infer(...)`, `audio_client.transcribe_line/file(...)`, `search_client.search(...)`. Read provider settings through `llm_client.config`, e.g. `llm_client.config.temperature.value`. `TaskTranscribeFile` saves the returned subtitles itself. Tasks that receive an uploaded temp file delete it in `finally`.
+- Tasks **raise** on failure. They never record errors, results or progress themselves; the orchestrator does.
+- Progress goes only through `report_progress(current, total, message, eta_seconds)`; diagnostics only through `write_log(filename, content)`.
+- Tasks call the model clients directly (`infer`, `transcribe_line`/`transcribe_file`, `search`) between `acquire_*()` and `release_*()`. Read provider settings through `llm.config`, e.g. `llm.config.temperature.value`.
+- Tasks don't save output files or delete temp inputs; the workflow's `finish` and `cleanup` callbacks do.
 
 ## Orchestrator
 
-`TaskOrchestrator` (`orchestrator/task_orchestrator.py`) holds one ordered task list:
+`TaskOrchestrator` (`orchestrator/task_orchestrator.py`) runs **one workflow at a time** on its own single-worker thread pool.
 
-- `clear_tasks()`, `add_task(task)`, `run_tasks(initial_data)` — runs each task in order, passing each task's returned dict to the next via `set_data()`.
-- `run_task(task, data)` — clears the list, adds one task, and runs it.
-- `run_tasks` raises `RuntimeError` if a chain is already running; `is_running()` and `get_active_task_type()` expose the current state.
-- Each task's start, finish (with elapsed time and `log_dir`), and failure is written to `files/logs/translator-helper.log`.
+- `run(workflow, tasks, data, *, finish, cleanup)` is the only way to run tasks. It rejects an unknown workflow, an empty task list, a busy runner or a shutting-down server by raising, without changing the running workflow. Otherwise it records the workflow as processing, schedules it and returns immediately; from then on the orchestrator owns the run.
+- Each stage: record it as the active stage (resetting progress), check `isinstance(data, task.input_type)`, run it with bound `report_progress`/`write_log` callbacks, check the output against `task.output_type`, pass it to the next stage. Start, elapsed time and failure are written to `files/logs/translator-helper.log`.
+- After the last stage, `finish(data)` turns the output into the workflow's result (saving a file where needed). `cleanup()` then always runs, on success and failure. A cleanup error is reported only if nothing failed earlier.
+- `TaskStateHandler` (`orchestrator/task_state_handler.py`, reached with `get_state_handler()`) keeps one `TaskState` per workflow: `status`, `active_task`, `progress` (`current`, `total`), `message`, `eta_seconds`, `result`, `error`. Starting a workflow replaces its previous record; a failure keeps the failed stage and its last progress. `get()` returns a copy.
+- `get_running_state()` returns the running workflow's state, or `None` when idle. `shutdown()` refuses new runs and waits for the running one, including its cleanup; the server lifespan calls it before releasing the models.
 
-## Result and progress handlers
+## Workflows
 
-- `ResultHandler` stores one record per task type: `set_processing`, `set_complete(task_type, result=None)`, `set_error(task_type, error)`, `clear`, `get`.
-- Only a chain's **final task** passes a result dict to `set_complete`. Tasks whose output is a file (`TaskTranslateFile`, `TaskTranscribeFile`) complete with no payload; the frontend refreshes its downloads list instead.
-- `ProgressHandler.set(task_type, {current, total, status, eta_seconds})` stores progress for the progress overlay. Tasks without granular progress use `current: 0, total: 1`.
+Workflow functions live in `orchestrator/workflows/`. Each prepares its typed input, builds its own task list and calls `run()`.
 
-## Chains
+| Workflow ID | Started by | Function | Tasks in order | Result |
+|---|---|---|---|---|
+| `translate_line` | `POST /translate/translate-line` | `start_translate_line` | `TaskTranslateLine` | `TextOutputData` |
+| `translate_file` | `POST /translate/translate-file` | `start_translate_file` | `TaskPrepareTranslationBatches` → `TaskSelectLibraryContext` → `TaskTranslateBatches` | `FileOutputData` |
+| `review_file` | `POST /translate/review-translated-file` | `start_review_file` | `TaskPrepareReviewBatches` → `TaskSelectLibraryContext` → `TaskReviewTranslatedBatches` → `TaskRetranslateReviewedLines` | `ReviewFileOutputData` |
+| `transcribe_clip` | `POST /transcribe/transcribe-line` | `start_transcribe_clip` | `TaskTranscribeClip` | `TextOutputData` |
+| `transcribe_file` | `POST /transcribe/transcribe-file` | `start_transcribe_file` | `TaskTranscribeFile` | `FileOutputData` |
+| `update_library` | `POST /library/{series_id}/update` | `start_update_library` | `TaskExtractLibraryFindings` → `TaskClassifyLibraryFindings` → `TaskGenerateSearchQueries` → `TaskWebSearch` → `TaskGenerateLibraryProposals` → `TaskDeduplicateCharacterUpdates` | `ProposalOutputData` |
 
-| Chain | Started by | Tasks in order (folder) | Final task (polled) |
-|---|---|---|---|
-| Translate line | `POST /translate/translate-line` | `TaskTranslateLine` (`tasks/`) | `TaskTranslateLine` |
-| Translate file | `POST /translate/translate-file` | `TaskPlanTranslationBatches` → `TaskSplitOversizedBatches` → `TaskSelectLibraryContext` → `TaskTranslateFile` (`translate_file/`) | `TaskTranslateFile` |
-| Review translated file | `POST /translate/review-translated-file` | `TaskPlanTranslationReviewBatches` → `TaskSelectLibraryContextForReview` → `TaskReviewTranslatedBatches` → `TaskRetranslateReviewedLines` (`review_file/`) | `TaskRetranslateReviewedLines` |
-| Library update | `POST /library/{series_id}/update` | `TaskScanSubtitleFile` → `TaskCheckAgainstLibrary` → `TaskGenerateSearchQueries` → `TaskWebSearch` → `TaskGenerateLibraryProposals` → `TaskDeduplicateProposals` (`library/`) | `TaskDeduplicateProposals` |
-| Transcribe line | `POST /transcribe/transcribe-line` | `TaskTranscribeLine` (`tasks/`) | `TaskTranscribeLine` |
-| Transcribe file | `POST /transcribe/transcribe-file` | `TaskTranscribeFile` (`tasks/`) | `TaskTranscribeFile` |
+Behaviour to know:
 
-Library-update proposals are only returned to the frontend; nothing is written to the series until the user accepts a proposal, which goes through the normal library CRUD endpoints.
+- **Batch preparation.** `TaskPrepareTranslationBatches` asks the LLM for semantic batches, then splits any batch larger than `batch_size` with a second LLM call per batch, falling back to an even split if that reply is invalid. `TaskPrepareReviewBatches` keeps the model's batches as planned (no splitting). Both use helpers in `translate_file/batch_preparation.py`.
+- **Library context.** One `TaskSelectLibraryContext`, constructed with the data class it runs on (`PlannedTranslationData` or `PlannedReviewData`), returns that same class with `context` and `library_context` filled in. With no series or an empty library it returns the input unchanged without an LLM call. An unknown `series_id` means no library context.
+- **Review pre-check.** `start_review_file` loads both files and rejects them before any LLM call if their line counts differ.
+- **Library update.** Events found in the file are kept in `unknown.events` but never searched. No unknown names or terms gives an empty query list, and no queries gives empty search results, without needing the search client. When queries exist, a missing or unready search client fails the workflow. Deduplication only filters `updated_characters` additions to `personality`, `history` and `relationships`; the other proposal categories pass through. Proposals are only returned to the frontend; nothing is written to the series until the user accepts one through the library CRUD endpoints.
+- **Saving.** `workflows/file_output.py` names and saves outputs, replacing any existing file:
 
-## Starting a chain from a route
+| Workflow | Filename | Folder |
+|---|---|---|
+| `translate_file` | `<first filename segment>.<sanitized output language>.<original extension>` | `translated` |
+| `review_file` | `<translated stem>.corrected<suffix>`, `.ass` if there is no suffix | `reviewed` |
+| `transcribe_file` | `<first filename segment>.<sanitized language>.ass` | `transcribed` |
+
+Translation also strips matching outer quotes or asterisks from each line (`TaskTranslateBatches`); review and transcription don't.
+
+## Starting a workflow from a route
 
 The route handler:
 
-1. Checks preconditions — `task_orchestrator.is_running()` and `model_manager.is_llm_ready()` / `is_audio_ready()` — and returns an `error` envelope if they fail.
-2. Saves uploads to temp files with `save_upload_to_temp()`.
+1. Checks preconditions — `TaskOrchestrator.get_instance().get_running_state()` and `ModelManager.get_instance().is_llm_ready()` / `is_audio_ready()` — and returns an `error` envelope if they fail. These checks are advisory; `run()` is what actually rejects a second workflow.
+2. Saves uploads to temp files with `save_upload_to_temp()`. Until the workflow is accepted, the route owns them.
 3. Loads any needed data (e.g. `load_series(series_id)`).
-4. Adds a background task and returns `processing_response({"task_type": ...})`.
-
-Multi-task chains run through a runner function in the route module (`run_translation_file_chain`, `run_review_translated_file_chain` in `translate.py`; `_run_library_update_chain` in `library.py`). The runner creates the timestamped `log_dir`, calls `result_handler.clear(FinalTask.TASK_TYPE)` so a stale result isn't returned to the first poll, then `clear_tasks()` → `add_task(...)` → `run_tasks(initial_data=data)`, and records any exception against the final task type. (The library route clears the result and builds `log_dir` in the handler instead of the runner.) Single tasks run through `run_single_task()` in `shared.py`.
-
-## Task-type sets
-
-`routes/shared.py` defines:
-
-| Set | Purpose |
-|---|---|
-| `LIBRARY_TASK_TYPES` | All six library-update tasks |
-| `AUDIO_TASK_TYPES` | Transcription tasks |
-| `TRANSLATE_TASK_TYPES` | `TaskTranslateLine`, `TaskTranslateFile`, `TaskRetranslateReviewedLines` |
-| `TRANSCRIBE_TASK_TYPES` | `TaskTranscribeLine`, `TaskTranscribeFile` |
-
-A task can be in more than one set. `GET /task-results/{task_type}` only accepts types in `LIBRARY_TASK_TYPES ∪ TRANSLATE_TASK_TYPES ∪ AUDIO_TASK_TYPES`; any other type returns 400.
+4. Calls the workflow's `start_*` function. If it raises (bad input, mismatched review files, busy runner), the route deletes its temp files with `remove_temp_files()` and returns an `error` envelope.
+5. Returns `processing_response({"workflow": ...})`. The accepted workflow's `cleanup` deletes the temp files when the run ends.
 
 ## Polling
 
-The frontend polls `GET /task-results/{task_type}` with the chain's **final** task type. `build_task_response()` in `shared.py` handles every chain with one rule: while the orchestrator is running and the polled type has no result yet, return `processing` with the *currently active* task's progress, so intermediate tasks' progress shows up without chain-specific code. Otherwise it returns `idle`, `error`, `complete` (with `result`), or `processing` from the stored record.
+The frontend polls `GET /task-results/{workflow}` with the ID returned in `data.workflow`. The route reads one `TaskState` snapshot and returns it as `{workflow, active_task, progress: [current, total], message, eta_seconds, result}`. `result` is null until the workflow completes and then has its public shape (see [`api.md`](api.md#task-results)); absolute paths and subtitle objects are never returned. A workflow that has not run since the server started returns `idle` with only `{workflow}`.
 
 ## Run logs
 
-Each multi-task chain writes numbered JSON files into its per-run `log_dir` (`files/logs/<chain>/<YYYYmmdd-HHMMSS>-<name>/`), numbered by the task's position in the chain:
+For each accepted run the orchestrator creates `files/logs/<workflow>/<YYYYmmdd-HHMMSS>-<input filename or workflow>/` (adding `-2`, `-3`, … if it already exists) and keeps it after success or failure. Tasks write into it with `write_log(filename, content)`:
 
-| Chain | Files |
+| Workflow | Files |
 |---|---|
-| Translate file (`translate_file/`) | `01-plan-translation-batches.json`, `02-split-oversized-batches.json`, `03-select-library-context.json`, `04-translate-file-batch-failures.json` (only when batches fail) |
-| Review (`review_file/`) | `01-plan-translation-batches.json`, `02-select-library-context.json`, `03-review-translated-batches.json` (+ `03-review-translated-batch-failures.json` on failure), `04-retranslate-reviewed-lines.json` |
-| Library update (`update_library/`) | `01-scan-subtitle-file.json`, `02-check-against-library.json`, `03-generate-search-queries.json`, `04-web-search.json`, `05-generate-library-proposals.json`, `06-deduplicate-proposals.json` |
+| `translate_file` | `01-plan-translation-batches.json` (the model's plan with batch sizes), `02-split-oversized-batches.json` (each repaired batch: original range and size, `model` or `deterministic_fallback`, failure and raw reply on fallback, replacement ranges; then the final plan), `04-translate-file-batch-failures.json` (only when batches fail) |
+| `review_file` | `01-plan-translation-batches.json`, `03-review-translated-batches.json` (+ `03-review-translated-batch-failures.json` on failure), `04-retranslate-reviewed-lines.json` |
+| `update_library` | `01-scan-subtitle-file.json`, `02-check-against-library.json`, `03-generate-search-queries.json`, `04-web-search.json`, `05-generate-library-proposals.json`, `06-deduplicate-proposals.json` |
+
+Library-context selection writes no log. Line translation and transcription runs get a folder but write no files.
 
 ## Prompts
 
-System-prompt builders live in `backend/prompts/`, one module per domain (`translate.py`, `translate_file.py`, `review_file.py`, `library.py`, `library_context.py`, `context.py`, shared `helpers.py`). They are plain functions that return a string used as the `system_prompt`; the user message (subtitle lines, etc.) is built in the task and passed as `prompt` to `llm_client.infer(...)`. There is no wrapper class.
+System-prompt builders live in `backend/prompts/`, one module per domain (`translate.py`, `translate_file.py`, `review_file.py`, `library.py`, `library_context.py`, `context.py`, shared `helpers.py`). They are plain functions that return a string used as the `system_prompt`; the user message (subtitle lines, etc.) is built in the task and passed as `prompt` to `llm.infer(...)`. There is no wrapper class.
 
 ## Adding a task
 
-1. Create the task class in the chain's folder under `orchestrator/`, following the [task pattern](#task-pattern) and the pass-through rule.
-2. Add its `TASK_TYPE` to the matching set(s) in `routes/shared.py`. If the new task is a chain's final task and is missing from the polling sets, `/task-results/{task_type}` returns 400 and the frontend's poll fails.
-3. Add it to the chain runner in the right position.
-4. If the chain writes run logs, write a numbered JSON matching its position and renumber later files.
-5. If it changes the final task, update `TASK_TYPES` in the frontend (see [`frontend.md`](frontend.md#stateservice)) and the `result_handler.clear(...)` call.
+1. Declare its input and output types in the matching `orchestrator/task_data/` module (or reuse existing ones), with required fields and no defaults.
+2. Create the task class in the workflow's folder under `orchestrator/`, following the [task pattern](#task-pattern).
+3. Add it to the workflow function's task list in `orchestrator/workflows/`, between stages whose output and input types match.
+4. If it writes diagnostics, use `write_log` with a numbered filename matching its position.
+5. A new workflow also needs its ID added to `WORKFLOWS` in `task_orchestrator.py`, a public result shape in `routes/task_results.py`, and an entry in `WORKFLOW_TYPES` in the frontend (see [`frontend.md`](frontend.md#stateservice)).

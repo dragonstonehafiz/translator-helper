@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { SettingsSchemaBundle, TaskProgress, TaskResultPayload, TaskStatus } from './state.service';
+import type { SettingsSchemaBundle } from './state.service';
+import type { WorkflowId, WorkflowResultData, WorkflowStartData } from '../shared/workflow-types';
 
 export interface ApiResponse<TData = unknown> {
   status: string;
@@ -10,13 +11,15 @@ export interface ApiResponse<TData = unknown> {
 }
 
 export interface RunningStatusData {
+  running: boolean;
+  workflow: WorkflowId | null;
+  active_task: string | null;
   running_llm: boolean;
   running_audio: boolean;
   running_search: boolean;
   loading_llm_model: boolean;
   loading_audio_model: boolean;
   loading_search_model: boolean;
-  active_task_type: string | null;
 }
 
 export interface ServerVariablesData {
@@ -70,13 +73,6 @@ export interface SeriesListData {
   series: SeriesSummary[];
 }
 
-export interface LibraryProposals {
-  new_characters: Omit<SeriesCharacter, 'id'>[];
-  updated_characters: {id: string; field: string; append: string}[];
-  new_glossary: Omit<SeriesGlossaryTerm, 'id'>[];
-  updated_glossary: {id: string; field: string; value: string}[];
-}
-
 export interface SubtitleFileInfoData {
   total_lines: string;
   character_count: string;
@@ -85,16 +81,6 @@ export interface SubtitleFileInfoData {
 
 export interface FileListData {
   files: {name: string, size: number, modified: string}[];
-}
-
-export interface TaskStartData {
-  task_type: string;
-}
-
-export interface TaskResultData {
-  task_type: string;
-  result: TaskResultPayload | null;
-  progress: TaskProgress | null;
 }
 
 @Injectable({
@@ -138,8 +124,8 @@ export class ApiService {
     return this.http.get<ApiResponse<ServerVariablesData>>(`${this.baseUrl}/utils/server-variables`);
   }
 
-  getTaskResult(taskType: string): Observable<TaskResultResponse> {
-    return this.http.get<TaskResultResponse>(`${this.baseUrl}/task-results/${encodeURIComponent(taskType)}`);
+  getWorkflowResult(workflow: WorkflowId): Observable<ApiResponse<WorkflowResultData>> {
+    return this.http.get<ApiResponse<WorkflowResultData>>(`${this.baseUrl}/task-results/${encodeURIComponent(workflow)}`);
   }
 
   listSeries(): Observable<ApiResponse<SeriesListData>> {
@@ -186,17 +172,17 @@ export class ApiService {
     return this.http.delete<ApiResponse<null>>(`${this.baseUrl}/library/${encodeURIComponent(seriesId)}/glossary/${encodeURIComponent(termId)}`);
   }
 
-  startLibraryUpdate(seriesId: string, file: File): Observable<ApiResponse<TaskStartData>> {
+  startLibraryUpdate(seriesId: string, file: File): Observable<ApiResponse<WorkflowStartData>> {
     const formData = new FormData();
     formData.append('file', file);
-    return this.http.post<ApiResponse<TaskStartData>>(`${this.baseUrl}/library/${encodeURIComponent(seriesId)}/update`, formData);
+    return this.http.post<ApiResponse<WorkflowStartData>>(`${this.baseUrl}/library/${encodeURIComponent(seriesId)}/update`, formData);
   }
 
-  transcribeAudio(audioFile: File, language: string): Observable<ApiResponse<TaskStartData>> {
+  transcribeAudio(audioFile: File, language: string): Observable<ApiResponse<WorkflowStartData>> {
     const formData = new FormData();
     formData.append('file', audioFile);
     formData.append('language', language);
-    return this.http.post<ApiResponse<TaskStartData>>(`${this.baseUrl}/transcribe/transcribe-line`, formData);
+    return this.http.post<ApiResponse<WorkflowStartData>>(`${this.baseUrl}/transcribe/transcribe-line`, formData);
   }
 
   getSubtitleFileInfo(file: File): Observable<ApiResponse<SubtitleFileInfoData>> {
@@ -205,30 +191,30 @@ export class ApiService {
     return this.http.post<ApiResponse<SubtitleFileInfoData>>(`${this.baseUrl}/utils/get-subtitle-file-info`, formData);
   }
 
-  transcribeFile(formData: FormData): Observable<ApiResponse<TaskStartData>> {
-    return this.http.post<ApiResponse<TaskStartData>>(`${this.baseUrl}/transcribe/transcribe-file`, formData);
+  transcribeFile(formData: FormData): Observable<ApiResponse<WorkflowStartData>> {
+    return this.http.post<ApiResponse<WorkflowStartData>>(`${this.baseUrl}/transcribe/transcribe-file`, formData);
   }
 
-  translateLine(text: string, context: any, inputLang: string, outputLang: string): Observable<ApiResponse<TaskStartData>> {
+  translateLine(text: string, context: any, inputLang: string, outputLang: string): Observable<ApiResponse<WorkflowStartData>> {
     const formData = new FormData();
     formData.append('text', text);
     formData.append('context', JSON.stringify(context));
     formData.append('input_lang', inputLang);
     formData.append('output_lang', outputLang);
-    return this.http.post<ApiResponse<TaskStartData>>(`${this.baseUrl}/translate/translate-line`, formData);
+    return this.http.post<ApiResponse<WorkflowStartData>>(`${this.baseUrl}/translate/translate-line`, formData);
   }
 
-  translateFile(file: File, seriesId: string, inputLang: string, outputLang: string, batchSize: number): Observable<ApiResponse<TaskStartData>> {
+  translateFile(file: File, seriesId: string, inputLang: string, outputLang: string, batchSize: number): Observable<ApiResponse<WorkflowStartData>> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('series_id', seriesId);
     formData.append('input_lang', inputLang);
     formData.append('output_lang', outputLang);
     formData.append('batch_size', batchSize.toString());
-    return this.http.post<ApiResponse<TaskStartData>>(`${this.baseUrl}/translate/translate-file`, formData);
+    return this.http.post<ApiResponse<WorkflowStartData>>(`${this.baseUrl}/translate/translate-file`, formData);
   }
 
-  reviewTranslatedFile(originalFile: File, translatedFile: File, seriesId: string, inputLang: string, outputLang: string, batchSize: number): Observable<ApiResponse<TaskStartData>> {
+  reviewTranslatedFile(originalFile: File, translatedFile: File, seriesId: string, inputLang: string, outputLang: string, batchSize: number): Observable<ApiResponse<WorkflowStartData>> {
     const formData = new FormData();
     formData.append('file', originalFile);
     formData.append('translated_file', translatedFile);
@@ -236,7 +222,7 @@ export class ApiService {
     formData.append('input_lang', inputLang);
     formData.append('output_lang', outputLang);
     formData.append('batch_size', batchSize.toString());
-    return this.http.post<ApiResponse<TaskStartData>>(`${this.baseUrl}/translate/review-translated-file`, formData);
+    return this.http.post<ApiResponse<WorkflowStartData>>(`${this.baseUrl}/translate/review-translated-file`, formData);
   }
 
   listFiles(folder: string): Observable<ApiResponse<FileListData>> {
@@ -251,8 +237,4 @@ export class ApiService {
     return this.http.delete<ApiResponse<null>>(`${this.baseUrl}/file-management`, { params: { folder, filename } });
   }
 
-}
-
-export interface TaskResultResponse extends ApiResponse<TaskResultData> {
-  status: TaskStatus;
 }

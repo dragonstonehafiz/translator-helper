@@ -49,21 +49,23 @@ backend/
   search/tavily.py           SearchTavily
   library/repository.py      Series load/save, slugs, character/glossary lookup; domain errors
   orchestrator/
-    base_task.py             BaseTask abstract base
-    task_orchestrator.py     TaskOrchestrator singleton — runs one task chain at a time
-    result_handler.py        ResultHandler singleton — latest result per task type
-    progress_handler.py      ProgressHandler singleton — progress per task type
-    library/                 Library update chain tasks
-    translate_file/          File translation chain tasks
-    review_file/             Translated-file review chain tasks
-    tasks/                   Standalone tasks (transcribe line/file, translate line)
+    task_data/               Typed TaskData dataclasses passed between tasks: base.py, library_types.py,
+                             general.py (single-task workflows), translation.py, library_update.py
+    base_task.py             BaseTask[Input, Output] abstract base
+    task_orchestrator.py     TaskOrchestrator singleton — runs one workflow at a time on its own worker
+    task_state_handler.py    TaskStateHandler — status, stage, progress, result and error per workflow
+    workflows/               One start function per workflow, plus file_output.py (naming and saving)
+    library/                 Library update tasks
+    translate_file/          File translation tasks and shared batch planning
+    review_file/             Translated-file review tasks
+    tasks/                   Standalone tasks (translate line, transcribe clip/file)
   routes/
     __init__.py              Aggregates routers
-    shared.py                Singleton references, task-type sets, polling/upload/file helpers
-    library.py               Series/character/glossary CRUD + library update chain
-    translate.py             translate-line, translate-file, review-translated-file + chain runners
+    shared.py                HTTP helpers: settings request model, uploads to temp files, file listing
+    library.py               Series/character/glossary CRUD + library update start
+    translate.py             translate-line, translate-file, review-translated-file starts
     transcribe.py            transcribe-line, transcribe-file
-    task_results.py          GET /task-results/{task_type}
+    task_results.py          GET /task-results/{workflow}
     file_management.py       List/download/delete files under files/outputs/
     utils.py                 Status, settings schema, model loading, subtitle file info
   prompts/                   System-prompt builders, one module per domain
@@ -71,7 +73,7 @@ backend/
     api_response.py          Response envelope helpers and global exception handlers
     config.py                BACKEND_DIR, FILES_DIR, CONFIG_DIR, LIBRARY_DIR, OUTPUTS_DIR, LOGS_DIR
     logger.py                setup_logger() — shared log file
-    subtitles.py             load_sub_data(), analyze_subtitle_file()
+    subtitles.py             load_subtitles(), numbered_lines(), speaker_lines(), analyze_subtitle_file()
   tests/                     Standalone CLI harnesses (not an automated test suite)
   model-files/               Local GGUF models for llama.cpp
   files/                     Runtime data (gitignored): config/, library/, outputs/, logs/
@@ -81,22 +83,20 @@ Importing `utils` does not import torch; only `audio/` does.
 
 ## Runtime model
 
-- On startup, the `server.py` lifespan loads the LLM, audio, and search clients on three daemon threads, so the server accepts requests before models are ready. On shutdown it waits for those loads to finish, then calls `ModelManager.shutdown()` to release the clients. It does not yet wait for a running task chain.
-- Long-running work is started from a route via FastAPI `BackgroundTasks`; the route returns `processing` immediately and the frontend polls `GET /task-results/{task_type}`. See [`tasks.md`](tasks.md).
-- `TaskOrchestrator` holds a single chain and refuses to start another while one is running — the app supports one transcription/translation/library job at a time across all users.
+- On startup, the `server.py` lifespan loads the LLM, audio, and search clients on three daemon threads, so the server accepts requests before models are ready. On shutdown it waits for the running workflow (including its cleanup) and for those loads, then calls `ModelManager.shutdown()` to release the clients.
+- Long-running work is a **workflow**: a route calls a `start_*` function in `orchestrator/workflows/`, which hands typed data and a task list to `TaskOrchestrator.run()`. The route returns `processing` with the workflow ID, and the frontend polls `GET /task-results/{workflow}`. See [`tasks.md`](tasks.md).
+- `TaskOrchestrator` runs one workflow at a time on its own worker thread and refuses to start another while one is running — the app supports one transcription/translation/library job at a time across all users.
 
 ## Singletons
 
-Four singletons are shared across the backend, always obtained with `.get_instance()`:
+Two singletons are shared across the backend, always obtained with `.get_instance()`:
 
 | Singleton | Owns |
 |---|---|
 | `ModelManager` | The LLM, audio and search clients; loading flags and errors; in-use flags |
-| `TaskOrchestrator` | The queued task list, running flag, active task type |
-| `ResultHandler` | Latest `{status, result, error}` record per task type |
-| `ProgressHandler` | Progress dict per task type (`current`, `total`, `status`, `eta_seconds`) |
+| `TaskOrchestrator` | The running workflow, its worker thread, and the `TaskStateHandler` record of every workflow |
 
-`routes/shared.py` resolves all four once; route modules import them from there and do not call `.get_instance()` themselves. Tasks call `.get_instance()` directly because they don't import from `routes`.
+Route handlers and tasks call `.get_instance()` when they need one; nothing resolves them at import time.
 
 ## Model backends
 
@@ -116,11 +116,11 @@ All paths are under `backend/` and defined once in `utils/config.py`; build path
 | `files/library/<series_id>/series.json` | `id`, `name`, `input_lang`, `output_lang`, `notes` | `library/repository.save_series` |
 | `files/library/<series_id>/characters.json` | List of `{id, name, aliases[], personality[], relationships{}, history[]}` | `library/repository.save_series` |
 | `files/library/<series_id>/glossary.json` | List of `{id, term, translation, notes}` | `library/repository.save_series` |
-| `files/outputs/translated/` | File translation chain output | `TaskTranslateFile` |
-| `files/outputs/reviewed/` | Review chain output (corrected file) | `TaskRetranslateReviewedLines` |
-| `files/outputs/transcribed/` | Transcribed `.ass` files | `TaskTranscribeFile` |
+| `files/outputs/translated/` | File translation output | `translate_file` workflow (`workflows/file_output.py`) |
+| `files/outputs/reviewed/` | Review output (corrected file) | `review_file` workflow |
+| `files/outputs/transcribed/` | Transcribed `.ass` files | `transcribe_file` workflow |
 | `files/outputs/context/` | Saved context files (no active writer) | — |
-| `files/logs/translate_file/`, `review_file/`, `update_library/` | One timestamped folder of numbered JSON logs per run | Chain tasks (see [`tasks.md`](tasks.md#run-logs)) |
+| `files/logs/translate_file/`, `review_file/`, `update_library/` | One timestamped folder of numbered JSON logs per run | `TaskOrchestrator`, written by tasks through `write_log` (see [`tasks.md`](tasks.md#run-logs)) |
 | `files/logs/translator-helper.log` | Shared backend log: task start/finish timing, model lifecycle, unhandled exceptions | `utils/logger` |
 
 Library rules:

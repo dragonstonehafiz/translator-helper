@@ -16,17 +16,15 @@
 <h2>On this page
 </h2>
 <ol>
-<li><a href="#runner">Task execution</a>
+<li><a href="#runner">Running a workflow</a>
 </li>
 <li><a href="#contract">Task inputs and outputs</a>
 </li>
-<li><a href="#chains">Task chains</a>
+<li><a href="#chains">The six workflows</a>
 </li>
-<li><a href="#reuse">Task reuse</a>
+<li><a href="#reuse">Shared steps</a>
 </li>
-<li><a href="#tracking">Progress and error tracking</a>
-</li>
-<li><a href="#questions">Refactoring considerations</a>
+<li><a href="#tracking">Progress, errors and logs</a>
 </li>
 
 </ol>
@@ -35,134 +33,112 @@
 <header class="hero">
 <h1>Orchestrator and task chains
 </h1>
-<p>A chain is an ordered list of task objects. Each task receives the previous task's returned dictionary.
+<p>A workflow is the whole operation a user starts, such as translating a file. It runs an ordered list of tasks, each taking one typed input and returning one typed output.
 </p>
-<div class="meta-line"><span>Current implementation &middot; 3 October 2026</span>
+<div class="meta-line"><span>Current implementation &middot; 4 October 2026</span>
 </div>
 </header>
 <section id="runner">
-<h2>Task execution
+<h2>Running a workflow
 </h2>
-<p>The routes decide which tasks belong in a chain. <code>TaskOrchestrator</code> stores that list, copies it when execution begins, and runs it sequentially. It tracks the active task type and writes start, finish and failure messages to the shared log.
+<p>A route calls the workflow's start function in <code>orchestrator/workflows/</code>. That function loads the input once (subtitles are read into memory here), builds the typed input data and its task list, and hands them to <code>TaskOrchestrator.run()</code>.
 </p>
 <div class="flow" aria-label="Process in execution order">
-<div class="flow-step route"><strong>Route runner</strong><small>Clear list, add tasks, supply initial_data.</small>
+<div class="flow-step route"><strong>Workflow start function</strong><small>Load inputs, build typed data and the task list.</small>
 </div>
 <div class="flow-arrow" aria-hidden="true">
 </div>
-<div class="flow-step sync"><strong>set_data(output)</strong><small>Replace the next task's input dictionary.</small>
+<div class="flow-step sync"><strong>run()</strong><small>Reject if busy; otherwise record the workflow and return at once.</small>
 </div>
 <div class="flow-arrow" aria-hidden="true">
 </div>
-<div class="flow-step sync"><strong>run_task()</strong><small>Execute synchronously and return a dictionary.</small>
+<div class="flow-step sync"><strong>Each task</strong><small>Check input type, run, check output type, pass it on.</small>
 </div>
 <div class="flow-arrow" aria-hidden="true">
 </div>
-<div class="flow-step sync"><strong>Next task</strong><small>Receive that return value as its entire input.</small>
+<div class="flow-step db"><strong>finish, then cleanup</strong><small>Save the output file or keep the result; always delete temp inputs.</small>
 </div>
 </div>
-<p>The runner rejects execution when it is already running and resets its active flags in <code>finally</code>. This is an in-process sequence, not a durable queue or dependency graph. Task-list assembly and starting execution are separate operations; the lock should not be read as a transactional submission API.
+<p>The orchestrator runs one workflow at a time on its own background thread. <code>run()</code> either rejects the request without touching the running workflow, or accepts it and takes over: from then on it records progress and errors, and its cleanup deletes the uploaded temp files whether the run succeeds or fails. On server shutdown it waits for the running workflow to finish before the models are released.
 </p>
-<p>Source: <code>backend/orchestrator/task_orchestrator.py</code>.
+<p>Source: <code>backend/orchestrator/task_orchestrator.py</code> and <code>backend/orchestrator/workflows/</code>.
 </p>
 </section>
 <section id="contract">
 <h2>Task inputs and outputs
 </h2>
-<p><code>BaseTask</code> requires <code>run_task()</code>, but does not declare required input keys or validate the output dictionary. Tasks read keys themselves, often with <code>data.get(...)</code> defaults. Missing values can therefore fail later, or activate fallback behavior.
-</p>
-<p>The runner does <strong>not</strong> merge old and new data. Intermediate tasks preserve upstream values using <code>{**data, "new_key": value}</code>. Returning only the new key would discard everything else needed downstream.
+<p>Every task declares its input and output as dataclasses in <code>orchestrator/task_data/</code>, one module per kind of workflow. Required fields have no defaults, so a missing value fails as soon as the next object is built, and the orchestrator checks each task's input and output type as the workflow runs. A step that adds fields builds the next type with <code>extend()</code>; a step that only changes fields uses <code>replace()</code>.
 </p>
 <div class="table-wrap">
 <table>
 <thead>
-<tr><th scope="col">Step in file translation</th><th scope="col">Input it uses</th><th scope="col">Output passed onward</th>
+<tr><th scope="col">Step in file translation</th><th scope="col">Input type</th><th scope="col">Output type</th>
 </tr>
 </thead>
 <tbody>
-<tr><td>Route</td><td>Upload, languages, batch size, optional series.</td><td>file_path, original_filename, context, input_lang, output_lang, batch_size, series; runner adds log_dir.</td>
+<tr><td>Workflow start</td><td>Upload, languages, batch size, optional series.</td><td>TranslationData, with the subtitles already loaded.</td>
 </tr>
-<tr><td>Plan batches</td><td>Subtitle file and language/context information.</td><td>All incoming keys plus batches.</td>
+<tr><td>Prepare batches</td><td>TranslationData</td><td>PlannedTranslationData: adds the batch plan.</td>
 </tr>
-<tr><td>Split oversized batches</td><td>batches, file_path and batch_size.</td><td>All incoming keys with a repaired batches list.</td>
+<tr><td>Select library context</td><td>PlannedTranslationData</td><td>The same type, with context and library_context filled in.</td>
 </tr>
-<tr><td>Select library context</td><td>Series and subtitle content.</td><td>Preserves inputs; adds/replaces context and library_context when selection runs. Without a series it passes data through.</td>
+<tr><td>Translate batches</td><td>PlannedTranslationData</td><td>TranslatedSubtitleData: the translated subtitles and the names needed to save them.</td>
 </tr>
-<tr><td>Translate file</td><td>File, batch ranges, context and language settings.</td><td>Writes the subtitle file, marks completion and returns an empty dictionary because the chain ends here.</td>
+<tr><td>finish</td><td>TranslatedSubtitleData</td><td>FileOutputData: the path of the saved file.</td>
 </tr>
 </tbody>
 </table>
 </div>
-<div class="note warn">
-<p>A task's return value feeds the next task. <code>ResultHandler.set_complete(...)</code> feeds the polling API. These are different outputs; writing one does not automatically write the other.
+<div class="note">
+<p>Tasks don't save files, delete uploads or record their own status. They return data or raise; the workflow's finish callback saves output and the orchestrator records the result or error.
 </p>
 </div>
 </section>
 <section id="chains">
-<h2>Task chains
+<h2>The six workflows
 </h2>
 <div class="table-wrap">
 <table>
 <thead>
-<tr><th scope="col">User operation</th><th scope="col">Execution order</th><th scope="col">Polled final type</th>
+<tr><th scope="col">Workflow</th><th scope="col">Tasks in order</th><th scope="col">Result</th>
 </tr>
 </thead>
 <tbody>
-<tr><td>Translate a line</td><td>TaskTranslateLine</td><td>TaskTranslateLine</td>
+<tr><td>translate_line</td><td>TaskTranslateLine</td><td>Translated text</td>
 </tr>
-<tr><td>Translate a file</td><td>TaskPlanTranslationBatches &rarr; TaskSplitOversizedBatches &rarr; TaskSelectLibraryContext &rarr; TaskTranslateFile</td><td>TaskTranslateFile</td>
+<tr><td>translate_file</td><td>TaskPrepareTranslationBatches &rarr; TaskSelectLibraryContext &rarr; TaskTranslateBatches</td><td>Saved file in translated/</td>
 </tr>
-<tr><td>Review a translation</td><td>TaskPlanTranslationReviewBatches &rarr; TaskSelectLibraryContextForReview &rarr; TaskReviewTranslatedBatches &rarr; TaskRetranslateReviewedLines</td><td>TaskRetranslateReviewedLines</td>
+<tr><td>review_file</td><td>TaskPrepareReviewBatches &rarr; TaskSelectLibraryContext &rarr; TaskReviewTranslatedBatches &rarr; TaskRetranslateReviewedLines</td><td>Saved file in reviewed/, plus the number of corrected lines</td>
 </tr>
-<tr><td>Update library</td><td>TaskScanSubtitleFile &rarr; TaskCheckAgainstLibrary &rarr; TaskGenerateSearchQueries &rarr; TaskWebSearch &rarr; TaskGenerateLibraryProposals &rarr; TaskDeduplicateProposals</td><td>TaskDeduplicateProposals</td>
+<tr><td>update_library</td><td>TaskExtractLibraryFindings &rarr; TaskClassifyLibraryFindings &rarr; TaskGenerateSearchQueries &rarr; TaskWebSearch &rarr; TaskGenerateLibraryProposals &rarr; TaskDeduplicateCharacterUpdates</td><td>Proposals</td>
 </tr>
-<tr><td>Transcribe a line / file</td><td>TaskTranscribeLine / TaskTranscribeFile, each as a single task.</td><td>Corresponding single-task type</td>
+<tr><td>transcribe_clip</td><td>TaskTranscribeClip</td><td>Transcribed text</td>
+</tr>
+<tr><td>transcribe_file</td><td>TaskTranscribeFile</td><td>Saved file in transcribed/</td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>Library tasks extract candidates, compare them with the existing library, research them and prepare deduplicated proposals. The user accepts proposals through library editing endpoints; the chain does not directly save them as accepted entries.
+<p>Review loads both files and checks that they have the same number of lines before any model call. The library update extracts names, terms and events, compares them with the library, searches the web for unknown names and terms (events are not searched), and proposes additions. The user accepts proposals through the library editing endpoints; the workflow never writes to the library itself.
 </p>
 </section>
 <section id="reuse">
-<h2>Task reuse
+<h2>Shared steps
 </h2>
-<p><code>TaskPlanTranslationReviewBatches</code> inherits the translation batch planner, calls its implementation and forwards translated-file information. <code>TaskSelectLibraryContextForReview</code> inherits the translation context selector, changing its task type and log filename.
+<p>Translation and review share their batch-planning code (<code>translate_file/batch_preparation.py</code>). Translation then splits any batch larger than the requested batch size, asking the model again and falling back to an even split if its reply is invalid. Review keeps the model's batches as planned.
 </p>
-<p>The review chain does not include <code>TaskSplitOversizedBatches</code>. Sharing the planner therefore does not mean both chains have identical batch processing.
+<p>Both workflows use the same <code>TaskSelectLibraryContext</code>. It is created with the data type it runs on and returns that same type, so review-only fields such as the translated subtitles pass through untouched. Without a series or with an empty library, it skips the model call.
 </p>
-<p>These subclasses reuse task behavior, including progress/result reporting and singleton access. The reusable unit is currently an orchestrator task with side effects, rather than only a pure planning or context-selection function.
-</p>
-<p>Source: <code>backend/orchestrator/review_file/task_plan_translation_review_batches.py</code> and <code>backend/orchestrator/review_file/task_select_library_context_for_review.py</code>.
+<p>Source: <code>backend/orchestrator/translate_file/</code> and <code>backend/orchestrator/review_file/</code>.
 </p>
 </section>
 <section id="tracking">
-<h2>Progress and error tracking
+<h2>Progress, errors and logs
 </h2>
-<p>Tasks explicitly write to <code>ResultHandler</code> and <code>ProgressHandler</code>. Each store holds the latest entry per task type, protected by a lock. They do not hold a history of uniquely identified jobs.
+<p>The orchestrator keeps one state record per workflow in <code>TaskStateHandler</code>: status, active task, progress, message, ETA, result and error. Tasks only report progress through the <code>report_progress</code> callback they are given. Starting a workflow replaces its previous record; a failure keeps the task that failed and its last progress, so the UI can say where it stopped.
 </p>
-<p>A task typically marks itself processing, writes progress, then marks completion. On failure it records an error and raises. The orchestrator logs the exception and stops the chain; route-level wrappers record the error under the final type that the UI is polling.
+<p>Each run gets its own log folder, <code>files/logs/&lt;workflow&gt;/&lt;timestamp&gt;-&lt;file name&gt;/</code>, kept after success or failure. Tasks write diagnostics there through the <code>write_log</code> callback, for example the model's batch plan and, separately, every batch the splitter repaired. See <a href="requests.html#polling">the polling rules</a> for how the frontend reads the state.
 </p>
-<p>The translation and review runners clear the final result before running. Polling can then report an intermediate task's progress until the final task has its own record. See <a href="requests.html#polling">the polling rules</a>.
-</p>
-</section>
-<section id="questions">
-<h2>Refactoring considerations
-</h2>
-<p>These are design questions, not changes made by this draft:
-</p>
-<ul>
-<li>Should each task declare and validate its inputs before execution?
-</li>
-<li>Should shared batch/context logic be separate from task status and logging?
-</li>
-<li>Should a chain submission own its task list instead of assembling a shared mutable list?
-</li>
-<li>Should results identify a particular run rather than only a task class?
-</li>
-<li>Should one layer own temporary-file cleanup for the whole chain?
-</li>
-</ul>
 </section>
 
 </main>

@@ -39,7 +39,7 @@
 <section id="map">
 <h2>Application structure
 </h2>
-<p>The app has two running parts: an Angular browser interface and a FastAPI Python backend. The browser gathers files, text and settings. The backend runs models, executes task chains and writes files. There is no database or separate durable job worker.
+<p>The app has two running parts: an Angular browser interface and a FastAPI Python backend. The browser gathers files, text and settings. The backend runs models, executes workflows and writes files. There is no database or separate durable job worker.
 </p>
 <div class="flow" aria-label="Process in execution order">
 <div class="flow-step fe"><strong>Angular pages</strong><small>Choose inputs, start work and display results.</small>
@@ -72,7 +72,7 @@
 <tbody>
 <tr><td><a href="backend.html">Backend and models</a></td><td>Who owns model instances, settings, startup and provider calls.</td>
 </tr>
-<tr><td><a href="tasks.html">Orchestrator and task chains</a></td><td>How tasks exchange data; what is enforced; how review reuses translation tasks.</td>
+<tr><td><a href="tasks.html">Orchestrator and task chains</a></td><td>How workflows run, the typed data tasks exchange, and how translation and review share steps.</td>
 </tr>
 <tr><td><a href="requests.html">Translation request flow</a></td><td>Upload, background execution, polling, errors and download.</td>
 </tr>
@@ -96,7 +96,7 @@
 <tbody>
 <tr><td>Browser memory</td><td>Selected files, selected series, task state in StateService.</td><td>Browser refresh. Route changes keep service state, but page-local state has its own lifecycle.</td>
 </tr>
-<tr><td>Backend memory</td><td>Loaded clients, active task, latest result and progress per task type.</td><td>Backend restart. There is no persisted queue to resume a chain.</td>
+<tr><td>Backend memory</td><td>Loaded clients, the running workflow, and the latest state of each workflow.</td><td>Backend restart. There is no persisted queue to resume a workflow.</td>
 </tr>
 <tr><td>Disk</td><td>Library JSON, settings JSON, generated subtitles, logs.</td><td>Files persist independently of in-memory task state until removed or overwritten.</td>
 </tr>

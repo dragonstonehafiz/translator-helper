@@ -1,127 +1,68 @@
-import json
-import os
-from pathlib import Path
-
-import pysubs2
-
-from orchestrator.base_task import BaseTask
 from models.manager import ModelManager
-from orchestrator.progress_handler import ProgressHandler
-from orchestrator.result_handler import ResultHandler
+from orchestrator.base_task import BaseTask, ReportProgress, WriteLog
+from orchestrator.task_data.translation import CorrectedSubtitleData, ReviewedData
+from orchestrator.workflows.file_output import reviewed_filename
 from prompts.review_file import generate_line_retranslation_prompt
 
 
-class TaskRetranslateReviewedLines(BaseTask):
-    """Review chain task (slot 04/final): retranslate each flagged line using its review reason, save the corrected file."""
+class TaskRetranslateReviewedLines(BaseTask[ReviewedData, CorrectedSubtitleData]):
+    """Review stage 4: retranslate each flagged line using its review reason; the workflow saves the file."""
 
-    TASK_TYPE = "TaskRetranslateReviewedLines"
+    input_type = ReviewedData
+    output_type = CorrectedSubtitleData
 
-    @property
-    def task_type(self) -> str:
-        """Return the task type identifier."""
-        return self.TASK_TYPE
-
-    def run_task(self) -> dict:
-        """Iterate over corrections, retranslate each flagged line, save the corrected ASS file, and mark the chain complete."""
-        model_manager = ModelManager.get_instance()
-        result_handler = ResultHandler.get_instance()
-        progress_handler = ProgressHandler.get_instance()
-        llm_client = model_manager.get_llm_client()
-        if llm_client is None:
-            result_handler.set_error(self.task_type, "LLM model not initialized")
-            return {}
-
+    def run_task(self, report_progress: ReportProgress, write_log: WriteLog) -> CorrectedSubtitleData:
+        """Replace each flagged translated line with a new translation and return the corrected subtitles."""
         data = self.get_data()
-        file_path = str(data.get("file_path", ""))
-        translated_file_path = str(data.get("translated_file_path", ""))
-        translated_filename = str(data.get("translated_filename") or "translated.ass")
-        corrections = data.get("corrections") or []
-        context = data.get("context") or {}
-        input_lang = str(data.get("input_lang", "ja"))
-        output_lang = str(data.get("output_lang", "en"))
-        log_dir = str(data.get("log_dir", ""))
+        corrections = data.corrections
+        original_subs = data.subtitles
+        translated_subs = data.translated_subtitles
+        model_manager = ModelManager.get_instance()
+        correction_logs = []
 
-        result_handler.set_processing(self.task_type)
+        llm = model_manager.acquire_llm()
         try:
-            if not file_path or not translated_file_path:
-                raise ValueError(
-                    "Translation review could not continue because the upstream review stage did not provide subtitle file paths."
-                )
-            original_subs = pysubs2.load(file_path)
-            translated_subs = pysubs2.load(translated_file_path)
-            if len(original_subs) != len(translated_subs):
-                raise ValueError(
-                    "Original and translated subtitle files must contain the same number of subtitle lines."
-                )
-
-            progress_handler.set(
-                self.task_type,
-                {
-                    "current": 0,
-                    "total": max(1, len(corrections)),
-                    "status": f"Retranslating {len(corrections)} reviewed subtitle lines",
-                    "eta_seconds": 0.0,
-                },
-            )
-
-            model_manager.acquire_llm()
-            correction_logs = []
+            report_progress(0, max(1, len(corrections)), f"Retranslating {len(corrections)} reviewed subtitle lines", 0.0)
             for correction_number, correction in enumerate(corrections, start=1):
-                index = int(correction["index"])
-                reason = str(correction["reason"]).strip()
+                index = correction.index
                 if index < 1 or index > len(original_subs):
                     raise ValueError(f"Correction index {index} is outside the subtitle file.")
 
                 original_line = original_subs[index - 1]
                 translated_line = translated_subs[index - 1]
-                corrected_text = model_manager.get_llm_client().infer(
-                    prompt=self._build_retranslation_prompt(index, original_line, translated_line, reason),
+                corrected_text = llm.infer(
+                    prompt=self._build_retranslation_prompt(index, original_line, translated_line, correction.reason),
                     system_prompt=generate_line_retranslation_prompt(
-                        context=context if context else None,
-                        input_lang=input_lang,
-                        output_lang=output_lang,
+                        context=data.context if data.context else None,
+                        input_lang=data.input_lang,
+                        output_lang=data.output_lang,
                     ),
-                    temperature=llm_client.config.temperature.value,
+                    temperature=llm.config.temperature.value,
                 ).strip()
                 previous_text = translated_line.text
                 translated_line.text = corrected_text.replace("\\N", " ").strip()
-                correction_logs.append(
-                    {
-                        "index": index,
-                        "reason": reason,
-                        "original_text": original_line.text,
-                        "previous_translation": previous_text,
-                        "corrected_translation": translated_line.text,
-                    }
-                )
-                progress_handler.set(
-                    self.task_type,
-                    {
-                        "current": correction_number,
-                        "total": max(1, len(corrections)),
-                        "status": f"Retranslated line {correction_number}/{len(corrections)}",
-                        "eta_seconds": 0.0,
-                    },
-                )
-
-            output_path = self._save_corrected_file(translated_subs, translated_filename)
-            self._write_retranslation_log(
-                log_dir=log_dir,
-                output_path=output_path,
-                correction_logs=correction_logs,
-            )
-
-            payload = {
-                "corrected_count": len(corrections),
-                "output_filename": Path(output_path).name,
-            }
-            result_handler.set_complete(self.task_type, payload)
-            return payload
-        except Exception as exc:
-            result_handler.set_error(self.task_type, str(exc))
-            raise
+                correction_logs.append({
+                    "index": index,
+                    "reason": correction.reason,
+                    "original_text": original_line.text,
+                    "previous_translation": previous_text,
+                    "corrected_translation": translated_line.text,
+                })
+                report_progress(correction_number, max(1, len(corrections)), f"Retranslated line {correction_number}/{len(corrections)}", 0.0)
         finally:
             model_manager.release_llm()
+
+        write_log("04-retranslate-reviewed-lines.json", {
+            "task_type": self.task_type,
+            "output_filename": reviewed_filename(data.translated_filename),
+            "corrected_count": len(correction_logs),
+            "corrections": correction_logs,
+        })
+        return CorrectedSubtitleData(
+            subtitles=translated_subs,
+            translated_filename=data.translated_filename,
+            corrected_count=len(corrections),
+        )
 
     def _build_retranslation_prompt(self, index: int, original_line, translated_line, reason: str) -> str:
         """Build the user-turn prompt containing the line index, original, current translation, and review reason."""
@@ -133,37 +74,3 @@ class TaskRetranslateReviewedLines(BaseTask):
         <CURRENT_TRANSLATED_LINE>{translated_speaker}: {translated_line.text}</CURRENT_TRANSLATED_LINE>
         <REVIEW_REASON>{reason}</REVIEW_REASON>
         """.strip()
-
-    def _save_corrected_file(self, translated_subs, translated_filename: str) -> str:
-        """Save the corrected subtitle file as <original_stem>.corrected.ass under OUTPUTS_DIR/reviewed/ and return the path."""
-        safe_name = os.path.basename(translated_filename) or "translated.ass"
-        path = Path(safe_name)
-        suffix = path.suffix or ".ass"
-        corrected_filename = f"{path.stem}.corrected{suffix}"
-        from utils.config import OUTPUTS_DIR
-        output_dir = OUTPUTS_DIR / "reviewed"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / corrected_filename
-        translated_subs.save(str(output_path))
-        return str(output_path)
-
-    def _write_retranslation_log(
-        self,
-        log_dir: str,
-        output_path: str,
-        correction_logs: list[dict],
-    ):
-        """Write the per-line correction audit as 04-retranslate-reviewed-lines.json in the run's log directory."""
-        if not log_dir:
-            return
-
-        output_dir = Path(log_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        log_payload = {
-            "task_type": self.task_type,
-            "output_filename": Path(output_path).name,
-            "corrected_count": len(correction_logs),
-            "corrections": correction_logs,
-        }
-        with open(output_dir / "04-retranslate-reviewed-lines.json", "w", encoding="utf-8") as file_handle:
-            json.dump(log_payload, file_handle, ensure_ascii=False, indent=2)

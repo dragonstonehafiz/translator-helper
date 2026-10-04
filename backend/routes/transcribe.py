@@ -2,65 +2,63 @@
 Transcription routes.
 """
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, UploadFile
+from pathlib import Path
 
-from orchestrator.tasks.task_transcribe_file import TaskTranscribeFile
-from orchestrator.tasks.task_transcribe_line import TaskTranscribeLine
+from fastapi import APIRouter, File, Form, UploadFile
+
+from models.manager import ModelManager
+from orchestrator.task_orchestrator import TaskOrchestrator
+from orchestrator.workflows.transcribe_clip import start_transcribe_clip
+from orchestrator.workflows.transcribe_file import start_transcribe_file
 from utils.api_response import error_response, processing_response
 
-from .shared import (
-    model_manager,
-    run_single_task,
-    save_upload_to_temp,
-    task_orchestrator,
-)
+from .shared import remove_temp_files, save_upload_to_temp
 
 router = APIRouter(prefix="/transcribe")
 
 
+def _busy_or_unready() -> dict | None:
+    """Return an error envelope if a workflow is running or the audio model is not loaded, else None."""
+    if TaskOrchestrator.get_instance().get_running_state() is not None:
+        return error_response("Transcription is already running")
+    if not ModelManager.get_instance().is_audio_ready():
+        return error_response("Audio model not loaded")
+    return None
+
+
 @router.post("/transcribe-line")
 async def api_transcribe_line(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     language: str = Form(...),
 ):
-    """Upload an audio file and start a single-line transcription task in the background."""
-    if task_orchestrator.is_running():
-        return error_response("Transcription is already running")
-    if not model_manager.is_audio_ready():
-        return error_response("Audio model not loaded")
-
+    """Upload an audio clip and start transcribing it."""
+    rejection = _busy_or_unready()
+    if rejection:
+        return rejection
+    tmp_path: Path | None = None
     try:
-        tmp_file_path = await save_upload_to_temp(file)
-        background_tasks.add_task(
-            run_single_task,
-            TaskTranscribeLine(),
-            {"file_path": tmp_file_path, "language": language},
-        )
-        return processing_response({"task_type": TaskTranscribeLine.TASK_TYPE}, "Transcription started")
+        tmp_path = await save_upload_to_temp(file)
+        start_transcribe_clip(audio_path=tmp_path, language=language)
     except Exception as exc:
+        remove_temp_files(tmp_path)
         return error_response(str(exc))
+    return processing_response({"workflow": "transcribe_clip"}, "Transcription started")
 
 
 @router.post("/transcribe-file")
 async def api_transcribe_file(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     language: str = Form(...),
 ):
-    """Upload an audio file and start a full-file transcription task in the background."""
-    if task_orchestrator.is_running():
-        return error_response("Transcription is already running")
-    if not model_manager.is_audio_ready():
-        return error_response("Audio model not loaded")
-
+    """Upload an audio file and start transcribing it to subtitles."""
+    rejection = _busy_or_unready()
+    if rejection:
+        return rejection
+    tmp_path: Path | None = None
     try:
-        tmp_file_path = await save_upload_to_temp(file)
-        background_tasks.add_task(
-            run_single_task,
-            TaskTranscribeFile(),
-            {"file_path": tmp_file_path, "language": language, "original_filename": file.filename},
-        )
-        return processing_response({"task_type": TaskTranscribeFile.TASK_TYPE}, "File transcription started")
+        tmp_path = await save_upload_to_temp(file)
+        start_transcribe_file(audio_path=tmp_path, original_filename=file.filename or "audio.wav", language=language)
     except Exception as exc:
+        remove_temp_files(tmp_path)
         return error_response(str(exc))
+    return processing_response({"workflow": "transcribe_file"}, "File transcription started")

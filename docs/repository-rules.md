@@ -8,7 +8,7 @@ Coding rules, verification expectations, and safety/permission boundaries that a
 
 - use type hints and a concise, single-line docstring on every Python function, class, and method — describe purpose or contract, not implementation history
 - return every JSON response through the helpers in `utils/api_response.py`; put payload fields under `data`, never at the root
-- never swallow errors silently — every task exception path calls `result_handler.set_error(...)` and re-raises
+- never swallow errors silently — tasks raise on failure and `TaskOrchestrator` records the error; routes return failures as error envelopes
 - import runtime paths from `utils/config.py` (`CONFIG_DIR`, `LIBRARY_DIR`, `OUTPUTS_DIR`, `LOGS_DIR`) rather than rebuilding them
 - keep `.method()` on the same line as its object — no chained calls starting on a new line
 
@@ -19,7 +19,7 @@ Coding rules, verification expectations, and safety/permission boundaries that a
 - keep styles in the component's colocated `.scss` file; no inline styles; never redefine the global classes from `src/styles.scss`
 - make every backend call through `ApiService`; never inject `HttpClient` in a component
 - use `ErrorDialogService` instead of `alert(...)` and `ConfirmationService` instead of `confirm(...)`; every Observable `error:` callback shows the error dialog
-- use `TASK_TYPES` and `LANGUAGE_OPTIONS` rather than hardcoding task-type strings or language lists
+- use `WORKFLOW_TYPES` and `LANGUAGE_OPTIONS` rather than hardcoding workflow IDs or language lists
 - reuse the shared components in `src/app/components/` instead of duplicating their markup
 - no `console.log` in frontend code; keep emoji to a minimum — prefer text labels or SVG icons
 

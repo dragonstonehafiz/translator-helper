@@ -1,87 +1,53 @@
-import json
-import os
-
-from orchestrator.base_task import BaseTask
 from models.manager import ModelManager
-from orchestrator.progress_handler import ProgressHandler
-from orchestrator.result_handler import ResultHandler
+from orchestrator.base_task import BaseTask, ReportProgress, WriteLog
+from orchestrator.task_data.base import extend
+from orchestrator.task_data.library_update import QueriedLibraryData, SearchResult, SearchedLibraryData
 from utils.logger import setup_logger
 
 logger = setup_logger("translator-helper")
 
 
-class TaskWebSearch(BaseTask):
-    """Library update chain task (slot 04): execute each generated search query via Tavily and collect result snippets."""
+class TaskWebSearch(BaseTask[QueriedLibraryData, SearchedLibraryData]):
+    """Library update stage 4: run each search query through Tavily and collect result snippets."""
 
-    TASK_TYPE = "TaskWebSearch"
+    input_type = QueriedLibraryData
+    output_type = SearchedLibraryData
 
-    @property
-    def task_type(self) -> str:
-        """Return the task type identifier."""
-        return self.TASK_TYPE
-
-    def run_task(self) -> dict:
-        """Run all search queries; skips if no queries or if search is not loaded; raises on search failure."""
-        model_manager = ModelManager.get_instance()
-        result_handler = ResultHandler.get_instance()
-        progress_handler = ProgressHandler.get_instance()
-
+    def run_task(self, report_progress: ReportProgress, write_log: WriteLog) -> SearchedLibraryData:
+        """Run every query; with no queries, return empty results without needing a search client."""
         data = self.get_data()
-        queries = data.get("search_queries", [])
-        log_dir = data.get("log_dir", "")
-
-        result_handler.set_processing(self.task_type)
-
+        queries = data.search_queries
         if not queries:
-            progress_handler.set(self.task_type, {"current": 1, "total": 1, "status": "No search queries — skipping web search", "eta_seconds": 0})
-            result_handler.set_complete(self.task_type)
-            if log_dir:
-                self._write_log(log_dir, [])
-            return {**data, "search_results": []}
+            report_progress(1, 1, "No search queries — skipping web search", 0.0)
+            write_log("04-web-search.json", {"search_results": []})
+            return extend(data, SearchedLibraryData, search_results=[])
 
+        model_manager = ModelManager.get_instance()
         search_client = model_manager.get_search_client()
         if search_client is None:
-            msg = "Tavily search not loaded. Please load the search model in Settings first."
-            result_handler.set_error(self.task_type, msg)
-            raise RuntimeError(msg)
+            raise RuntimeError("Tavily search not loaded. Please load the search model in Settings first.")
         if not model_manager.is_search_ready():
-            status = search_client.state.value
             load_error = model_manager.search_loading_error or "unknown error"
-            msg = f"Tavily search is in '{status}' state. Load error: {load_error}. Please reload the search model in Settings."
-            result_handler.set_error(self.task_type, msg)
-            raise RuntimeError(msg)
+            raise RuntimeError(
+                f"Tavily search is in '{search_client.state.value}' state. Load error: {load_error}. "
+                "Please reload the search model in Settings."
+            )
 
-        progress_handler.set(self.task_type, {"current": 0, "total": len(queries), "status": "Running web searches", "eta_seconds": 0})
-
+        search = model_manager.acquire_search()
         try:
-            model_manager.acquire_search()
-            search_results = []
-            for i, q in enumerate(queries):
-                subject = q.get("subject", "")
-                query = q.get("query", "")
+            report_progress(0, len(queries), "Running web searches", 0.0)
+            search_results: list[SearchResult] = []
+            for i, query in enumerate(queries):
                 try:
-                    snippets = search_client.search(query, max_results=5)
-                    search_results.append({"subject": subject, "results": snippets})
-                    logger.info("Web search completed: subject=%s query=%s results=%d", subject, query, len(snippets))
+                    snippets = search.search(query["query"], max_results=5)
                 except Exception as exc:
-                    logger.error("Web search failed: subject=%s error=%s", subject, exc)
-                    result_handler.set_error(self.task_type, f"Web search failed for '{subject}': {exc}")
-                    raise
-                progress_handler.set(self.task_type, {"current": i + 1, "total": len(queries), "status": f"Searched {i + 1}/{len(queries)}", "eta_seconds": 0})
-
-            if log_dir:
-                self._write_log(log_dir, search_results)
-
-            result_handler.set_complete(self.task_type)
-            return {**data, "search_results": search_results}
-        except Exception as exc:
-            result_handler.set_error(self.task_type, str(exc))
-            raise
+                    logger.error("Web search failed: subject=%s error=%s", query["subject"], exc)
+                    raise RuntimeError(f"Web search failed for '{query['subject']}': {exc}") from exc
+                search_results.append({"subject": query["subject"], "results": snippets})
+                logger.info("Web search completed: subject=%s query=%s results=%d", query["subject"], query["query"], len(snippets))
+                report_progress(i + 1, len(queries), f"Searched {i + 1}/{len(queries)}", 0.0)
         finally:
             model_manager.release_search()
 
-    def _write_log(self, log_dir: str, search_results: list) -> None:
-        """Write search results to 04-web-search.json in the run's log directory."""
-        path = os.path.join(log_dir, "04-web-search.json")
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump({"search_results": search_results}, f, ensure_ascii=False, indent=2)
+        write_log("04-web-search.json", {"search_results": search_results})
+        return extend(data, SearchedLibraryData, search_results=search_results)

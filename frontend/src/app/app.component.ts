@@ -6,7 +6,8 @@ import { ProgressBarComponent } from './components/progress-bar/progress-bar.com
 import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dialog.component';
 import { ErrorDialogComponent } from './components/error-dialog/error-dialog.component';
 import { ApiService } from './services/api.service';
-import { StateService, TaskProgress, TASK_TYPES } from './services/state.service';
+import { StateService } from './services/state.service';
+import { WORKFLOW_TYPES, WorkflowId, WorkflowState } from './shared/workflow-types';
 import { ConfirmationService } from './services/confirmation.service';
 import { ErrorDialogService } from './services/error-dialog.service';
 
@@ -31,14 +32,14 @@ import { ErrorDialogService } from './services/error-dialog.service';
       (dismissed)="errorDialogService.dismiss()">
     </app-error-dialog>
 
-    <div class="progress-overlay" *ngIf="activeProgress">
+    <div class="progress-overlay" *ngIf="activeWorkflow as active">
       <div class="progress-overlay-card">
         <app-progress-bar
-          [taskLabel]="activeTaskLabel"
-          [current]="activeProgress.current"
-          [total]="activeProgress.total"
-          [statusText]="activeProgress.status"
-          [etaSeconds]="activeProgress.eta_seconds">
+          [taskLabel]="workflowLabels[active.workflow]"
+          [current]="active.current"
+          [total]="active.total"
+          [statusText]="active.message"
+          [etaSeconds]="active.etaSeconds">
         </app-progress-bar>
       </div>
     </div>
@@ -47,21 +48,13 @@ import { ErrorDialogService } from './services/error-dialog.service';
 })
 export class AppComponent implements OnInit {
   title = 'Translator Helper';
-  private readonly taskOrder = [
-    TASK_TYPES.reviewTranslatedFile,
-    TASK_TYPES.translateFile,
-    TASK_TYPES.translateLine,
-    TASK_TYPES.transcribeFile,
-    TASK_TYPES.transcribeLine,
-    TASK_TYPES.updateLibrary,
-  ];
-  private readonly taskLabels: Record<string, string> = {
-    [TASK_TYPES.translateFile]: 'File Translation',
-    [TASK_TYPES.reviewTranslatedFile]: 'Translation Review',
-    [TASK_TYPES.translateLine]: 'Line Translation',
-    [TASK_TYPES.transcribeFile]: 'File Transcription',
-    [TASK_TYPES.transcribeLine]: 'Line Transcription',
-    [TASK_TYPES.updateLibrary]: 'Library Update',
+  readonly workflowLabels: Record<WorkflowId, string> = {
+    [WORKFLOW_TYPES.translateFile]: 'File Translation',
+    [WORKFLOW_TYPES.reviewTranslatedFile]: 'Translation Review',
+    [WORKFLOW_TYPES.translateLine]: 'Line Translation',
+    [WORKFLOW_TYPES.transcribeFile]: 'File Transcription',
+    [WORKFLOW_TYPES.transcribeClip]: 'Line Transcription',
+    [WORKFLOW_TYPES.updateLibrary]: 'Library Update',
   };
 
   constructor(
@@ -76,30 +69,8 @@ export class AppComponent implements OnInit {
     this.checkBackendReady();
   }
 
-  get activeProgress(): TaskProgress | null {
-    const taskStates = this.stateService.getTaskStates();
-
-    for (const taskType of this.taskOrder) {
-      const taskState = taskStates[taskType];
-      if (taskState?.status === 'processing' && taskState.progress) {
-        return taskState.progress;
-      }
-    }
-
-    return null;
-  }
-
-  get activeTaskLabel(): string {
-    const taskStates = this.stateService.getTaskStates();
-
-    for (const taskType of this.taskOrder) {
-      const taskState = taskStates[taskType];
-      if (taskState?.status === 'processing' && taskState.progress) {
-        return this.taskLabels[taskType] ?? 'Task In Progress';
-      }
-    }
-
-    return 'Task In Progress';
+  get activeWorkflow(): WorkflowState | null {
+    return this.stateService.getActiveWorkflow();
   }
 
   private checkBackendReady(): void {

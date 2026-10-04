@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from models.manager import ModelManager
+from orchestrator.task_orchestrator import TaskOrchestrator
 from routes import router
 from utils.api_response import register_exception_handlers
 
@@ -26,8 +27,9 @@ def _background_load(load: Callable[[], None]) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Start the three model loads without waiting for them; on shutdown, wait for them and release the models."""
+    """Start the three model loads without waiting for them; on shutdown, wait for the running workflow and the loads, then release the models."""
     model_manager = ModelManager.get_instance()
+    task_orchestrator = TaskOrchestrator.get_instance()
     loaders = [
         threading.Thread(target=_background_load, args=(load,), daemon=True)
         for load in (model_manager.load_llm_model, model_manager.load_audio_model, model_manager.load_search_model)
@@ -37,6 +39,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        await asyncio.to_thread(task_orchestrator.shutdown)
         for loader in loaders:
             await asyncio.to_thread(loader.join)
         await asyncio.to_thread(model_manager.shutdown)

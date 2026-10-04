@@ -2,35 +2,27 @@
 Library routes — CRUD for series, characters, glossary, and the library update chain.
 """
 
-import os
-import re
 import shutil
-from datetime import datetime
+from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, File, UploadFile
+from fastapi import APIRouter, File, UploadFile
 from pydantic import BaseModel
 
-from orchestrator.library.task_check_against_library import TaskCheckAgainstLibrary
-from orchestrator.library.task_deduplicate_proposals import TaskDeduplicateProposals
-from orchestrator.library.task_generate_library_proposals import TaskGenerateLibraryProposals
-from orchestrator.library.task_generate_search_queries import TaskGenerateSearchQueries
-from orchestrator.library.task_scan_subtitle_file import TaskScanSubtitleFile
-from orchestrator.library.task_web_search import TaskWebSearch
-from utils.api_response import error_response, processing_response, success_response
-from utils.config import LOGS_DIR
 from library.repository import (
     find_character,
     find_glossary_term,
-    get_library_dir,
     get_series_dir,
     list_series_ids,
     load_series,
     save_series,
-    slugify,
     unique_slug,
 )
+from models.manager import ModelManager
+from orchestrator.task_orchestrator import TaskOrchestrator
+from orchestrator.workflows.update_library import start_update_library
+from utils.api_response import error_response, processing_response, success_response
 
-from .shared import model_manager, save_upload_to_temp, task_orchestrator, result_handler
+from .shared import remove_temp_files, save_upload_to_temp
 
 router = APIRouter(prefix="/library")
 
@@ -261,59 +253,22 @@ async def delete_glossary_term(series_id: str, term_id: str):
     return success_response(series)
 
 
-# ── Library Update Chain ───────────────────────────────────────────────────────
-
-def _run_library_update_chain(data: dict):
-    """Run the 6-task library update chain in a background thread; records errors to ResultHandler on failure."""
-    try:
-        task_orchestrator.clear_tasks()
-        task_orchestrator.add_task(TaskScanSubtitleFile())
-        task_orchestrator.add_task(TaskCheckAgainstLibrary())
-        task_orchestrator.add_task(TaskGenerateSearchQueries())
-        task_orchestrator.add_task(TaskWebSearch())
-        task_orchestrator.add_task(TaskGenerateLibraryProposals())
-        task_orchestrator.add_task(TaskDeduplicateProposals())
-        task_orchestrator.run_tasks(initial_data=data)
-    except Exception as exc:
-        result_handler.set_error(TaskDeduplicateProposals.TASK_TYPE, str(exc))
-
+# ── Library Update ─────────────────────────────────────────────────────────────
 
 @router.post("/{series_id}/update")
-async def start_library_update(
-    series_id: str,
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-):
-    """Upload a subtitle file and start the library update chain for the given series."""
-    if not model_manager.is_llm_ready():
-        return error_response("LLM not loaded")
-    if task_orchestrator.is_running():
+async def start_library_update(series_id: str, file: UploadFile = File(...)):
+    """Upload a subtitle file and start proposing library additions for the given series."""
+    if TaskOrchestrator.get_instance().get_running_state() is not None:
         return error_response("A task is already running")
+    if not ModelManager.get_instance().is_llm_ready():
+        return error_response("LLM not loaded")
 
-    result_handler.clear(TaskDeduplicateProposals.TASK_TYPE)
     series = load_series(series_id)
-    tmp_path = await save_upload_to_temp(file)
-
-    safe_name = re.sub(r"[^\w\-]", "_", series.get("name", series_id))[:40]
-    log_dir = LOGS_DIR / "update_library" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_name}"
-    log_dir.mkdir(parents=True, exist_ok=True)
-
-    known_names = []
-    for char in series.get("characters", []):
-        known_names.append(char["name"])
-        known_names.extend(char.get("aliases", []))
-    known_terms = [t["term"] for t in series.get("glossary", [])]
-
-    data = {
-        "file_path": tmp_path,
-        "series_id": series_id,
-        "series": series,
-        "log_dir": str(log_dir),
-        "known_names": known_names,
-        "known_terms": known_terms,
-    }
-    background_tasks.add_task(_run_library_update_chain, data)
-    return processing_response(
-        {"task_type": TaskGenerateLibraryProposals.TASK_TYPE},
-        "Library update started",
-    )
+    tmp_path: Path | None = None
+    try:
+        tmp_path = await save_upload_to_temp(file)
+        start_update_library(file_path=tmp_path, input_filename=file.filename or "subtitles", series=series)
+    except Exception as exc:
+        remove_temp_files(tmp_path)
+        return error_response(str(exc))
+    return processing_response({"workflow": "update_library"}, "Library update started")

@@ -1,16 +1,11 @@
-import json
-import os
 import time
-from pathlib import Path
 
-import pysubs2
 from anthropic import RateLimitError as AnthropicRateLimitError
 from openai import RateLimitError as OpenAIRateLimitError
 
-from orchestrator.base_task import BaseTask
 from models.manager import ModelManager
-from orchestrator.progress_handler import ProgressHandler
-from orchestrator.result_handler import ResultHandler
+from orchestrator.base_task import BaseTask, ReportProgress, WriteLog
+from orchestrator.task_data.translation import PlannedTranslationData, TranslatedSubtitleData
 from prompts.translate import generate_translate_sub_prompt
 from prompts.translate_file import generate_translate_batch_prompt
 from utils.logger import setup_logger
@@ -18,127 +13,48 @@ from utils.logger import setup_logger
 logger = setup_logger()
 
 
-class TaskTranslateFile(BaseTask):
-    """Chain task (slot 04/final): translate all planned batches and save the result as an ASS subtitle file."""
+class TaskTranslateBatches(BaseTask[PlannedTranslationData, TranslatedSubtitleData]):
+    """Translation stage 3: translate each planned batch, with split and per-line fallbacks, then normalize quotes."""
 
-    TASK_TYPE = "TaskTranslateFile"
+    input_type = PlannedTranslationData
+    output_type = TranslatedSubtitleData
 
-    @property
-    def task_type(self) -> str:
-        """Return the task type identifier."""
-        return self.TASK_TYPE
-
-    def run_task(self) -> dict:
-        """Translate each batch with retry/split fallback, normalize quotes, save the output file, and mark the chain complete."""
-        model_manager = ModelManager.get_instance()
-        result_handler = ResultHandler.get_instance()
-        progress_handler = ProgressHandler.get_instance()
-        llm_client = model_manager.get_llm_client()
-        if llm_client is None:
-            result_handler.set_error(self.task_type, "LLM model not initialized")
-            raise RuntimeError("LLM model not initialized")
-
+    def run_task(self, report_progress: ReportProgress, write_log: WriteLog) -> TranslatedSubtitleData:
+        """Translate the loaded subtitles in place and return them; the workflow saves the file."""
         data = self.get_data()
-        batches = data.get("batches") or []
-        file_path = str(data.get("file_path", ""))
-        original_filename = str(data.get("original_filename", "subs.ass"))
-        context = data.get("context") or {}
-        input_lang = str(data.get("input_lang", "ja"))
-        output_lang = str(data.get("output_lang", "en"))
-        batch_size = int(data.get("batch_size", 3))
-        log_dir = str(data.get("log_dir", ""))
-
-        result_handler.set_processing(self.task_type)
+        subs = data.subtitles
+        model_manager = ModelManager.get_instance()
         start_time = time.time()
 
         def on_progress(current: int, total: int, batch_number: int, batch_count: int):
             elapsed = time.time() - start_time
             avg = (elapsed / current) if current > 0 else 0.0
             eta = avg * (total - current) if total > current else 0.0
-            progress_handler.set(
-                self.task_type,
-                {
-                    "current": current,
-                    "total": total,
-                    "status": f"Batch {batch_number}/{batch_count} complete",
-                    "eta_seconds": eta,
-                },
-            )
+            report_progress(current, total, f"Batch {batch_number}/{batch_count} complete", eta)
 
+        llm = model_manager.acquire_llm()
         try:
-            model_manager.acquire_llm()
-            subs = pysubs2.load(file_path)
-            progress_handler.set(
-                self.task_type,
-                {
-                    "current": 0,
-                    "total": len(subs),
-                    "status": f"Preparing {len(subs)} subtitle lines for translation",
-                    "eta_seconds": 0.0,
-                },
-            )
-
-            batch_ranges = self._build_batch_ranges(subs=subs, batches=batches, batch_size=batch_size)
-            translated_subs = self._translate_batches(
-                llm=llm_client,
+            report_progress(0, len(subs), f"Preparing {len(subs)} subtitle lines for translation", 0.0)
+            self._translate_batches(
+                llm=llm,
                 subs=subs,
-                batch_ranges=batch_ranges,
-                context=context,
-                input_lang=input_lang,
-                target_lang=output_lang,
-                temperature=llm_client.config.temperature.value,
-                log_dir=log_dir,
+                batch_ranges=[(batch.start_index - 1, batch.end_index) for batch in data.batches],
+                context=data.context,
+                input_lang=data.input_lang,
+                target_lang=data.output_lang,
+                temperature=llm.config.temperature.value,
+                write_log=write_log,
                 progress_callback=on_progress,
             )
-            self._normalize_translated_subtitles(translated_subs)
-
-            safe_original_name = os.path.basename(original_filename)
-            name_parts = safe_original_name.split(".")
-            ext = name_parts[-1]
-            base_name = name_parts[0]
-            safe_lang = "".join(char for char in output_lang if char.isalnum() or char in ("-", "_")) or "lang"
-            translated_filename = f"{base_name}.{safe_lang}.{ext}"
-            from utils.config import OUTPUTS_DIR
-            output_dir = OUTPUTS_DIR / "translated"
-            output_dir.mkdir(parents=True, exist_ok=True)
-            output_path = output_dir / translated_filename
-            translated_subs.save(output_path)
-
-            progress_handler.set(
-                self.task_type,
-                {
-                    "current": len(subs),
-                    "total": len(subs),
-                    "status": "Saving translated subtitle file",
-                    "eta_seconds": 0.0,
-                },
-            )
-
-            result_handler.set_complete(self.task_type)
-            return {}
-        except Exception as exc:
-            result_handler.set_error(self.task_type, str(exc))
-            raise
         finally:
             model_manager.release_llm()
-            if file_path:
-                try:
-                    os.remove(file_path)
-                except Exception:
-                    pass
 
-    def _build_batch_ranges(self, subs, batches: list[dict], batch_size: int) -> list[tuple[int, int]]:
-        """Convert planned batch dicts to (start, end) index tuples; falls back to fixed-size slicing if no batches provided."""
-        total_lines = len(subs)
-        if batches:
-            return [
-                (int(batch["start_index"]) - 1, int(batch["end_index"]))
-                for batch in batches
-            ]
-        return [
-            (start, min(start + batch_size, total_lines))
-            for start in range(0, total_lines, batch_size)
-        ]
+        self._normalize_translated_subtitles(subs)
+        return TranslatedSubtitleData(
+            subtitles=subs,
+            original_filename=data.original_filename,
+            output_lang=data.output_lang,
+        )
 
     def _translate_batches(
         self,
@@ -149,7 +65,7 @@ class TaskTranslateFile(BaseTask):
         input_lang: str,
         target_lang: str,
         temperature: float | None,
-        log_dir: str = "",
+        write_log: WriteLog,
         progress_callback=None,
     ):
         """Translate subtitle lines in batches, splitting on format errors and falling back to per-line translation if needed."""
@@ -197,7 +113,6 @@ class TaskTranslateFile(BaseTask):
                             if progress_callback:
                                 progress_callback(processed, total_lines, batch_number, total_batches)
                         malformed_error = None
-                        malformed_output = None
                         break
                     except Exception as exc:
                         if self._is_rate_limit_error(exc):
@@ -282,7 +197,12 @@ class TaskTranslateFile(BaseTask):
                     if progress_callback:
                         progress_callback(processed, total_lines, batch_number, total_batches)
 
-        self._write_failure_log(log_dir=log_dir, failure_logs=failure_logs)
+        if failure_logs:
+            write_log("04-translate-file-batch-failures.json", {
+                "task_type": self.task_type,
+                "failure_count": len(failure_logs),
+                "failures": failure_logs,
+            })
         return subs
 
     def _translate_batch(
@@ -409,19 +329,3 @@ class TaskTranslateFile(BaseTask):
                 "lines": actual_lines or [],
             },
         }
-
-    def _write_failure_log(self, log_dir: str, failure_logs: list[dict]):
-        """Write batch failure entries to 04-translate-file-batch-failures.json; skips if there are no failures."""
-        if not log_dir or not failure_logs:
-            return
-
-        output_dir = Path(log_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / "04-translate-file-batch-failures.json"
-        log_payload = {
-            "task_type": self.task_type,
-            "failure_count": len(failure_logs),
-            "failures": failure_logs,
-        }
-        with open(output_path, "w", encoding="utf-8") as file_handle:
-            json.dump(log_payload, file_handle, ensure_ascii=False, indent=2)

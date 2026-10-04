@@ -50,19 +50,19 @@
 </tr>
 <tr><td>backend/files/library/&lt;series_id&gt;/</td><td>series.json, characters.json, glossary.json.</td><td>library/repository.py, called by library routes.</td>
 </tr>
-<tr><td>backend/files/outputs/translated/</td><td>Translated subtitles.</td><td>TaskTranslateFile.</td>
+<tr><td>backend/files/outputs/translated/</td><td>Translated subtitles.</td><td>translate_file workflow (workflows/file_output.py).</td>
 </tr>
-<tr><td>backend/files/outputs/reviewed/</td><td>Corrected subtitles.</td><td>TaskRetranslateReviewedLines.</td>
+<tr><td>backend/files/outputs/reviewed/</td><td>Corrected subtitles.</td><td>review_file workflow.</td>
 </tr>
-<tr><td>backend/files/outputs/transcribed/</td><td>Transcribed ASS subtitles.</td><td>TaskTranscribeFile.</td>
+<tr><td>backend/files/outputs/transcribed/</td><td>Transcribed ASS subtitles.</td><td>transcribe_file workflow.</td>
 </tr>
 <tr><td>backend/files/outputs/context/</td><td>Saved context files.</td><td>No active writer.</td>
 </tr>
-<tr><td>backend/files/logs/translate_file/</td><td>Per-run planning, splitting and context logs; failure diagnostics when applicable.</td><td>Translation runner creates the directory; tasks write its files.</td>
+<tr><td>backend/files/logs/translate_file/</td><td>Per-run planning and splitting logs; failure diagnostics when applicable.</td><td>The orchestrator creates the folder; tasks write into it.</td>
 </tr>
-<tr><td>backend/files/logs/review_file/</td><td>Per-run review planning, context, review and correction logs.</td><td>Review runner and tasks.</td>
+<tr><td>backend/files/logs/review_file/</td><td>Per-run review planning, review and correction logs.</td><td>The orchestrator and tasks.</td>
 </tr>
-<tr><td>backend/files/logs/update_library/</td><td>Per-run extraction, comparison, search and proposal logs.</td><td>Library route and tasks.</td>
+<tr><td>backend/files/logs/update_library/</td><td>Per-run extraction, comparison, search and proposal logs.</td><td>The orchestrator and tasks.</td>
 </tr>
 <tr><td>backend/files/logs/translator-helper.log</td><td>Shared application/task logging.</td><td>utils/logger.py.</td>
 </tr>
@@ -77,11 +77,9 @@
 <section id="upload">
 <h2>Temporary uploads
 </h2>
-<p><code>save_upload_to_temp()</code> uses <code>tempfile.NamedTemporaryFile(delete=False)</code>. It does not archive uploads under <code>files/</code>. The returned temporary path travels through the task dictionary.
+<p><code>save_upload_to_temp()</code> uses <code>tempfile.NamedTemporaryFile(delete=False)</code>. It does not archive uploads under <code>files/</code>. The workflow reads the file into memory when it starts; tasks never see the path.
 </p>
-<p>Cleanup is distributed. File translation removes its input in the final task's <code>finally</code>; the review runner removes both inputs in its own <code>finally</code>. If translation fails in an earlier stage, the final task never runs, so its cleanup does not run either.
-</p>
-<p>The refactor needs a defined owner for upload cleanup. Retaining uploads in an <code>uploads/</code> directory would also change their lifetime.
+<p>Cleanup has one owner at a time. Until the orchestrator accepts the workflow, the route owns the temp files and deletes them if anything is rejected. Once it is accepted, the workflow's cleanup callback deletes them when the run ends, whether it succeeded or failed.
 </p>
 </section>
 <section id="library">

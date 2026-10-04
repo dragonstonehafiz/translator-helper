@@ -1,31 +1,45 @@
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from collections.abc import Callable
+from typing import Any, Generic, TypeVar
 
-class BaseTask(ABC):
-    """Abstract base class for all orchestrator tasks."""
+from orchestrator.task_data.base import TaskData
 
-    def __init__(self, data: Optional[dict[str, Any]] = None):
-        """Initialize the task with an optional pre-seeded data dict."""
-        if data is None:
-            self._data = {}
-        else:
-            self._data = data
+InputT = TypeVar("InputT", bound=TaskData)
+OutputT = TypeVar("OutputT", bound=TaskData)
 
-    def set_data(self, data: dict[str, Any]):
-        """Replace the task's internal data dict (called by the orchestrator before run_task)."""
-        self._data = data
+ReportProgress = Callable[[int, int, str, float], None]
+"""report_progress(current, total, message, eta_seconds)"""
 
-    def get_data(self) -> dict[str, Any]:
-        """Return the current pass-through data dict."""
-        return self._data
+WriteLog = Callable[[str, dict[str, Any]], None]
+"""write_log(filename, content): write one JSON diagnostic file into the run's log folder."""
+
+
+class BaseTask(ABC, Generic[InputT, OutputT]):
+    """One stage of a workflow: takes one typed input and returns one typed output."""
+
+    input_type: type[InputT]
+    output_type: type[OutputT]
+
+    def __init__(self):
+        """Create the task with no input yet; the orchestrator supplies it with set_data()."""
+        self._data: InputT | None = None
 
     @property
     def task_type(self) -> str:
-        """Return the task type identifier string."""
+        """Return the task's name, shown as the workflow's active stage."""
         return self.__class__.__name__
 
-    @abstractmethod
-    def run_task(self) -> dict[str, Any]:
-        """Execute the task and return a pass-through dict containing all upstream keys plus new outputs."""
-        raise NotImplementedError
+    def set_data(self, data: InputT) -> None:
+        """Supply the task's input (called by the orchestrator before run_task)."""
+        self._data = data
 
+    def get_data(self) -> InputT:
+        """Return the task's input; raises if none has been supplied."""
+        if self._data is None:
+            raise RuntimeError(f"{self.task_type} has no input data.")
+        return self._data
+
+    @abstractmethod
+    def run_task(self, report_progress: ReportProgress, write_log: WriteLog) -> OutputT:
+        """Run the stage and return its output; raise on failure (the orchestrator records the error)."""
+        raise NotImplementedError
