@@ -29,16 +29,13 @@ class TaskGenerateLibraryProposals(BaseTask[SearchedLibraryData, ProposedLibrary
             prompt_parts.append(f"\n=== WEB SEARCH RESULTS ===\n{json.dumps(data.search_results, ensure_ascii=False, indent=2)}")
 
         model_manager = ModelManager.get_instance()
-        llm = model_manager.acquire_llm()
-        try:
-            report_progress(0, 1, "Generating library update proposals", 0.0)
-            raw = llm.infer(
-                prompt="\n".join(prompt_parts),
-                system_prompt=generate_library_proposals_prompt(series["name"], series["input_lang"], series["output_lang"]),
-                temperature=0.2,
-            )
-        finally:
-            model_manager.release_llm()
+        llm = model_manager.get_llm_client()
+        report_progress(0, 1, "Generating library update proposals", 0.0)
+        raw = llm.infer(
+            prompt="\n".join(prompt_parts),
+            system_prompt=generate_library_proposals_prompt(series["name"], series["input_lang"], series["output_lang"]),
+            temperature=0.2,
+        )
 
         proposals = self._parse_proposals(raw)
         write_log("05-generate-library-proposals.json", {"raw_output": raw, "proposals": proposals})

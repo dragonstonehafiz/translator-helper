@@ -24,6 +24,7 @@ class SearchTavily:
         self._config = TavilyConfig.load()
         self._state = ModelState.NOT_LOADED
         self._client = None
+        self._in_use = False
 
     @property
     def provider_id(self) -> str:
@@ -39,6 +40,11 @@ class SearchTavily:
     def state(self) -> ModelState:
         """Return whether the client is initialized."""
         return self._state
+
+    @property
+    def in_use(self) -> bool:
+        """Return True while a search is running."""
+        return self._in_use
 
     def configure(self, config: TavilyConfig) -> None:
         """Replace the settings; they take effect on the next initialize()."""
@@ -64,10 +70,14 @@ class SearchTavily:
         self._state = ModelState.NOT_LOADED
 
     def search(self, query: str, max_results: int = 5) -> list[str]:
-        """Run a Tavily web search and return a list of result content snippets."""
+        """Run a Tavily web search and return a list of result content snippets, marking the client in use until it returns."""
         if self._client is None:
             raise RuntimeError("Tavily client is not initialized.")
-        results = self._client.search(query, max_results=max_results)
+        self._in_use = True
+        try:
+            results = self._client.search(query, max_results=max_results)
+        finally:
+            self._in_use = False
         snippets = []
         for r in results.get("results", []):
             content = r.get("content", "").strip()

@@ -39,9 +39,6 @@ class ModelManager:
         self._llm_client: Optional[LLMInterface] = None
         self._audio_client: Optional[AudioModelInterface] = None
         self._search_client: Optional[SearchTavily] = None
-        self._llm_user: Optional[int] = None
-        self._audio_user: Optional[int] = None
-        self._search_user: Optional[int] = None
         self.loading_llm_model = False
         self.loading_audio_model = False
         self.loading_search_model = False
@@ -86,42 +83,18 @@ class ModelManager:
 
     @property
     def llm_in_use(self) -> bool:
-        """Return True while a task is using the LLM."""
-        return self._llm_user is not None
+        """Return True while the LLM is running a request."""
+        return self._in_use("llm")
 
     @property
     def audio_in_use(self) -> bool:
-        """Return True while a task is using the audio model."""
-        return self._audio_user is not None
+        """Return True while the audio model is transcribing."""
+        return self._in_use("audio")
 
     @property
     def search_in_use(self) -> bool:
-        """Return True while a task is using web search."""
-        return self._search_user is not None
-
-    def acquire_llm(self) -> LLMInterface:
-        """Mark the LLM in use and return it; raises if it is not loaded, loading or already in use."""
-        return self._acquire("llm")
-
-    def release_llm(self) -> None:
-        """Clear the LLM in-use flag if the calling thread set it."""
-        self._release("llm")
-
-    def acquire_audio(self) -> AudioModelInterface:
-        """Mark the audio model in use and return it; raises if it is not loaded, loading or already in use."""
-        return self._acquire("audio")
-
-    def release_audio(self) -> None:
-        """Clear the audio in-use flag if the calling thread set it."""
-        self._release("audio")
-
-    def acquire_search(self) -> SearchTavily:
-        """Mark web search in use and return it; raises if it is not loaded, loading or already in use."""
-        return self._acquire("search")
-
-    def release_search(self) -> None:
-        """Clear the search in-use flag if the calling thread set it."""
-        self._release("search")
+        """Return True while web search is running a query."""
+        return self._in_use("search")
 
     # ── Loading ────────────────────────────────────────────────────────────────
 
@@ -157,26 +130,10 @@ class ModelManager:
         client = getattr(self, f"_{kind}_client")
         return client is not None and client.state == ModelState.LOADED
 
-    def _acquire(self, kind: str) -> Any:
-        """Claim the in-use flag for this kind under the lock and return its client."""
-        label = LABELS[kind]
-        with self._lock:
-            if self._closed:
-                raise RuntimeError("The server is shutting down.")
-            if getattr(self, f"loading_{kind}_model"):
-                raise RuntimeError(f"{label} is loading.")
-            if not self._is_ready(kind):
-                raise RuntimeError(f"{label} is not loaded.")
-            if getattr(self, f"_{kind}_user") is not None:
-                raise RuntimeError(f"{label} is already in use.")
-            setattr(self, f"_{kind}_user", threading.get_ident())
-            return getattr(self, f"_{kind}_client")
-
-    def _release(self, kind: str) -> None:
-        """Clear the in-use flag for this kind only when the calling thread owns it."""
-        with self._lock:
-            if getattr(self, f"_{kind}_user") == threading.get_ident():
-                setattr(self, f"_{kind}_user", None)
+    def _in_use(self, kind: str) -> bool:
+        """Return True if the client of this kind exists and is running a call."""
+        client = getattr(self, f"_{kind}_client")
+        return client is not None and client.in_use
 
     def _load(self, kind: str, provider: Callable[[], Any], settings: Mapping[str, Any] | None) -> None:
         """Create the client if needed, apply and save settings, configure and initialize it; rejected loads change nothing."""
@@ -186,7 +143,7 @@ class ModelManager:
                 raise RuntimeError("The server is shutting down.")
             if getattr(self, f"loading_{kind}_model"):
                 raise RuntimeError(f"{label} is already loading.")
-            if getattr(self, f"_{kind}_user") is not None:
+            if self._in_use(kind):
                 raise RuntimeError(f"{label} is in use. Wait for the current task to finish.")
             setattr(self, f"loading_{kind}_model", True)
 

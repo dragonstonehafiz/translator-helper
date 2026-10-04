@@ -32,22 +32,19 @@ class TaskTranslateBatches(BaseTask[PlannedTranslationData, TranslatedSubtitleDa
             eta = avg * (total - current) if total > current else 0.0
             report_progress(current, total, f"Batch {batch_number}/{batch_count} complete", eta)
 
-        llm = model_manager.acquire_llm()
-        try:
-            report_progress(0, len(subs), f"Preparing {len(subs)} subtitle lines for translation", 0.0)
-            self._translate_batches(
-                llm=llm,
-                subs=subs,
-                batch_ranges=[(batch.start_index - 1, batch.end_index) for batch in data.batches],
-                context=data.context,
-                input_lang=data.input_lang,
-                target_lang=data.output_lang,
-                temperature=llm.config.temperature.value,
-                write_log=write_log,
-                progress_callback=on_progress,
-            )
-        finally:
-            model_manager.release_llm()
+        llm = model_manager.get_llm_client()
+        report_progress(0, len(subs), f"Preparing {len(subs)} subtitle lines for translation", 0.0)
+        self._translate_batches(
+            llm=llm,
+            subs=subs,
+            batch_ranges=[(batch.start_index - 1, batch.end_index) for batch in data.batches],
+            context=data.context,
+            input_lang=data.input_lang,
+            target_lang=data.output_lang,
+            temperature=llm.config.temperature.value,
+            write_log=write_log,
+            progress_callback=on_progress,
+        )
 
         self._normalize_translated_subtitles(subs)
         return TranslatedSubtitleData(

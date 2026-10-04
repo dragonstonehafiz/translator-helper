@@ -23,16 +23,13 @@ class TaskGenerateSearchQueries(BaseTask[ClassifiedLibraryData, QueriedLibraryDa
             return extend(data, QueriedLibraryData, search_queries=[])
 
         model_manager = ModelManager.get_instance()
-        llm = model_manager.acquire_llm()
-        try:
-            report_progress(0, 1, f"Generating search queries for {len(all_unknowns)} unknown items", 0.0)
-            raw = llm.infer(
-                prompt=f"Unknown items to search for:\n{json.dumps(all_unknowns, ensure_ascii=False)}",
-                system_prompt=generate_search_queries_prompt(data.series["name"]),
-                temperature=0.1,
-            )
-        finally:
-            model_manager.release_llm()
+        llm = model_manager.get_llm_client()
+        report_progress(0, 1, f"Generating search queries for {len(all_unknowns)} unknown items", 0.0)
+        raw = llm.infer(
+            prompt=f"Unknown items to search for:\n{json.dumps(all_unknowns, ensure_ascii=False)}",
+            system_prompt=generate_search_queries_prompt(data.series["name"]),
+            temperature=0.1,
+        )
 
         queries = self._parse_queries(raw)
         write_log("03-generate-search-queries.json", {"raw_output": raw, "search_queries": queries})

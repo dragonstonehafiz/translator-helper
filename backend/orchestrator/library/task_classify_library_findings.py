@@ -17,16 +17,13 @@ class TaskClassifyLibraryFindings(BaseTask[ExtractedLibraryData, ClassifiedLibra
         """Ask the LLM to classify the findings against the series' known names and terms."""
         data = self.get_data()
         model_manager = ModelManager.get_instance()
-        llm = model_manager.acquire_llm()
-        try:
-            report_progress(0, 1, "Classifying findings against library", 0.0)
-            raw = llm.infer(
-                prompt=json.dumps(data.findings.to_log(), ensure_ascii=False),
-                system_prompt=check_against_library_prompt(data.series["name"], data.known_names, data.known_terms),
-                temperature=0.0,
-            )
-        finally:
-            model_manager.release_llm()
+        llm = model_manager.get_llm_client()
+        report_progress(0, 1, "Classifying findings against library", 0.0)
+        raw = llm.infer(
+            prompt=json.dumps(data.findings.to_log(), ensure_ascii=False),
+            system_prompt=check_against_library_prompt(data.series["name"], data.known_names, data.known_terms),
+            temperature=0.0,
+        )
 
         known, unknown = self._parse_result(raw)
         write_log("02-check-against-library.json", {

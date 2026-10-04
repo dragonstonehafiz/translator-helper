@@ -16,6 +16,7 @@ class AudioModelInterface(ABC, Generic[ConfigT]):
         """Store the provider's settings; the client starts NOT_LOADED."""
         self._config = config
         self._state = ModelState.NOT_LOADED
+        self._in_use = False
 
     @property
     def provider_id(self) -> str:
@@ -32,6 +33,11 @@ class AudioModelInterface(ABC, Generic[ConfigT]):
         """Return whether the model is initialized."""
         return self._state
 
+    @property
+    def in_use(self) -> bool:
+        """Return True while a transcription is running."""
+        return self._in_use
+
     def configure(self, config: ConfigT) -> None:
         """Replace the settings; they take effect on the next initialize()."""
         self._config = config
@@ -46,12 +52,28 @@ class AudioModelInterface(ABC, Generic[ConfigT]):
         """Release the model and return to NOT_LOADED."""
         raise NotImplementedError
 
-    @abstractmethod
     def transcribe_line(self, audio_path: str, language: str) -> str:
-        """Transcribe a short clip to one line of text."""
+        """Transcribe a short clip to one line of text, marking the model in use until it returns."""
+        self._in_use = True
+        try:
+            return self._transcribe_line(audio_path, language)
+        finally:
+            self._in_use = False
+
+    def transcribe_file(self, audio_path: str, language: str) -> pysubs2.SSAFile:
+        """Transcribe a full audio file to subtitles without saving them, marking the model in use until it returns."""
+        self._in_use = True
+        try:
+            return self._transcribe_file(audio_path, language)
+        finally:
+            self._in_use = False
+
+    @abstractmethod
+    def _transcribe_line(self, audio_path: str, language: str) -> str:
+        """Provider-specific clip transcription; called only through transcribe_line()."""
         raise NotImplementedError
 
     @abstractmethod
-    def transcribe_file(self, audio_path: str, language: str) -> pysubs2.SSAFile:
-        """Transcribe a full audio file to subtitles without saving them."""
+    def _transcribe_file(self, audio_path: str, language: str) -> pysubs2.SSAFile:
+        """Provider-specific file transcription; called only through transcribe_file()."""
         raise NotImplementedError

@@ -13,12 +13,9 @@ class TaskTranscribeFile(BaseTask[TranscribeFileData, TranscribedSubtitleData]):
         """Transcribe the file and return the subtitles with their naming metadata."""
         data = self.get_data()
         model_manager = ModelManager.get_instance()
-        audio = model_manager.acquire_audio()
-        try:
-            report_progress(0, 1, "Transcribing the uploaded audio file", 0.0)
-            subtitles = audio.transcribe_file(str(data.audio_path), data.language)
-        finally:
-            model_manager.release_audio()
+        audio = model_manager.get_audio_client()
+        report_progress(0, 1, "Transcribing the uploaded audio file", 0.0)
+        subtitles = audio.transcribe_file(str(data.audio_path), data.language)
         report_progress(1, 1, f"Transcribed {len(subtitles)} subtitle lines", 0.0)
         return TranscribedSubtitleData(
             subtitles=subtitles,

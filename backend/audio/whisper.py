@@ -53,12 +53,12 @@ class AudioWhisper(AudioModelInterface[WhisperConfig]):
         self._model = None
         self._state = ModelState.NOT_LOADED
 
-    def transcribe_line(self, audio_path: str, language: str) -> str:
+    def _transcribe_line(self, audio_path: str, language: str) -> str:
         """Transcribe a short clip to text."""
         result = self._require_model(audio_path).transcribe(audio_path, language=language)
         return result["text"]
 
-    def transcribe_file(self, audio_path: str, language: str) -> pysubs2.SSAFile:
+    def _transcribe_file(self, audio_path: str, language: str) -> pysubs2.SSAFile:
         """Transcribe an audio file into a pysubs2.SSAFile using Whisper's segment timestamps."""
         result = self._require_model(audio_path).transcribe(audio_path, language=language)
 

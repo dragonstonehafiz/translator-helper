@@ -15,18 +15,15 @@ class TaskTranslateLine(BaseTask[TranslateLineData, TextOutputData]):
         """Translate the line and return the translated text."""
         data = self.get_data()
         model_manager = ModelManager.get_instance()
-        llm = model_manager.acquire_llm()
-        try:
-            report_progress(0, 1, "Translating the entered text", 0.0)
-            translated_text = llm.infer(
-                prompt=data.text,
-                system_prompt=generate_translate_sub_prompt(
-                    context=data.context,
-                    input_lang=data.input_lang,
-                    target_lang=data.output_lang,
-                ),
-            )
-        finally:
-            model_manager.release_llm()
+        llm = model_manager.get_llm_client()
+        report_progress(0, 1, "Translating the entered text", 0.0)
+        translated_text = llm.infer(
+            prompt=data.text,
+            system_prompt=generate_translate_sub_prompt(
+                context=data.context,
+                input_lang=data.input_lang,
+                target_lang=data.output_lang,
+            ),
+        )
         report_progress(1, 1, "Translation complete", 0.0)
         return TextOutputData(text=translated_text)

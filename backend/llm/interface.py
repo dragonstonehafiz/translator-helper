@@ -14,6 +14,7 @@ class LLMInterface(ABC, Generic[ConfigT]):
         """Store the provider's settings; the client starts NOT_LOADED."""
         self._config = config
         self._state = ModelState.NOT_LOADED
+        self._in_use = False
 
     @property
     def provider_id(self) -> str:
@@ -30,6 +31,11 @@ class LLMInterface(ABC, Generic[ConfigT]):
         """Return whether the client is initialized."""
         return self._state
 
+    @property
+    def in_use(self) -> bool:
+        """Return True while a request is running."""
+        return self._in_use
+
     def configure(self, config: ConfigT) -> None:
         """Replace the settings; they take effect on the next initialize()."""
         self._config = config
@@ -44,7 +50,6 @@ class LLMInterface(ABC, Generic[ConfigT]):
         """Release the client and return to NOT_LOADED."""
         raise NotImplementedError
 
-    @abstractmethod
     def infer(
         self,
         prompt: str,
@@ -52,5 +57,20 @@ class LLMInterface(ABC, Generic[ConfigT]):
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> str:
-        """Run one inference request; a failed request does not change the state."""
+        """Run one inference request, marking the client in use until it returns; a failed request does not change the state."""
+        self._in_use = True
+        try:
+            return self._infer(prompt, system_prompt, temperature, max_tokens)
+        finally:
+            self._in_use = False
+
+    @abstractmethod
+    def _infer(
+        self,
+        prompt: str,
+        system_prompt: str | None,
+        temperature: float | None,
+        max_tokens: int | None,
+    ) -> str:
+        """Provider-specific inference; called only through infer()."""
         raise NotImplementedError

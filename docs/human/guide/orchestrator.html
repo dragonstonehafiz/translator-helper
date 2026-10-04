@@ -127,17 +127,14 @@ if not isinstance(output, task.output_type):
     def run_task(self, report_progress, write_log) -&gt; TextOutputData:
         data = self.get_data()
         model_manager = ModelManager.get_instance()
-        llm = model_manager.acquire_llm()
-        try:
-            report_progress(0, 1, "Translating the entered text", 0.0)
-            translated_text = llm.infer(
-                prompt=data.text,
-                system_prompt=generate_translate_sub_prompt(
-                    context=data.context, input_lang=data.input_lang, target_lang=data.output_lang,
-                ),
-            )
-        finally:
-            model_manager.release_llm()
+        llm = model_manager.get_llm_client()
+        report_progress(0, 1, "Translating the entered text", 0.0)
+        translated_text = llm.infer(
+            prompt=data.text,
+            system_prompt=generate_translate_sub_prompt(
+                context=data.context, input_lang=data.input_lang, target_lang=data.output_lang,
+            ),
+        )
         report_progress(1, 1, "Translation complete", 0.0)
         return TextOutputData(text=translated_text)</code></pre>
 </div>
@@ -150,12 +147,9 @@ if not isinstance(output, task.output_type):
     def run_task(self, report_progress, write_log) -&gt; TextOutputData:
         data = self.get_data()
         model_manager = ModelManager.get_instance()
-        audio = model_manager.acquire_audio()
-        try:
-            report_progress(0, 1, "Transcribing the selected audio clip", 0.0)
-            transcript = audio.transcribe_line(str(data.audio_path), data.language)
-        finally:
-            model_manager.release_audio()
+        audio = model_manager.get_audio_client()
+        report_progress(0, 1, "Transcribing the selected audio clip", 0.0)
+        transcript = audio.transcribe_line(str(data.audio_path), data.language)
         report_progress(1, 1, "Transcription complete", 0.0)
         return TextOutputData(text=transcript)</code></pre>
 </div>

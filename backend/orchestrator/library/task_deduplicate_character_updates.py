@@ -47,29 +47,26 @@ class TaskDeduplicateCharacterUpdates(BaseTask[ProposedLibraryData, ProposedLibr
         completed = 0
 
         model_manager = ModelManager.get_instance()
-        llm = model_manager.acquire_llm()
-        try:
-            report_progress(0, total_calls, "Deduplicating proposals", 0.0)
-            for field_name, groups in (("personality", personality_groups), ("history", history_groups)):
-                for char_id, proposals_list in groups.items():
-                    char = char_map.get(char_id)
-                    existing = char[field_name] if char else []
-                    existing_by_group[f"{char_id} | {field_name}"] = existing
-                    kept_indices = self._dedup_call(llm, field_name, existing, proposals_list)
-                    kept.extend(proposals_list[i] for i in kept_indices)
-                    completed += 1
-                    name = char["name"] if char else char_id
-                    report_progress(completed, total_calls, f"Checked {field_name} for {name}", 0.0)
-
-            for rel_char, proposals_list in relationship_groups.items():
-                existing = [fact for c in characters for fact in c["relationships"].get(rel_char, [])]
-                existing_by_group[f"relationships | {rel_char}"] = existing
-                kept_indices = self._dedup_call(llm, f"relationships[{rel_char}]", existing, proposals_list)
+        llm = model_manager.get_llm_client()
+        report_progress(0, total_calls, "Deduplicating proposals", 0.0)
+        for field_name, groups in (("personality", personality_groups), ("history", history_groups)):
+            for char_id, proposals_list in groups.items():
+                char = char_map.get(char_id)
+                existing = char[field_name] if char else []
+                existing_by_group[f"{char_id} | {field_name}"] = existing
+                kept_indices = self._dedup_call(llm, field_name, existing, proposals_list)
                 kept.extend(proposals_list[i] for i in kept_indices)
                 completed += 1
-                report_progress(completed, total_calls, f"Checked relationship: {rel_char}", 0.0)
-        finally:
-            model_manager.release_llm()
+                name = char["name"] if char else char_id
+                report_progress(completed, total_calls, f"Checked {field_name} for {name}", 0.0)
+
+        for rel_char, proposals_list in relationship_groups.items():
+            existing = [fact for c in characters for fact in c["relationships"].get(rel_char, [])]
+            existing_by_group[f"relationships | {rel_char}"] = existing
+            kept_indices = self._dedup_call(llm, f"relationships[{rel_char}]", existing, proposals_list)
+            kept.extend(proposals_list[i] for i in kept_indices)
+            completed += 1
+            report_progress(completed, total_calls, f"Checked relationship: {rel_char}", 0.0)
 
         deduped: LibraryProposals = {**proposals, "updated_characters": kept}
         report_progress(total_calls, total_calls, f"Kept {len(kept)}/{len(updated)} updated_characters proposals", 0.0)

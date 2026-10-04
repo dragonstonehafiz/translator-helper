@@ -50,7 +50,7 @@ class LLMClaude(LLMInterface[ClaudeConfig]):
         self._llm = None
         self._state = ModelState.NOT_LOADED
 
-    def infer(
+    def _infer(
         self,
         prompt: str,
         system_prompt: str | None = None,

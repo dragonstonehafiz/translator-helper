@@ -68,7 +68,7 @@ class AudioWhisperX(AudioModelInterface[WhisperXConfig]):
         self._model = None
         self._state = ModelState.NOT_LOADED
 
-    def transcribe_line(self, audio_path: str, language: str) -> str:
+    def _transcribe_line(self, audio_path: str, language: str) -> str:
         """Transcribe the first segment of an audio file to a plain text string."""
         model = self._require_model(audio_path)
         audio = whisperx.load_audio(audio_path)
@@ -79,7 +79,7 @@ class AudioWhisperX(AudioModelInterface[WhisperXConfig]):
             return ""
         return segments[0]["text"].strip()
 
-    def transcribe_file(self, audio_path: str, language: str) -> pysubs2.SSAFile:
+    def _transcribe_file(self, audio_path: str, language: str) -> pysubs2.SSAFile:
         """Transcribe an audio file into a pysubs2.SSAFile with word-aligned timestamps via WhisperX alignment."""
         model = self._require_model(audio_path)
 

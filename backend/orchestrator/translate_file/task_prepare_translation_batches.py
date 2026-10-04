@@ -26,42 +26,39 @@ class TaskPrepareTranslationBatches(BaseTask[TranslationData, PlannedTranslation
             "total_lines": total_lines,
         }
 
-        llm = model_manager.acquire_llm()
-        try:
-            report_progress(0, 1, f"Planning semantic translation batches for {total_lines} subtitle lines", 0.0)
-            planned = plan_batches(llm, indexed_lines, data.context, data.input_lang, data.output_lang)
-            write_log("01-plan-translation-batches.json", {
-                "task_type": self.task_type,
-                **log_header,
-                "batch_count": len(planned),
-                "batches": [batch.to_log() for batch in planned],
-            })
-            report_progress(1, 1, f"Planned {len(planned)} semantic batches", 0.0)
+        llm = model_manager.get_llm_client()
+        report_progress(0, 1, f"Planning semantic translation batches for {total_lines} subtitle lines", 0.0)
+        planned = plan_batches(llm, indexed_lines, data.context, data.input_lang, data.output_lang)
+        write_log("01-plan-translation-batches.json", {
+            "task_type": self.task_type,
+            **log_header,
+            "batch_count": len(planned),
+            "batches": [batch.to_log() for batch in planned],
+        })
+        report_progress(1, 1, f"Planned {len(planned)} semantic batches", 0.0)
 
-            oversized = [batch for batch in planned if batch.size > data.batch_size]
-            if oversized:
-                report_progress(0, len(oversized), f"Splitting {len(oversized)} oversized semantic batches", 0.0)
-            batches, repairs = split_oversized_batches(
-                llm=llm,
-                indexed_lines=indexed_lines,
-                batches=planned,
-                max_batch_size=data.batch_size,
-                context=data.context,
-                input_lang=data.input_lang,
-                output_lang=data.output_lang,
-                on_repaired=lambda done, total: report_progress(done, total, f"Split {done}/{total} oversized batches", 0.0),
-            )
-            validate_final_batches(batches, total_lines, data.batch_size)
-            write_log("02-split-oversized-batches.json", {
-                "task_type": self.task_type,
-                **log_header,
-                "input_batch_count": len(planned),
-                "oversized_batch_count": len(oversized),
-                "final_batch_count": len(batches),
-                "repairs": repairs,
-                "batches": [batch.to_log() for batch in batches],
-            })
-        finally:
-            model_manager.release_llm()
+        oversized = [batch for batch in planned if batch.size > data.batch_size]
+        if oversized:
+            report_progress(0, len(oversized), f"Splitting {len(oversized)} oversized semantic batches", 0.0)
+        batches, repairs = split_oversized_batches(
+            llm=llm,
+            indexed_lines=indexed_lines,
+            batches=planned,
+            max_batch_size=data.batch_size,
+            context=data.context,
+            input_lang=data.input_lang,
+            output_lang=data.output_lang,
+            on_repaired=lambda done, total: report_progress(done, total, f"Split {done}/{total} oversized batches", 0.0),
+        )
+        validate_final_batches(batches, total_lines, data.batch_size)
+        write_log("02-split-oversized-batches.json", {
+            "task_type": self.task_type,
+            **log_header,
+            "input_batch_count": len(planned),
+            "oversized_batch_count": len(oversized),
+            "final_batch_count": len(batches),
+            "repairs": repairs,
+            "batches": [batch.to_log() for batch in batches],
+        })
 
         return extend(data, PlannedTranslationData, batches=batches)

@@ -20,37 +20,34 @@ class TaskRetranslateReviewedLines(BaseTask[ReviewedData, CorrectedSubtitleData]
         model_manager = ModelManager.get_instance()
         correction_logs = []
 
-        llm = model_manager.acquire_llm()
-        try:
-            report_progress(0, max(1, len(corrections)), f"Retranslating {len(corrections)} reviewed subtitle lines", 0.0)
-            for correction_number, correction in enumerate(corrections, start=1):
-                index = correction.index
-                if index < 1 or index > len(original_subs):
-                    raise ValueError(f"Correction index {index} is outside the subtitle file.")
+        llm = model_manager.get_llm_client()
+        report_progress(0, max(1, len(corrections)), f"Retranslating {len(corrections)} reviewed subtitle lines", 0.0)
+        for correction_number, correction in enumerate(corrections, start=1):
+            index = correction.index
+            if index < 1 or index > len(original_subs):
+                raise ValueError(f"Correction index {index} is outside the subtitle file.")
 
-                original_line = original_subs[index - 1]
-                translated_line = translated_subs[index - 1]
-                corrected_text = llm.infer(
-                    prompt=self._build_retranslation_prompt(index, original_line, translated_line, correction.reason),
-                    system_prompt=generate_line_retranslation_prompt(
-                        context=data.context if data.context else None,
-                        input_lang=data.input_lang,
-                        output_lang=data.output_lang,
-                    ),
-                    temperature=llm.config.temperature.value,
-                ).strip()
-                previous_text = translated_line.text
-                translated_line.text = corrected_text.replace("\\N", " ").strip()
-                correction_logs.append({
-                    "index": index,
-                    "reason": correction.reason,
-                    "original_text": original_line.text,
-                    "previous_translation": previous_text,
-                    "corrected_translation": translated_line.text,
-                })
-                report_progress(correction_number, max(1, len(corrections)), f"Retranslated line {correction_number}/{len(corrections)}", 0.0)
-        finally:
-            model_manager.release_llm()
+            original_line = original_subs[index - 1]
+            translated_line = translated_subs[index - 1]
+            corrected_text = llm.infer(
+                prompt=self._build_retranslation_prompt(index, original_line, translated_line, correction.reason),
+                system_prompt=generate_line_retranslation_prompt(
+                    context=data.context if data.context else None,
+                    input_lang=data.input_lang,
+                    output_lang=data.output_lang,
+                ),
+                temperature=llm.config.temperature.value,
+            ).strip()
+            previous_text = translated_line.text
+            translated_line.text = corrected_text.replace("\\N", " ").strip()
+            correction_logs.append({
+                "index": index,
+                "reason": correction.reason,
+                "original_text": original_line.text,
+                "previous_translation": previous_text,
+                "corrected_translation": translated_line.text,
+            })
+            report_progress(correction_number, max(1, len(corrections)), f"Retranslated line {correction_number}/{len(corrections)}", 0.0)
 
         write_log("04-retranslate-reviewed-lines.json", {
             "task_type": self.task_type,

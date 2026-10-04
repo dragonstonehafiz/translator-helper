@@ -14,11 +14,8 @@ class TaskTranscribeClip(BaseTask[TranscribeClipData, TextOutputData]):
         """Transcribe the clip and return the text."""
         data = self.get_data()
         model_manager = ModelManager.get_instance()
-        audio = model_manager.acquire_audio()
-        try:
-            report_progress(0, 1, "Transcribing the selected audio clip", 0.0)
-            transcript = audio.transcribe_line(str(data.audio_path), data.language)
-        finally:
-            model_manager.release_audio()
+        audio = model_manager.get_audio_client()
+        report_progress(0, 1, "Transcribing the selected audio clip", 0.0)
+        transcript = audio.transcribe_line(str(data.audio_path), data.language)
         report_progress(1, 1, "Transcription complete", 0.0)
         return TextOutputData(text=transcript)

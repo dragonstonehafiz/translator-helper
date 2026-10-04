@@ -48,19 +48,16 @@ class TaskExample(BaseTask[PlannedTranslationData, PlannedTranslationData]):
     def run_task(self, report_progress: ReportProgress, write_log: WriteLog) -> PlannedTranslationData:
         data = self.get_data()
         model_manager = ModelManager.get_instance()
-        llm = model_manager.acquire_llm()   # raises if the LLM is not loaded, loading or in use
-        try:
-            report_progress(0, 1, "Doing the thing", 0.0)
-            raw = llm.infer(prompt=..., system_prompt=...)
-        finally:
-            model_manager.release_llm()
+        llm = model_manager.get_llm_client()
+        report_progress(0, 1, "Doing the thing", 0.0)
+        raw = llm.infer(prompt=..., system_prompt=...)   # marks the LLM in use until it returns
         write_log("01-example.json", {"raw_output": raw})
         return replace(data, ...)
 ```
 
 - Tasks **raise** on failure. They never record errors, results or progress themselves; the orchestrator does.
 - Progress goes only through `report_progress(current, total, message, eta_seconds)`; diagnostics only through `write_log(filename, content)`.
-- Tasks call the model clients directly (`infer`, `transcribe_line`/`transcribe_file`, `search`) between `acquire_*()` and `release_*()`. Read provider settings through `llm.config`, e.g. `llm.config.temperature.value`.
+- Tasks get the model clients with `get_llm_client()` / `get_audio_client()` / `get_search_client()` and call them directly (`infer`, `transcribe_line`/`transcribe_file`, `search`); the client marks itself in use for the duration of each call. Read provider settings through `llm.config`, e.g. `llm.config.temperature.value`.
 - Tasks don't save output files or delete temp inputs; the workflow's `finish` and `cleanup` callbacks do.
 
 ## Orchestrator

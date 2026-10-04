@@ -18,18 +18,15 @@ class TaskExtractLibraryFindings(BaseTask[LibraryUpdateData, ExtractedLibraryDat
         data = self.get_data()
         series = data.series
         model_manager = ModelManager.get_instance()
-        llm = model_manager.acquire_llm()
-        try:
-            report_progress(0, 1, "Scanning subtitle file for characters and terms", 0.0)
-            raw = llm.infer(
-                prompt=data.transcript,
-                system_prompt=scan_subtitle_file_prompt(
-                    series["name"], series["input_lang"], series["output_lang"], data.known_names, data.known_terms,
-                ),
-                temperature=0.1,
-            )
-        finally:
-            model_manager.release_llm()
+        llm = model_manager.get_llm_client()
+        report_progress(0, 1, "Scanning subtitle file for characters and terms", 0.0)
+        raw = llm.infer(
+            prompt=data.transcript,
+            system_prompt=scan_subtitle_file_prompt(
+                series["name"], series["input_lang"], series["output_lang"], data.known_names, data.known_terms,
+            ),
+            temperature=0.1,
+        )
 
         findings = self._parse_findings(raw)
         write_log("01-scan-subtitle-file.json", {"raw_output": raw, "findings": findings.to_log()})

@@ -33,21 +33,17 @@ class TaskWebSearch(BaseTask[QueriedLibraryData, SearchedLibraryData]):
                 "Please reload the search model in Settings."
             )
 
-        search = model_manager.acquire_search()
-        try:
-            report_progress(0, len(queries), "Running web searches", 0.0)
-            search_results: list[SearchResult] = []
-            for i, query in enumerate(queries):
-                try:
-                    snippets = search.search(query["query"], max_results=5)
-                except Exception as exc:
-                    logger.error("Web search failed: subject=%s error=%s", query["subject"], exc)
-                    raise RuntimeError(f"Web search failed for '{query['subject']}': {exc}") from exc
-                search_results.append({"subject": query["subject"], "results": snippets})
-                logger.info("Web search completed: subject=%s query=%s results=%d", query["subject"], query["query"], len(snippets))
-                report_progress(i + 1, len(queries), f"Searched {i + 1}/{len(queries)}", 0.0)
-        finally:
-            model_manager.release_search()
+        report_progress(0, len(queries), "Running web searches", 0.0)
+        search_results: list[SearchResult] = []
+        for i, query in enumerate(queries):
+            try:
+                snippets = search_client.search(query["query"], max_results=5)
+            except Exception as exc:
+                logger.error("Web search failed: subject=%s error=%s", query["subject"], exc)
+                raise RuntimeError(f"Web search failed for '{query['subject']}': {exc}") from exc
+            search_results.append({"subject": query["subject"], "results": snippets})
+            logger.info("Web search completed: subject=%s query=%s results=%d", query["subject"], query["query"], len(snippets))
+            report_progress(i + 1, len(queries), f"Searched {i + 1}/{len(queries)}", 0.0)
 
         write_log("04-web-search.json", {"search_results": search_results})
         return extend(data, SearchedLibraryData, search_results=search_results)

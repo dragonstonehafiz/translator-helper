@@ -39,23 +39,20 @@ class TaskSelectLibraryContext(BaseTask[PlannedT, PlannedT]):
 
         report_progress(0, 1, "Selecting relevant library entries for this episode", 0.0)
         model_manager = ModelManager.get_instance()
-        llm = model_manager.acquire_llm()
-        try:
-            raw = llm.infer(
-                prompt="\n".join(numbered_lines(data.subtitles)),
-                system_prompt=select_library_context_prompt(
-                    series_name=series_name,
-                    input_lang=data.input_lang,
-                    output_lang=data.output_lang,
-                    character_ids=[c["id"] for c in characters],
-                    character_names=[c["name"] for c in characters],
-                    glossary_ids=[t["id"] for t in glossary],
-                    glossary_terms=[t["term"] for t in glossary],
-                ),
-                temperature=0.1,
-            )
-        finally:
-            model_manager.release_llm()
+        llm = model_manager.get_llm_client()
+        raw = llm.infer(
+            prompt="\n".join(numbered_lines(data.subtitles)),
+            system_prompt=select_library_context_prompt(
+                series_name=series_name,
+                input_lang=data.input_lang,
+                output_lang=data.output_lang,
+                character_ids=[c["id"] for c in characters],
+                character_names=[c["name"] for c in characters],
+                glossary_ids=[t["id"] for t in glossary],
+                glossary_terms=[t["term"] for t in glossary],
+            ),
+            temperature=0.1,
+        )
 
         selected_char_ids, selected_glossary_ids = self._parse_selection(raw)
         char_lookup = {c["id"]: c for c in characters}

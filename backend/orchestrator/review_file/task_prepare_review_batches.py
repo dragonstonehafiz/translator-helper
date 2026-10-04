@@ -19,12 +19,9 @@ class TaskPrepareReviewBatches(BaseTask[ReviewData, PlannedReviewData]):
         indexed_lines = numbered_lines(data.subtitles)
         total_lines = len(indexed_lines)
 
-        llm = model_manager.acquire_llm()
-        try:
-            report_progress(0, 1, f"Planning semantic review batches for {total_lines} subtitle lines", 0.0)
-            batches = plan_batches(llm, indexed_lines, data.context, data.input_lang, data.output_lang)
-        finally:
-            model_manager.release_llm()
+        llm = model_manager.get_llm_client()
+        report_progress(0, 1, f"Planning semantic review batches for {total_lines} subtitle lines", 0.0)
+        batches = plan_batches(llm, indexed_lines, data.context, data.input_lang, data.output_lang)
 
         write_log("01-plan-translation-batches.json", {
             "task_type": self.task_type,

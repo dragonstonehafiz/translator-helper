@@ -23,56 +23,53 @@ class TaskReviewTranslatedBatches(BaseTask[PlannedReviewData, ReviewedData]):
         corrections_by_index: dict[int, Correction] = {}
         batch_logs = []
 
-        llm = model_manager.acquire_llm()
-        try:
-            report_progress(0, len(batches), f"Reviewing {len(batches)} translation batches", 0.0)
-            for batch_number, batch in enumerate(batches, start=1):
-                original_lines = numbered_lines(data.subtitles, batch.start_index, batch.end_index)
-                translated_lines = numbered_lines(data.translated_subtitles, batch.start_index, batch.end_index)
-                raw_output = llm.infer(
-                    prompt=self._build_review_prompt(original_lines, translated_lines),
-                    system_prompt=generate_batch_review_prompt(
-                        context=data.context if data.context else None,
-                        input_lang=data.input_lang,
-                        output_lang=data.output_lang,
-                    ),
-                    temperature=0.1,
-                )
-                try:
-                    batch_corrections = self._parse_corrections(raw_output, batch.start_index, batch.end_index)
-                except ValueError as exc:
-                    write_log("03-review-translated-batch-failures.json", {
-                        "task_type": self.task_type,
-                        "failure_count": 1,
-                        "failures": [self._build_failure_log(
-                            batch_number=batch_number,
-                            total_batches=len(batches),
-                            start_index=batch.start_index,
-                            end_index=batch.end_index,
-                            original_lines=original_lines,
-                            translated_lines=translated_lines,
-                            raw_output=raw_output,
-                            failure=str(exc),
-                        )],
-                    })
-                    raise ValueError(
-                        "Generated review output is malformed JSON. "
-                        f"Batch {batch.start_index}-{batch.end_index} must return exactly one JSON object with a 'corrections' array."
-                    ) from exc
+        llm = model_manager.get_llm_client()
+        report_progress(0, len(batches), f"Reviewing {len(batches)} translation batches", 0.0)
+        for batch_number, batch in enumerate(batches, start=1):
+            original_lines = numbered_lines(data.subtitles, batch.start_index, batch.end_index)
+            translated_lines = numbered_lines(data.translated_subtitles, batch.start_index, batch.end_index)
+            raw_output = llm.infer(
+                prompt=self._build_review_prompt(original_lines, translated_lines),
+                system_prompt=generate_batch_review_prompt(
+                    context=data.context if data.context else None,
+                    input_lang=data.input_lang,
+                    output_lang=data.output_lang,
+                ),
+                temperature=0.1,
+            )
+            try:
+                batch_corrections = self._parse_corrections(raw_output, batch.start_index, batch.end_index)
+            except ValueError as exc:
+                write_log("03-review-translated-batch-failures.json", {
+                    "task_type": self.task_type,
+                    "failure_count": 1,
+                    "failures": [self._build_failure_log(
+                        batch_number=batch_number,
+                        total_batches=len(batches),
+                        start_index=batch.start_index,
+                        end_index=batch.end_index,
+                        original_lines=original_lines,
+                        translated_lines=translated_lines,
+                        raw_output=raw_output,
+                        failure=str(exc),
+                    )],
+                })
+                raise ValueError(
+                    "Generated review output is malformed JSON. "
+                    f"Batch {batch.start_index}-{batch.end_index} must return exactly one JSON object with a 'corrections' array."
+                ) from exc
 
-                for correction in batch_corrections:
-                    index = int(correction["index"])
-                    reason = str(correction["reason"]).strip()
-                    existing = corrections_by_index.get(index)
-                    if existing is None:
-                        corrections_by_index[index] = Correction(index=index, reason=reason)
-                    elif reason not in existing.reason:
-                        existing.reason = f"{existing.reason} {reason}".strip()
+            for correction in batch_corrections:
+                index = int(correction["index"])
+                reason = str(correction["reason"]).strip()
+                existing = corrections_by_index.get(index)
+                if existing is None:
+                    corrections_by_index[index] = Correction(index=index, reason=reason)
+                elif reason not in existing.reason:
+                    existing.reason = f"{existing.reason} {reason}".strip()
 
-                batch_logs.append({"batch": batch.to_log(), "corrections": batch_corrections})
-                report_progress(batch_number, len(batches), f"Reviewed batch {batch_number}/{len(batches)}", 0.0)
-        finally:
-            model_manager.release_llm()
+            batch_logs.append({"batch": batch.to_log(), "corrections": batch_corrections})
+            report_progress(batch_number, len(batches), f"Reviewed batch {batch_number}/{len(batches)}", 0.0)
 
         corrections = [corrections_by_index[index] for index in sorted(corrections_by_index)]
         write_log("03-review-translated-batches.json", {

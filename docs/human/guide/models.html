@@ -80,7 +80,7 @@
 </figure>
 <p><code>ModelManager</code> is a single shared object holding one LLM client, one audio client and one search client. Tasks see each slot only through its interface, so they call the same methods whichever provider is plugged in.
 </p>
-<p>When a model is loaded, the manager creates the client if the slot is empty, applies and saves any submitted settings, then initializes it. For each slot it stores whether the model is loading, which task is using it, and the last loading error shown on the Settings page.
+<p>When a model is loaded, the manager creates the client if the slot is empty, applies and saves any submitted settings, then initializes it. For each slot it stores whether the model is loading and the last loading error shown on the Settings page. A load is refused while the model is in use, which each client tracks itself: <code>infer()</code>, <code>transcribe_line()</code>, <code>transcribe_file()</code> and <code>search()</code> mark the client in use until they return.
 </p>
 <h3>Changing the provider</h3>
 <p>Each slot's provider class is set at the top of <code>backend/models/manager.py</code>. To switch, uncomment the provider's import, assign it to the slot and restart the backend:
