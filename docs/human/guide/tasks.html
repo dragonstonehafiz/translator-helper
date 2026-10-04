@@ -137,7 +137,7 @@
 </h2>
 <p>The orchestrator keeps one state record per workflow in <code>TaskStateHandler</code>: status, active task, progress, message, ETA, result and error. Tasks only report progress through the <code>report_progress</code> callback they are given. Starting a workflow replaces its previous record; a failure keeps the task that failed and its last progress, so the UI can say where it stopped.
 </p>
-<p>Each run gets its own log folder, <code>files/logs/&lt;workflow&gt;/&lt;timestamp&gt;-&lt;file name&gt;/</code>, kept after success or failure. Tasks write diagnostics there through the <code>write_log</code> callback, for example the model's batch plan and, separately, every batch the splitter repaired. See <a href="requests.html#polling">the polling rules</a> for how the frontend reads the state.
+<p>Tasks write diagnostics through the <code>write_log</code> callback into a per-run folder, <code>files/logs/&lt;workflow&gt;/&lt;timestamp&gt;-&lt;file name&gt;/</code>, which is created on the first write and kept after success or failure. Runs that write nothing, such as line translation and transcription, leave no folder. Examples include the model's batch plan and, separately, every batch the splitter repaired. See <a href="requests.html#polling">the polling rules</a> for how the frontend reads the state.
 </p>
 </section>
 

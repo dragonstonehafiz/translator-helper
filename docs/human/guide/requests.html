@@ -69,7 +69,7 @@
 <div class="flow-step db"><strong>Save and clean up</strong><small>Save under files/outputs/translated, then delete the temp upload.</small>
 </div>
 </div>
-<p>The orchestrator creates a timestamped log folder for the run, and tasks write numbered JSON diagnostics into it. The saved file keeps the input's extension, so the subtitle library writes the same format.
+<p>Tasks write numbered JSON diagnostics into a timestamped log folder for the run, created when the first one is written. The saved file keeps the input's extension, so the subtitle library writes the same format.
 </p>
 <p>Source: <code>backend/orchestrator/workflows/translate_file.py</code> and <code>backend/orchestrator/translate_file/</code>.
 </p>

@@ -20,6 +20,43 @@ logger = setup_logger()
 WORKFLOWS = ("translate_line", "translate_file", "review_file", "transcribe_clip", "transcribe_file", "update_library")
 
 
+class RunLog:
+    """A run's log folder, logs/<workflow>/<start timestamp>-<input name or workflow>/, created on the first write.
+
+    Runs whose tasks write no diagnostics leave no folder behind.
+    """
+
+    def __init__(self, workflow: str, data: TaskData):
+        """Name the folder from the workflow, the run's start time and its input name."""
+        label = data.run_label() or workflow
+        safe_label = re.sub(r"[^\w.\-]", "_", Path(label).name).strip("._") or workflow
+        self._parent = LOGS_DIR / workflow
+        self._name = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_label}"
+        self.path: Path | None = None
+
+    def write(self, filename: str, content: dict[str, Any]) -> None:
+        """Write one JSON diagnostic file, creating the folder first if this is the run's first log."""
+        if Path(filename).name != filename or not filename.endswith(".json"):
+            raise ValueError(f"Invalid log filename '{filename}'.")
+        if self.path is None:
+            self.path = self._create_folder()
+        with open(self.path / filename, "w", encoding="utf-8") as log_file:
+            json.dump(content, log_file, ensure_ascii=False, indent=2)
+
+    def _create_folder(self) -> Path:
+        """Create the folder, adding -2, -3, ... if a run with the same name already exists."""
+        self._parent.mkdir(parents=True, exist_ok=True)
+        candidate = self._parent / self._name
+        suffix = 2
+        while True:
+            try:
+                candidate.mkdir()
+                return candidate
+            except FileExistsError:
+                candidate = self._parent / f"{self._name}-{suffix}"
+                suffix += 1
+
+
 class TaskOrchestrator:
     """Singleton that runs one workflow at a time on its own background worker and records its state."""
 
@@ -107,10 +144,10 @@ class TaskOrchestrator:
         result: TaskData | None = None
         try:
             try:
-                log_dir = self._create_log_dir(workflow, data)
+                run_log = RunLog(workflow, data)
                 current = data
                 for task in tasks:
-                    current = self._run_task(workflow, task, current, log_dir)
+                    current = self._run_task(workflow, task, current, run_log)
                 result = finish(current)
                 if not isinstance(result, TaskData):
                     raise TypeError(f"Workflow '{workflow}' finish returned {type(result).__name__}, not TaskData.")
@@ -134,7 +171,7 @@ class TaskOrchestrator:
             with self._lock:
                 self._running = None
 
-    def _run_task(self, workflow: str, task: BaseTask, data: TaskData, log_dir: Path) -> TaskData:
+    def _run_task(self, workflow: str, task: BaseTask, data: TaskData, run_log: RunLog) -> TaskData:
         """Check the task's input and output types around one run, reporting progress and logs to this workflow."""
         self._state.start_stage(workflow, task.task_type)
         if not isinstance(data, task.input_type):
@@ -147,38 +184,12 @@ class TaskOrchestrator:
         try:
             output = task.run_task(
                 report_progress=partial(self._state.report_progress, workflow),
-                write_log=partial(self._write_log, log_dir),
+                write_log=run_log.write,
             )
         except Exception:
             logger.error("%s FAILED elapsed=%.3fs", log_prefix, time.perf_counter() - started, exc_info=True)
             raise
         if not isinstance(output, task.output_type):
             raise TypeError(f"{task.task_type} must return {task.output_type.__name__}, got {type(output).__name__}.")
-        logger.info("%s FINISHED elapsed=%.3fs log_dir=%s", log_prefix, time.perf_counter() - started, log_dir)
+        logger.info("%s FINISHED elapsed=%.3fs log_dir=%s", log_prefix, time.perf_counter() - started, run_log.path)
         return output
-
-    @staticmethod
-    def _create_log_dir(workflow: str, data: TaskData) -> Path:
-        """Create logs/<workflow>/<timestamp>-<input name or workflow>/, adding a suffix if that folder exists."""
-        label = data.run_label() or workflow
-        safe_label = re.sub(r"[^\w.\-]", "_", Path(label).name).strip("._") or workflow
-        base = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_label}"
-        parent = LOGS_DIR / workflow
-        parent.mkdir(parents=True, exist_ok=True)
-        candidate = parent / base
-        suffix = 2
-        while True:
-            try:
-                candidate.mkdir()
-                return candidate
-            except FileExistsError:
-                candidate = parent / f"{base}-{suffix}"
-                suffix += 1
-
-    @staticmethod
-    def _write_log(log_dir: Path, filename: str, content: dict[str, Any]) -> None:
-        """Write one JSON diagnostic file into the run's log folder."""
-        if Path(filename).name != filename or not filename.endswith(".json"):
-            raise ValueError(f"Invalid log filename '{filename}'.")
-        with open(log_dir / filename, "w", encoding="utf-8") as log_file:
-            json.dump(content, log_file, ensure_ascii=False, indent=2)

@@ -118,7 +118,7 @@ The frontend polls `GET /task-results/{workflow}` with the ID returned in `data.
 
 ## Run logs
 
-For each accepted run the orchestrator creates `files/logs/<workflow>/<YYYYmmdd-HHMMSS>-<input filename or workflow>/` (adding `-2`, `-3`, … if it already exists) and keeps it after success or failure. Tasks write into it with `write_log(filename, content)`:
+Tasks write diagnostics with `write_log(filename, content)` (`RunLog` in `task_orchestrator.py`). The first write creates the run's folder, `files/logs/<workflow>/<YYYYmmdd-HHMMSS>-<input filename or workflow>/`, named from the run's start time (adding `-2`, `-3`, … if it already exists). The folder is kept after success or failure. A run that writes nothing creates no folder.
 
 | Workflow | Files |
 |---|---|
@@ -126,7 +126,7 @@ For each accepted run the orchestrator creates `files/logs/<workflow>/<YYYYmmdd-
 | `review_file` | `01-plan-translation-batches.json`, `03-review-translated-batches.json` (+ `03-review-translated-batch-failures.json` on failure), `04-retranslate-reviewed-lines.json` |
 | `update_library` | `01-scan-subtitle-file.json`, `02-check-against-library.json`, `03-generate-search-queries.json`, `04-web-search.json`, `05-generate-library-proposals.json`, `06-deduplicate-proposals.json` |
 
-Library-context selection writes no log. Line translation and transcription runs get a folder but write no files.
+Library-context selection writes no log. Line translation and both transcriptions write none, so they leave no folder.
 
 ## Prompts
 
