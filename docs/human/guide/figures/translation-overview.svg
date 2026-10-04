@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1148" height="340" viewBox="0 0 1148 340" role="img" aria-labelledby="title desc">
+<title id="title">File translation and review steps</title>
+<desc id="desc">Translating a file: upload, plan batches, choose library entries, translate batches, save. Reviewing a translation: upload both files, plan batches, choose library entries, check batches, retranslate flagged lines, save. Planning batches and choosing library entries are the same step in both.</desc>
+<style>
+  .bg { fill: #ffffff; }
+  text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: 13px; fill: #1c2330; }
+  .code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 11px; }
+  .sub { font-size: 11px; fill: #5b6475; }
+  .node rect, .node polygon { stroke-width: 1.5; }
+  .fe rect, .fe polygon { fill: #efe9fa; stroke: #6a4bb3; }
+  .route rect, .route polygon { fill: #e6effa; stroke: #2f6fb3; }
+  .sync rect, .sync polygon { fill: #f8eedd; stroke: #8a5a14; }
+  .db rect, .db polygon { fill: #e4f4ec; stroke: #2c8a5a; }
+  .lifeline { stroke: #c3c9d3; stroke-width: 1.2; stroke-dasharray: 4 4; }
+  .edge { fill: none; stroke: #5b6475; stroke-width: 1.6; }
+  .edge.reply { stroke: #2f6fb3; stroke-dasharray: 6 5; }
+  .arrowhead { fill: #5b6475; }
+  .arrowhead.reply { fill: #2f6fb3; }
+  .frame rect { fill: none; stroke: #8a93a3; stroke-width: 1.2; }
+  .frame .tag { fill: #f0f2f5; stroke: #8a93a3; stroke-width: 1.2; }
+  .frame text { font-size: 11px; font-weight: 700; fill: #5b6475; }
+  .legend text { font-size: 10px; fill: #5b6475; }
+  .legend rect { stroke-width: 1.2; }
+  @media (prefers-color-scheme: dark) {
+    .bg { fill: #1a1f27; }
+    text { fill: #e6e9ef; }
+    .sub, .frame text, .legend text { fill: #9aa3b2; }
+    .fe rect, .fe polygon { fill: #2a2340; stroke: #b9a2f5; }
+    .route rect, .route polygon { fill: #1b2a3d; stroke: #7db3ef; }
+    .sync rect, .sync polygon { fill: #342816; stroke: #e7b56a; }
+    .db rect, .db polygon { fill: #183126; stroke: #6fd3a0; }
+    .lifeline { stroke: #3a4352; }
+    .edge { stroke: #9aa3b2; }
+    .edge.reply { stroke: #7db3ef; }
+    .arrowhead { fill: #9aa3b2; }
+    .arrowhead.reply { fill: #7db3ef; }
+    .frame rect { stroke: #6b7486; }
+    .frame .tag { fill: #222833; stroke: #6b7486; }
+  }
+  .plain rect, .plain polygon { fill: #f0f2f5; stroke: #8a93a3; }
+  @media (prefers-color-scheme: dark) { .plain rect, .plain polygon { fill: #222833; stroke: #6b7486; } }
+</style>
+<rect class="bg" width="1148" height="340" rx="10"/>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<text x="30" y="46" font-weight="700">Translate a file</text>
+<g class="node route"><rect x="30" y="60" width="158" height="58" rx="7"/><text x="109" y="86" text-anchor="middle">Upload<tspan class="sub" x="109" dy="16">episode01.ja.ass</tspan></text></g>
+<g class="node db"><rect x="216" y="60" width="158" height="58" rx="7"/><text x="295" y="86" text-anchor="middle">Plan batches<tspan class="sub" x="295" dy="16">model groups lines</tspan></text></g>
+<path class="edge" d="M190,89.0 H215" marker-end="url(#arrow)"/>
+<g class="node db"><rect x="402" y="60" width="158" height="58" rx="7"/><text x="481" y="86" text-anchor="middle">Choose library entries<tspan class="sub" x="481" dy="16">model picks names, terms</tspan></text></g>
+<path class="edge" d="M376,89.0 H401" marker-end="url(#arrow)"/>
+<g class="node sync"><rect x="588" y="60" width="158" height="58" rx="7"/><text x="667" y="86" text-anchor="middle">Translate batches<tspan class="sub" x="667" dy="16">model translates</tspan></text></g>
+<path class="edge" d="M562,89.0 H587" marker-end="url(#arrow)"/>
+<g class="node route"><rect x="774" y="60" width="158" height="58" rx="7"/><text x="853" y="86" text-anchor="middle">Save<tspan class="sub" x="853" dy="16">episode01.en.ass</tspan></text></g>
+<path class="edge" d="M748,89.0 H773" marker-end="url(#arrow)"/>
+<text x="30" y="186" font-weight="700">Review a translation</text>
+<g class="node route"><rect x="30" y="200" width="158" height="58" rx="7"/><text x="109" y="226" text-anchor="middle">Upload both files<tspan class="sub" x="109" dy="16">original + translation</tspan></text></g>
+<g class="node db"><rect x="216" y="200" width="158" height="58" rx="7"/><text x="295" y="226" text-anchor="middle">Plan batches<tspan class="sub" x="295" dy="16">model groups lines</tspan></text></g>
+<path class="edge" d="M190,229.0 H215" marker-end="url(#arrow)"/>
+<g class="node db"><rect x="402" y="200" width="158" height="58" rx="7"/><text x="481" y="226" text-anchor="middle">Choose library entries<tspan class="sub" x="481" dy="16">model picks names, terms</tspan></text></g>
+<path class="edge" d="M376,229.0 H401" marker-end="url(#arrow)"/>
+<g class="node fe"><rect x="588" y="200" width="158" height="58" rx="7"/><text x="667" y="226" text-anchor="middle">Check batches<tspan class="sub" x="667" dy="16">model flags bad lines</tspan></text></g>
+<path class="edge" d="M562,229.0 H587" marker-end="url(#arrow)"/>
+<g class="node fe"><rect x="774" y="200" width="158" height="58" rx="7"/><text x="853" y="226" text-anchor="middle">Retranslate flagged lines<tspan class="sub" x="853" dy="16">model fixes each line</tspan></text></g>
+<path class="edge" d="M748,229.0 H773" marker-end="url(#arrow)"/>
+<g class="node route"><rect x="960" y="200" width="158" height="58" rx="7"/><text x="1039" y="226" text-anchor="middle">Save<tspan class="sub" x="1039" dy="16">episode01.en.corrected.ass</tspan></text></g>
+<path class="edge" d="M934,229.0 H959" marker-end="url(#arrow)"/>
+<g class="legend" aria-hidden="true"><g class="node route"><rect x="30" y="312" width="14" height="12" rx="2"/></g><text x="50" y="321">file in or out</text><g class="node db"><rect x="160" y="312" width="14" height="12" rx="2"/></g><text x="180" y="321">same step in both</text><g class="node sync"><rect x="308" y="312" width="14" height="12" rx="2"/></g><text x="328" y="321">translation only</text><g class="node fe"><rect x="450" y="312" width="14" height="12" rx="2"/></g><text x="470" y="321">review only</text></g>
+</svg>

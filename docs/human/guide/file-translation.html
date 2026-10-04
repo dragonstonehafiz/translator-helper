@@ -1,0 +1,204 @@
+<!doctype html>
+
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>File translation and review | Translator Helper</title><link rel="stylesheet" href="../human-docs.css"><script src="../human-docs.js" defer></script>
+</head>
+
+<body>
+<nav class="site-nav" aria-label="Human documentation">
+<div class="site-nav-inner"><a class="site-nav-brand" href="../index.html">Translator Helper <span>docs</span></a><details class="nav-menu current"><summary>Documentation</summary>
+<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="models.html">Models</a><a href="routes-api.html">Routes and API</a><a href="orchestrator.html">Orchestrator</a><a href="file-translation.html" aria-current="page">File translation and review</a><a href="frontend.html">Frontend architecture</a><a href="storage.html">Files and storage</a>
+</div></details>
+</div>
+</nav>
+<div class="page">
+<aside class="toc" aria-label="On this page">
+<h2>On this page</h2>
+<ol>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#model">How the AI model is used</a></li>
+<li><a href="#planning">Planning batches</a></li>
+<li><a href="#library">Using the series library</a></li>
+<li><a href="#translating">Translating or reviewing</a></li>
+<li><a href="#errors">Handling bad AI output</a></li>
+<li><a href="#saving">Saving the result</a></li>
+</ol>
+</aside>
+<main>
+<header class="hero">
+<h1>File translation and review</h1>
+<p>How a subtitle file is translated by the AI model, and how an existing translation is checked and corrected.</p>
+<div class="meta-line"><span>Current implementation &middot; 4 October 2026</span></div>
+</header>
+
+<section id="overview">
+<h2>Overview</h2>
+<p>Translating and reviewing share their first two steps. The steps between upload and save are tasks run by the <a href="orchestrator.html">orchestrator</a>.</p>
+<figure class="diagram">
+<img src="figures/translation-overview.svg" alt="Translating a file: upload, plan batches, choose library entries, translate batches, save. Reviewing a translation: upload both files, plan batches, choose library entries, check batches, retranslate flagged lines, save. Planning batches and choosing library entries are the same step in both." style="display:block;width:100%;height:auto">
+</figure>
+<p>A review needs the original file and its translation, and both must have the same number of subtitle lines. The app checks this before any request is sent to the model.</p>
+</section>
+
+<section id="model">
+<h2>How the AI model is used</h2>
+<p>Subtitle lines are always sent numbered, with the speaker's name from the subtitle file, so the model can say which line it means:</p>
+<pre><code>12. Aoi: 先輩、おはようございます！
+13. Ren: おう、早いな。</code></pre>
+<p>The reply is plain text, so the app never trusts it as-is. When it asks for JSON, it checks the structure and every line number. When it asks for translated lines, it counts them. What happens when a check fails is covered under <a href="#errors">Handling bad AI output</a>.</p>
+<p>Planning, choosing library entries and reviewing use a low temperature (0.1), so the model's answers are as consistent as possible. Translating and retranslating use the temperature set on the Settings page.</p>
+</section>
+
+<section id="planning">
+<h2>Planning batches</h2>
+<p>Translating one line at a time loses context: a reply only makes sense next to the question, and a joke next to its setup. Sending the whole file at once is too much for one request. So the model first splits the file into batches, each a scene or conversation that belongs together.</p>
+<p>It receives every numbered line of the file and replies with a plan:</p>
+<pre><code>{
+  "batches": [
+    {"start_index": 1, "end_index": 57, "reason": "A continuous off-day conversation."},
+    {"start_index": 58, "end_index": 117, "reason": "A continuous photoshoot and follow-up conversation."},
+    …
+  ]
+}</code></pre>
+<p>The app checks that the batches start at line 1, end at the last line, and cover every line exactly once, in order, with no gaps or overlaps. If the plan breaks any of these, the job stops.</p>
+<div class="tabs">
+<div class="tab-panel" data-tab="Translation">
+<p>Translation also has a maximum batch size, set on the Translate page. Every batch over the limit goes back to the model, together with its original reason, to be split into smaller consecutive batches. The split is checked the same way. If the model's split is invalid, the app splits the batch into equal parts itself.</p>
+</div>
+<div class="tab-panel" data-tab="Review">
+<p>Review keeps the batches exactly as the model planned them. The batch size on the page is not applied.</p>
+</div>
+</div>
+</section>
+
+<section id="library">
+<h2>Using the series library</h2>
+<p>The library stores each series' characters (names, aliases, personality, relationships, history) and glossary terms with their agreed translations. Sending all of it with every request would be long and mostly irrelevant, so the model first picks what this episode needs.</p>
+<p>It receives the whole numbered file plus a list of every character and term in the series, and replies with the ones that appear:</p>
+<pre><code>{
+  "character_ids": ["aoi", "ren"],
+  "glossary_ids": ["senpai"]
+}</code></pre>
+<p>The chosen entries are written out as a context block, which is added to the instructions of every later request in the job:</p>
+<pre><code>- characters: Aoi
+  Aliases: Aoi-chan
+  Personality: Cheerful
+  Relationship with Ren: Childhood friend.
+- glossary: 先輩 → senpai (Keep untranslated.)</code></pre>
+<p>If no series was selected, or the series has no characters or terms, this step is skipped without calling the model.</p>
+</section>
+
+<section id="translating">
+<h2>Translating or reviewing</h2>
+<p>After the shared steps, the two jobs do different work on the planned batches.</p>
+<div class="tabs">
+<div class="tab-panel" data-tab="Translate a file">
+<p>Each batch is sent as one request. The lines are numbered from 1 within the batch and include how long each line is on screen:</p>
+<pre><code>1. Aoi (2.10s): 先輩、おはようございます！
+2. Ren (1.45s): おう、早いな。
+3. Aoi (2.80s): 今日は文化祭の準備ですから！</code></pre>
+<p>The instructions tell the model to:</p>
+<ul>
+<li>return a natural translation only, with no labels, notes or speaker names;</li>
+<li>keep Japanese honorifics on names, romanised (葛城さん → Katsuragi-san);</li>
+<li>keep the tone, intent and formality of each speaker;</li>
+<li>use shorter phrasing for lines that are on screen briefly;</li>
+<li>follow the library context block.</li>
+</ul>
+<p>The model replies with one line per line sent:</p>
+<pre><code>Good morning, senpai!
+Hey, you're early.
+We've got school festival prep today!</code></pre>
+<p>Reply lines are matched to subtitle lines in order, so the counts must agree. Each translation replaces the text of its subtitle line; timing and speaker are kept. Line breaks inside a subtitle become spaces.</p>
+<p>After the last batch, any line wrapped entirely in quotation marks or asterisks has them removed, because models sometimes add them.</p>
+</div>
+<div class="tab-panel" data-tab="Review a translation">
+<p>Each batch is sent with the original lines and the translated lines side by side, numbered by their position in the file:</p>
+<pre><code>&lt;ORIGINAL_LINES&gt;
+12. Aoi: 先輩、おはようございます！
+13. Ren: おう、早いな。
+&lt;/ORIGINAL_LINES&gt;
+
+&lt;TRANSLATED_LINES&gt;
+12. Aoi: Good morning, Ren!
+13. Ren: Hey, you're early.
+&lt;/TRANSLATED_LINES&gt;</code></pre>
+<p>The model is told to flag only real problems: wrong or missing meaning, added meaning, wrong tone or formality, names, terms or honorifics that don't match the library, and phrasing that changes the meaning. It is told not to flag lines just because other wording is possible. It replies with the lines to fix:</p>
+<pre><code>{
+  "corrections": [
+    {"index": 12, "reason": "先輩 should be kept as the honorific senpai, not replaced with the name Ren."}
+  ]
+}</code></pre>
+<p>Line numbers must fall inside the batch. If the same line is flagged more than once, the reasons are combined.</p>
+<p>Each flagged line is then retranslated on its own. The model receives the original line, the current translation and the reason, and replies with one corrected line, which replaces the old translation:</p>
+<pre><code>&lt;LINE_INDEX&gt;12&lt;/LINE_INDEX&gt;
+&lt;ORIGINAL_LINE&gt;Aoi: 先輩、おはようございます！&lt;/ORIGINAL_LINE&gt;
+&lt;CURRENT_TRANSLATED_LINE&gt;Aoi: Good morning, Ren!&lt;/CURRENT_TRANSLATED_LINE&gt;
+&lt;REVIEW_REASON&gt;先輩 should be kept as the honorific senpai, not replaced with the name Ren.&lt;/REVIEW_REASON&gt;</code></pre>
+<pre><code>Good morning, senpai!</code></pre>
+</div>
+</div>
+</section>
+
+<section id="errors">
+<h2>Handling bad AI output</h2>
+<p>A translated batch that comes back wrong is retried in smaller pieces rather than failing the job:</p>
+<figure class="diagram">
+<img src="figures/translation-fallback.svg" alt="The batch is sent to the model. On a rate limit the app waits 1.5 seconds and sends it again, up to 3 attempts. If the reply has one line for every line sent, the lines are written into the subtitles. Otherwise, on the batch's first failure, it is split in half and each half is sent the same way; halves are not split again. If a half also fails, each of its lines is translated on its own." style="display:block;width:100%;max-width:830px;height:auto;margin:0 auto">
+</figure>
+<p>Any other error from the request is treated the same as a wrong line count. Translating a line on its own uses the single-line instructions and has no further fallback: if that request fails, the job stops.</p>
+<div class="note warn">
+<p>If all three attempts hit a rate limit, the batch is currently skipped without an error, and its lines are saved untranslated.</p>
+</div>
+<p>Every other failure:</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Step</th><th scope="col">Problem</th><th scope="col">What happens</th></tr>
+</thead>
+<tbody>
+<tr><td>Planning batches</td><td>Invalid JSON, or lines missed or covered twice</td><td>The job stops.</td></tr>
+<tr><td>Splitting a large batch</td><td>Invalid split</td><td>The batch is split into equal parts instead.</td></tr>
+<tr><td>Choosing library entries</td><td>Invalid JSON</td><td>The job stops.</td></tr>
+<tr><td>Checking batches</td><td>Invalid JSON, or a line number outside the batch</td><td>The job stops.</td></tr>
+<tr><td>Retranslating a line</td><td>Request fails</td><td>The job stops.</td></tr>
+</tbody>
+</table>
+</div>
+<p>When the job stops, the error is shown on the page and nothing is saved. The run's log folder keeps what the model returned:</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">File</th><th scope="col">Contents</th></tr>
+</thead>
+<tbody>
+<tr><td><code>01-plan-translation-batches.json</code></td><td>The batch plan.</td></tr>
+<tr><td><code>02-split-oversized-batches.json</code></td><td>Each split batch, and whether the model or the even split was used.</td></tr>
+<tr><td><code>03-review-translated-batches.json</code></td><td>Every flagged line with its reason, original and translation.</td></tr>
+<tr><td><code>03-review-translated-batch-failures.json</code></td><td>The batch and raw reply that could not be read.</td></tr>
+<tr><td><code>04-translate-file-batch-failures.json</code></td><td>Each batch that was split or fell back to line-by-line, with the lines sent and the lines returned.</td></tr>
+<tr><td><code>04-retranslate-reviewed-lines.json</code></td><td>Each corrected line, before and after.</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section id="saving">
+<h2>Saving the result</h2>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Job</th><th scope="col">Input</th><th scope="col">Saved as</th></tr>
+</thead>
+<tbody>
+<tr><td>Translate</td><td><code>episode01.ja.ass</code></td><td><code>files/outputs/translated/episode01.en.ass</code></td></tr>
+<tr><td>Review</td><td><code>episode01.en.ass</code></td><td><code>files/outputs/reviewed/episode01.en.corrected.ass</code></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+</main>
+</div>
+</body>
+</html>

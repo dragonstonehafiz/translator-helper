@@ -82,6 +82,18 @@ code {
   overflow-wrap: anywhere;
 }
 
+pre {
+  margin: 12px 0;
+  padding: 12px 14px;
+  background: var(--code-bg);
+  border-radius: 6px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+
 /* ---------- Top navigation ---------- */
 
 .site-nav {
@@ -393,3 +405,35 @@ tr.total td { font-weight: 700; background: var(--surface-alt); }
   .dup dl { grid-template-columns: 1fr; }
   .dup dt { margin-top: 4px; }
 }
+
+/* ---------- Tabs ---------- */
+
+.tab-list { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid var(--border); margin: 12px 0; }
+.tab-list button {
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.tab-list button:hover { color: var(--text); }
+.tab-list button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+@media print {
+  .tab-list { display: none; }
+  .tab-panel[hidden] { display: block; }
+  .tab-panel::before { content: attr(data-tab); display: block; font-weight: 700; margin-top: 12px; }
+}
+
+/* ---------- Side-by-side code ---------- */
+
+.code-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin: 12px 0; }
+.code-pair h4 { margin: 0 0 6px; font-size: 0.92rem; }
+.code-pair pre { margin: 0; }
+@media (max-width: 720px) { .code-pair { grid-template-columns: 1fr; } }
+
+.table-wrap td code { overflow-wrap: normal; white-space: nowrap; }

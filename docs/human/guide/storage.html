@@ -7,103 +7,151 @@
 <body>
 <nav class="site-nav" aria-label="Human documentation">
 <div class="site-nav-inner"><a class="site-nav-brand" href="../index.html">Translator Helper <span>docs</span></a><details class="nav-menu current"><summary>Documentation</summary>
-<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="backend.html">Backend and models</a><a href="routes-api.html">Routes and API</a><a href="tasks.html">Orchestrator and task chains</a><a href="requests.html">Translation request flow</a><a href="frontend.html">Frontend architecture</a><a href="storage.html" aria-current="page">Files and storage</a>
+<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="models.html">Models</a><a href="routes-api.html">Routes and API</a><a href="orchestrator.html">Orchestrator</a><a href="file-translation.html">File translation and review</a><a href="frontend.html">Frontend architecture</a><a href="storage.html" aria-current="page">Files and storage</a>
 </div></details>
 </div>
 </nav>
 <div class="page">
 <aside class="toc" aria-label="On this page">
-<h2>On this page
-</h2>
+<h2>On this page</h2>
 <ol>
-<li><a href="#disk">Storage paths</a>
-</li>
-<li><a href="#upload">Temporary uploads</a>
-</li>
-<li><a href="#library">Series library storage</a>
-</li>
-<li><a href="#download">File listing and downloads</a>
-</li>
-
+<li><a href="#map">Folder map</a></li>
+<li><a href="#config">Model settings</a></li>
+<li><a href="#library">Series library</a></li>
+<li><a href="#outputs">Outputs</a></li>
+<li><a href="#logs">Logs</a></li>
 </ol>
 </aside>
 <main>
 <header class="hero">
-<h1>Files and storage
-</h1>
-<p>Persistent files and temporary uploads have different owners and lifetimes.
-</p>
-<div class="meta-line"><span>Current implementation &middot; 3 October 2026</span>
-</div>
+<h1>Files and storage</h1>
+<p>Everything the backend keeps on disk, and what each file looks like.</p>
+<div class="meta-line"><span>Current implementation &middot; 4 October 2026</span></div>
 </header>
-<section id="disk">
-<h2>Storage paths
-</h2>
+
+<section id="map">
+<h2>Folder map</h2>
+<p>There is no database. Everything the app writes goes under <code>backend/files/</code>, which is ignored by git. Each folder is created the first time something is written to it.</p>
+<figure class="diagram">
+<img src="figures/storage-map.svg" alt="backend/files/ holds config/ with one JSON file per model provider, written by the Settings page when a model loads; library/ with one folder per series holding series.json, characters.json and glossary.json, written by library edits; outputs/ with translated/, reviewed/ and transcribed/ subtitles from finished jobs; and logs/ with translator-helper.log and one folder of JSON diagnostics per run. backend/model-files/ holds llama.cpp .gguf models added by hand." style="display:block;width:100%;max-width:760px;height:auto;margin:0 auto">
+</figure>
+<p><code>backend/model-files/</code> is the exception: you put <code>.gguf</code> files there yourself for the llama.cpp provider, and the app only reads it.</p>
+</section>
+
+<section id="config">
+<h2>Model settings</h2>
+<p>Each provider's settings are saved to their own file in <code>files/config/</code>, named after the provider. The file is created with default values the first time the provider is used, and rewritten whenever its settings are applied on the Settings page.</p>
+<div class="code-pair">
+<div>
+<h4>Files</h4>
+<pre><code>files/config/
+  llm_deepseek.json
+  llm_claude.json
+  llm_chatgpt.json
+  llm_llamacpp.json
+  audio_whisperx.json
+  audio_whisper.json
+  search_tavily.json</code></pre>
+</div>
+<div>
+<h4><code>llm_deepseek.json</code></h4>
+<pre><code>{
+  "model_name": "deepseek-v4-pro",
+  "api_key": "sk-…",
+  "temperature": 0.5
+}</code></pre>
+</div>
+</div>
+<div class="note warn">
+<p>API keys are stored here in plain text.</p>
+</div>
+<p>The fields in each file come from the provider's settings class; see <a href="models.html#config">Configuration</a>.</p>
+</section>
+
+<section id="library">
+<h2>Series library</h2>
+<p>Each series has its own folder in <code>files/library/</code>, named by its ID. The series is split across three files:</p>
+<div class="tabs">
+<div class="tab-panel" data-tab="series.json">
+<pre><code>{
+  "id": "gakuen-idolmaster",
+  "name": "Gakuen Idolmaster",
+  "input_lang": "ja",
+  "output_lang": "en",
+  "notes": "Gakuen Idolmaster (学園アイドルマスター) is a free-to-play roguelike deck-building game…"
+}</code></pre>
+</div>
+<div class="tab-panel" data-tab="characters.json">
+<pre><code>[
+  {
+    "id": "lilja-katsuragi",
+    "name": "Lilja Katsuragi",
+    "aliases": ["葛城リーリヤ", "リーリヤ"],
+    "personality": ["Shy and quiet in new situations.", …],
+    "relationships": {"…": ["…"]},
+    "history": ["…"]
+  },
+  …
+]</code></pre>
+</div>
+<div class="tab-panel" data-tab="glossary.json">
+<pre><code>[
+  {
+    "id": "初星学園",
+    "term": "初星学園",
+    "translation": "Hatsuboshi Academy",
+    "notes": "The idol training school where the story takes place."
+  },
+  …
+]</code></pre>
+</div>
+</div>
+<p>The backend always reads all three and joins them into one <code>Series</code> object, and splits it again when saving. Every library edit rewrites all three files. The joined object is shown on the <a href="routes-api.html#library">Routes and API</a> page.</p>
+</section>
+
+<section id="outputs">
+<h2>Outputs</h2>
 <div class="table-wrap">
 <table>
 <thead>
-<tr><th scope="col">Path</th><th scope="col">Contents</th><th scope="col">Writer / owner</th>
-</tr>
+<tr><th scope="col">Folder</th><th scope="col">Written by</th><th scope="col">Input</th><th scope="col">Saved as</th></tr>
 </thead>
 <tbody>
-<tr><td>backend/files/config/</td><td>Provider settings JSON, potentially including API keys.</td><td>Provider implementations; this guide does not read or reproduce these values.</td>
-</tr>
-<tr><td>backend/files/library/&lt;series_id&gt;/</td><td>series.json, characters.json, glossary.json.</td><td>library/repository.py, called by library routes.</td>
-</tr>
-<tr><td>backend/files/outputs/translated/</td><td>Translated subtitles.</td><td>translate_file workflow (workflows/file_output.py).</td>
-</tr>
-<tr><td>backend/files/outputs/reviewed/</td><td>Corrected subtitles.</td><td>review_file workflow.</td>
-</tr>
-<tr><td>backend/files/outputs/transcribed/</td><td>Transcribed ASS subtitles.</td><td>transcribe_file workflow.</td>
-</tr>
-<tr><td>backend/files/outputs/context/</td><td>Saved context files.</td><td>No active writer.</td>
-</tr>
-<tr><td>backend/files/logs/translate_file/</td><td>Per-run planning and splitting logs; failure diagnostics when applicable.</td><td>The orchestrator creates the folder on the first log a task writes.</td>
-</tr>
-<tr><td>backend/files/logs/review_file/</td><td>Per-run review planning, review and correction logs.</td><td>The orchestrator and tasks.</td>
-</tr>
-<tr><td>backend/files/logs/update_library/</td><td>Per-run extraction, comparison, search and proposal logs.</td><td>The orchestrator and tasks.</td>
-</tr>
-<tr><td>backend/files/logs/translator-helper.log</td><td>Shared application/task logging.</td><td>utils/logger.py.</td>
-</tr>
-<tr><td>Operating-system temporary directory</td><td>Copies of uploaded files.</td><td>routes/shared.py: save_upload_to_temp().</td>
-</tr>
+<tr><td><code>outputs/translated/</code></td><td>File translation</td><td><code>episode01.ja.ass</code></td><td><code>episode01.en.ass</code></td></tr>
+<tr><td><code>outputs/reviewed/</code></td><td>Translation review</td><td><code>episode01.en.ass</code></td><td><code>episode01.en.corrected.ass</code></td></tr>
+<tr><td><code>outputs/transcribed/</code></td><td>File transcription</td><td><code>episode01.wav</code></td><td><code>episode01.ja.ass</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>Everything app-owned lives under the gitignored <code>backend/files/</code> folder, and every path is defined once in <code>backend/utils/config.py</code>. This map comes from active source paths, not an inventory of personal output files. A folder may be created only when its writer runs.
-</p>
+<p>A new file with the same name replaces the old one. Files stay until they are deleted from the Translate or Transcribe page.</p>
 </section>
-<section id="upload">
-<h2>Temporary uploads
-</h2>
-<p><code>save_upload_to_temp()</code> uses <code>tempfile.NamedTemporaryFile(delete=False)</code>. It does not archive uploads under <code>files/</code>. The workflow reads the file into memory when it starts; tasks never see the path.
-</p>
-<p>Cleanup has one owner at a time. Until the orchestrator accepts the workflow, the route owns the temp files and deletes them if anything is rejected. Once it is accepted, the workflow's cleanup callback deletes them when the run ends, whether it succeeded or failed.
-</p>
+
+<section id="logs">
+<h2>Logs</h2>
+<p><code>files/logs/translator-helper.log</code> collects one line per event from the whole backend. Jobs that write diagnostics also get a folder per run:</p>
+<pre><code>files/logs/
+  translator-helper.log
+  translate_file/
+    20261004-111433-episode01.ja.ass/
+      01-plan-translation-batches.json
+      02-split-oversized-batches.json
+      04-translate-file-batch-failures.json
+  review_file/
+    20261004-130519-episode01.en.ass/
+      01-plan-translation-batches.json
+      03-review-translated-batches.json
+      03-review-translated-batch-failures.json
+      04-retranslate-reviewed-lines.json
+  update_library/
+    20261004-110844-episode01.ja.ass/
+      01-scan-subtitle-file.json
+      02-check-against-library.json
+      03-generate-search-queries.json
+      04-web-search.json
+      05-generate-library-proposals.json
+      06-deduplicate-proposals.json</code></pre>
 </section>
-<section id="library">
-<h2>Series library storage
-</h2>
-<p><code>load_series()</code> reads three JSON files and combines them into one series dictionary. <code>save_series()</code> separates metadata, characters and glossary back into their files. Series directories are identified by their series IDs.
-</p>
-<p>The library-update chain produces suggested entries. Acceptance in the UI goes through ordinary library CRUD requests before entries become persistent library data.
-</p>
-<p>A missing series raises <code>SeriesNotFoundError</code> (404 at the HTTP boundary) and an invalid ID raises <code>InvalidSeriesIdError</code> (400). Translation and review treat only a missing series as "no series context".
-</p>
-<p>Source: <code>backend/library/repository.py</code> and <code>backend/routes/library.py</code>.
-</p>
-</section>
-<section id="download">
-<h2>File listing and downloads
-</h2>
-<p>The frontend requests a folder through file-management endpoints. The shared path helper validates folder segments and resolves them under <code>files/outputs/</code>. The list response contains names, sizes and modification times; download returns file content separately.
-</p>
-<p>Translate names <code>translated</code> and <code>reviewed</code>; Transcribe names <code>transcribed</code>. The panel does not discover arbitrary output categories automatically.
-</p>
-<p>Source: <code>backend/routes/file_management.py</code>.
-</p>
-</section>
+
 </main>
 </div>
 </body>

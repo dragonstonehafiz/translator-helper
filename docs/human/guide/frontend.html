@@ -7,172 +7,231 @@
 <body>
 <nav class="site-nav" aria-label="Human documentation">
 <div class="site-nav-inner"><a class="site-nav-brand" href="../index.html">Translator Helper <span>docs</span></a><details class="nav-menu current"><summary>Documentation</summary>
-<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="backend.html">Backend and models</a><a href="routes-api.html">Routes and API</a><a href="tasks.html">Orchestrator and task chains</a><a href="requests.html">Translation request flow</a><a href="frontend.html" aria-current="page">Frontend architecture</a><a href="storage.html">Files and storage</a>
+<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="models.html">Models</a><a href="routes-api.html">Routes and API</a><a href="orchestrator.html">Orchestrator</a><a href="file-translation.html">File translation and review</a><a href="frontend.html" aria-current="page">Frontend architecture</a><a href="storage.html">Files and storage</a>
 </div></details>
 </div>
 </nav>
 <div class="page">
 <aside class="toc" aria-label="On this page">
-<h2>On this page
-</h2>
+<h2>On this page</h2>
 <ol>
-<li><a href="#shell">Application shell</a>
-</li>
-<li><a href="#pages">Pages and routes</a>
-</li>
-<li><a href="#services">Shared services</a>
-</li>
-<li><a href="#state">Shared and page-local state</a>
-</li>
-<li><a href="#components">Shared components</a>
-</li>
-<li><a href="#coupling">Refactoring dependencies</a>
-</li>
-
+<li><a href="#structure">Structure</a></li>
+<li><a href="#pages">Pages</a></li>
+<li><a href="#state">Shared state</a></li>
+<li><a href="#components">Components</a></li>
+<li><a href="#dialogs">Dialogs</a></li>
 </ol>
 </aside>
 <main>
 <header class="hero">
-<h1>Frontend architecture
-</h1>
-<p>Angular pages coordinate workflows. Services share state and HTTP access; reusable components handle presentation and interaction.
-</p>
-<div class="meta-line"><span>Current implementation &middot; 3 October 2026</span>
-</div>
+<h1>Frontend architecture</h1>
+<p>The Angular app: the shell, its pages, the state they share and the components they are built from.</p>
+<div class="meta-line"><span>Current implementation &middot; 4 October 2026</span></div>
 </header>
-<section id="shell">
-<h2>Application shell
-</h2>
-<p><code>AppComponent</code> renders the navbar, router outlet, confirmation dialog, error dialog and progress overlay. The router replaces the page inside the outlet while the shell remains.
-</p>
-<p>On initialization, the shell requests server variables. If the LLM or audio model is not ready, it navigates to Settings. Search readiness is tracked separately and is not part of that combined readiness check.
-</p>
-<p>Source: <code>frontend/src/app/app.component.ts</code>.
-</p>
+
+<section id="structure">
+<h2>Structure</h2>
+<p><code>AppComponent</code> stays on screen the whole time; the router swaps the page inside it.</p>
+<figure class="diagram">
+<img src="figures/frontend-shell.svg" alt="AppComponent contains the navbar, a router outlet that shows one of six pages (Home, Settings, Library, LibraryDetail, Transcribe, Translate), the confirmation dialog, the error dialog and the progress overlay. ConfirmationService and ErrorDialogService drive the two dialogs through dialog$. StateService drives the progress overlay through getActiveWorkflow() and the navbar through llmReady$ and audioReady$." style="display:block;width:100%;height:auto">
+</figure>
+<p>When the app starts, <code>AppComponent</code> calls <code>getServerVariables()</code>. If the LLM or the audio model isn't ready, it sends the user to Settings.</p>
 </section>
+
 <section id="pages">
-<h2>Pages and routes
-</h2>
+<h2>Pages</h2>
 <div class="table-wrap">
 <table>
 <thead>
-<tr><th scope="col">Route</th><th scope="col">Responsibility</th>
-</tr>
+<tr><th scope="col">Route</th><th scope="col">Component</th><th scope="col">Shared components</th><th scope="col"><code>ApiService</code> calls</th></tr>
 </thead>
 <tbody>
-<tr><td>/</td><td>Home / landing page.</td>
-</tr>
-<tr><td>/settings</td><td>Readiness display and forms built from backend settings schemas; apply settings and load clients.</td>
-</tr>
-<tr><td>/library</td><td>List and create series.</td>
-</tr>
-<tr><td>/library/:seriesId</td><td>Edit series metadata, characters and glossary; run updates and review proposals.</td>
-</tr>
-<tr><td>/transcribe</td><td>Record or supply audio, transcribe a line/file, display text and downloads.</td>
-</tr>
-<tr><td>/translate</td><td>Translate text/files, review translations and show translated/reviewed downloads.</td>
-</tr>
+<tr><td><code>/</code></td><td>HomeComponent</td><td>None</td><td>None</td></tr>
+<tr><td><code>/settings</code></td><td>SettingsComponent</td><td>tabs, subsection, primary-button, tooltip-icon</td><td><code>getSettingsSchema</code>, <code>getServerVariables</code>, <code>checkRunning</code>, <code>loadLlmModel</code>, <code>loadAudioModel</code>, <code>loadSearchModel</code></td></tr>
+<tr><td><code>/library</code></td><td>LibraryComponent</td><td>subsection, primary-button, secondary-button, loading-text-indicator</td><td><code>listSeries</code>, <code>createSeries</code>, <code>deleteSeries</code></td></tr>
+<tr><td><code>/library/:seriesId</code></td><td>LibraryDetailComponent</td><td>tabs, subsection, file-upload, primary-button, secondary-button, loading-text-indicator</td><td><code>getSeries</code>, <code>updateSeries</code>, character and glossary add/update/delete, <code>startLibraryUpdate</code></td></tr>
+<tr><td><code>/transcribe</code></td><td>TranscribeComponent</td><td>tabs, subsection, file-upload, waveform-player, text-field, downloads-list, primary-button, tooltip-icon, loading-text-indicator</td><td><code>transcribeAudio</code>, <code>transcribeFile</code>, <code>listFiles</code>, <code>getFileBlob</code>, <code>deleteFile</code></td></tr>
+<tr><td><code>/translate</code></td><td>TranslateComponent</td><td>tabs, subsection, file-upload, text-field, downloads-list, primary-button, tooltip-icon, loading-text-indicator</td><td><code>listSeries</code>, <code>translateLine</code>, <code>translateFile</code>, <code>reviewTranslatedFile</code>, <code>listFiles</code>, <code>getFileBlob</code>, <code>deleteFile</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>These are standalone components registered in <code>frontend/src/app/app.routes.ts</code>. Each page imports the components it uses.
-</p>
+<p>What each call returns is on the <a href="routes-api.html">Routes and API</a> page.</p>
 </section>
-<section id="services">
-<h2>Shared services
-</h2>
-<div class="table-wrap">
-<table>
-<thead>
-<tr><th scope="col">Service</th><th scope="col">What it does</th><th scope="col">What it does not do</th>
-</tr>
-</thead>
-<tbody>
-<tr><td>ApiService</td><td>Defines HTTP methods and response interfaces; sends requests to the backend.</td><td>Does not run the LLM or save library JSON locally.</td>
-</tr>
-<tr><td>StateService</td><td>Holds shared values in RxJS BehaviorSubjects, which expose the latest value to subscribers.</td><td>Polls the running workflow; does not persist state across a browser refresh.</td>
-</tr>
-<tr><td>ConfirmationService</td><td>Supplies dialog state and resolves the user's decision.</td><td>Does not itself delete the target file or library item.</td>
-</tr>
-<tr><td>ErrorDialogService</td><td>Supplies error-dialog state for AppComponent.</td><td>Does not determine whether a task succeeded; callers must report the failure.</td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>Sources: <code>frontend/src/app/services/api.service.ts</code> and <code>frontend/src/app/services/state.service.ts</code>.
-</p>
-</section>
+
 <section id="state">
-<h2>Shared and page-local state
-</h2>
-<p>StateService keeps model readiness, loading flags, settings schemas, selected series, original/translated subtitle files, file statistics and one state record per workflow: status, active task, progress, message, ETA, result and error.
-</p>
-<p>StateService also owns the only polling loop. After a page's start request is accepted, it polls that workflow every second until it completes, fails or goes idle, and shows the error dialog on failure. The Translate page keeps only local form fields and download lists; it reads busy flags and results from StateService and refreshes its downloads when a workflow finishes.
-</p>
-<div class="note">
-<p>Leaving Translate does not stop polling or cancel backend work. The progress overlay keeps updating, and the result is waiting when the user returns.
-</p>
-</div>
-<p>Source: <code>frontend/src/app/pages/translate/translate.component.ts</code>.
-</p>
-</section>
-<section id="components">
-<h2>Shared components
-</h2>
-<div class="flow" aria-label="Process in execution order">
-<div class="flow-step fe"><strong>Page</strong><small>Holds workflow state and handles events.</small>
-</div>
-<div class="flow-arrow" aria-hidden="true">
-</div>
-<div class="flow-step fe"><strong>Reusable component</strong><small>Receives inputs and emits user actions.</small>
-</div>
-<div class="flow-arrow" aria-hidden="true">
-</div>
-<div class="flow-step route"><strong>ApiService</strong><small>Page calls the backend when needed.</small>
-</div>
-<div class="flow-arrow" aria-hidden="true">
-</div>
-<div class="flow-step fe"><strong>State and view</strong><small>Page stores the response and updates what is shown.</small>
-</div>
-</div>
+<h2>Shared state</h2>
+<p><code>StateService</code> holds values that more than one component needs, or that must survive leaving a page. Each value is an RxJS <code>BehaviorSubject</code>: it always has a current value, and anything subscribed is told when it changes. Nothing is saved, so a browser refresh resets all of it.</p>
 <div class="table-wrap">
 <table>
 <thead>
-<tr><th scope="col">Component family</th><th scope="col">Purpose</th>
-</tr>
+<tr><th scope="col">Value</th><th scope="col">Holds</th><th scope="col">Written by</th><th scope="col">Read by</th></tr>
 </thead>
 <tbody>
-<tr><td>tabs / tab / subsection</td><td>Organize sections. Tab content uses hidden state so switching tabs retains its component state.</td>
-</tr>
-<tr><td>file-upload / text-field</td><td>File selection and text editing/display.</td>
-</tr>
-<tr><td>primary-button / secondary-button / tooltip-icon</td><td>Common controls and help.</td>
-</tr>
-<tr><td>downloads-list</td><td>Reusable file panel; emits refresh, download and delete actions for the page to handle.</td>
-</tr>
-<tr><td>waveform-player</td><td>Audio playback, waveform display and selection/trim interaction.</td>
-</tr>
-<tr><td>progress-bar / confirm-dialog / error-dialog</td><td>Global progress and dialogs rendered by the app shell.</td>
-</tr>
+<tr><td><code>llmReady</code></td><td>Whether the LLM is loaded</td><td>AppComponent, Settings</td><td>Navbar, Settings</td></tr>
+<tr><td><code>audioReady</code></td><td>Whether the audio model is loaded</td><td>AppComponent, Settings</td><td>Navbar, Settings</td></tr>
+<tr><td><code>searchReady</code></td><td>Whether web search is loaded</td><td>AppComponent, Settings</td><td>LibraryDetail, Settings</td></tr>
+<tr><td><code>isReady</code></td><td>Whether the LLM and audio model are both loaded</td><td>AppComponent, Settings</td><td>Nothing</td></tr>
+<tr><td><code>loadingLlm</code>, <code>loadingAudio</code></td><td>Whether a model is loading</td><td>Settings</td><td>Settings</td></tr>
+<tr><td><code>serverLlmVars</code>, <code>serverAudioVars</code></td><td>The loaded models' current settings</td><td>Settings</td><td>Settings</td></tr>
+<tr><td><code>settingsSchema</code></td><td>The settings forms for each model</td><td>Settings</td><td>Settings</td></tr>
+<tr><td><code>selectedSeriesId</code></td><td>The series chosen for translation</td><td>Translate</td><td>Translate</td></tr>
+<tr><td><code>activeSubtitleFile</code></td><td>The selected subtitle file</td><td>Translate, LibraryDetail</td><td>Translate, LibraryDetail</td></tr>
+<tr><td><code>activeTranslatedSubtitleFile</code></td><td>The translated file selected for review</td><td>Translate</td><td>Translate</td></tr>
+<tr><td><code>subtitleFileInfo</code>, <code>…Loading</code>, <code>…Error</code></td><td>Statistics for the selected subtitle file</td><td>Cleared when the file changes</td><td>Nothing</td></tr>
+<tr><td><code>translatedSubtitleFileInfo</code>, <code>…Loading</code>, <code>…Error</code></td><td>Statistics for the selected translated file</td><td>Cleared when the file changes</td><td>Nothing</td></tr>
+<tr><td><code>workflowStates</code></td><td>One record per workflow: status, active task, progress, message, ETA, result, error</td><td><code>trackWorkflow()</code>, started by Translate, Transcribe, LibraryDetail</td><td>AppComponent, Translate, Transcribe, LibraryDetail</td></tr>
 </tbody>
 </table>
 </div>
-<p>Shared layout/form styles live in <code>frontend/src/styles.scss</code>; component-specific styles live beside each component.
-</p>
+<p>Because <code>activeSubtitleFile</code> is shared, a file selected on Translate is already selected for a library update, and the other way round.</p>
+
+<h3>Reading and writing a value</h3>
+<p><code>llmReady</code> as an example. <code>StateService</code> keeps the subject private and exposes a setter, a getter and the observable:</p>
+<pre><code>private llmReadySubject = new BehaviorSubject&lt;boolean | null&gt;(null);
+public llmReady$ = this.llmReadySubject.asObservable();
+
+setLlmReady(ready: boolean | null): void { this.llmReadySubject.next(ready); }
+getLlmReady(): boolean | null { return this.llmReadySubject.value; }</code></pre>
+<div class="code-pair">
+<div>
+<h4>AppComponent writes it</h4>
+<pre><code>this.apiService.getServerVariables().subscribe({
+  next: (response) =&gt; {
+    const data = response.data;
+    ...
+    this.stateService.setLlmReady(data.llm_ready);
+    this.stateService.setAudioReady(data.audio_ready);
+  },
+});</code></pre>
+</div>
+<div>
+<h4>NavbarComponent reads it</h4>
+<pre><code>this.stateService.llmReady$.subscribe(ready =&gt; {
+  this.llmReady = ready === true;
+});</code></pre>
+</div>
+</div>
+
+<h3>Workflow state</h3>
+<p>When the backend accepts a job, the page hands it to <code>trackWorkflow()</code>, which polls it every second and copies each response into <code>workflowStates</code>. Polling lives in the service, so it keeps going when the user leaves the page.</p>
+<pre><code>trackWorkflow(workflow: WorkflowId, message: string, seriesId: string | null = null): void {
+  this.patchWorkflowState(workflow, { status: 'processing', message, result: null, error: null, seriesId, … });
+
+  this.pollSubscription = timer(1000, 1000).pipe(
+    exhaustMap(() =&gt; this.apiService.getWorkflowResult(workflow)),
+  ).subscribe({
+    next: (response) =&gt; {
+      const [current, total] = response.data?.progress ?? [0, 0];
+      this.patchWorkflowState(workflow, { status: response.status, current, total, result: response.data?.result ?? null, … });
+      if (response.status !== 'processing') {
+        this.stopPolling();
+        if (response.status === 'error') this.errorDialogService.show(response.message);
+      }
+    },
+  });
+}</code></pre>
+<p>Pages subscribe to <code>workflowStates$</code> to update their buttons and results. The progress overlay reads the same record through <code>getActiveWorkflow()</code>. The responses being polled are shown on the <a href="routes-api.html#jobs">Routes and API</a> page.</p>
 </section>
-<section id="coupling">
-<h2>Refactoring dependencies
-</h2>
-<ul>
-<li><code>WORKFLOW_TYPES</code> lists the backend workflow IDs. Adding a workflow means adding it on both sides.
-</li>
-<li>The Settings page renders whatever fields the provider schemas declare, by type. Which provider fills each slot is chosen in <code>backend/models/manager.py</code>.
-</li>
-<li>Download sections name backend folders directly. Moving outputs requires updating writers and these consumers together.
-</li>
-<li>Library and Translate share selected subtitle files and series through StateService; those inputs are not entirely local to one page.
-</li>
-</ul>
+
+<section id="components">
+<h2>Components</h2>
+<p>Shared components don't call services. They receive data through inputs and report user actions through outputs; the page does the work.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Component</th><th scope="col">What it does</th></tr>
+</thead>
+<tbody>
+<tr><td><code>tabs</code>, <code>tab</code></td><td>Tabbed sections. Hidden tabs keep their state.</td></tr>
+<tr><td><code>subsection</code></td><td>Titled section with an optional tooltip.</td></tr>
+<tr><td><code>file-upload</code></td><td>File picker; emits <code>filesSelected</code>.</td></tr>
+<tr><td><code>text-field</code></td><td>Multi-line text that switches between reading and editing.</td></tr>
+<tr><td><code>primary-button</code>, <code>secondary-button</code></td><td>Buttons.</td></tr>
+<tr><td><code>tooltip-icon</code></td><td>Help icon with a tooltip.</td></tr>
+<tr><td><code>loading-text-indicator</code></td><td>Animated loading text.</td></tr>
+<tr><td><code>downloads-list</code></td><td>Searchable, sortable, paged file list; emits <code>refresh</code>, <code>download</code> and <code>delete</code>.</td></tr>
+<tr><td><code>waveform-player</code></td><td>Audio playback with a waveform and a selectable range.</td></tr>
+<tr><td><code>navbar</code>, <code>progress-bar</code>, <code>confirm-dialog</code>, <code>error-dialog</code></td><td>Used only by the shell.</td></tr>
+<tr><td><code>context-status</code></td><td>Not used anywhere.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Example: the Translate page's downloads list</h3>
+<p>The component declares what it needs and what it reports:</p>
+<pre><code>export class DownloadsListComponent {
+  @Input() files: { name: string; size: number; modified: string }[] = [];
+  @Input() isLoading = false;
+  @Input() error = '';
+  @Input() deletingFilename = '';
+  @Output() refresh = new EventEmitter&lt;void&gt;();
+  @Output() download = new EventEmitter&lt;string&gt;();
+  @Output() delete = new EventEmitter&lt;string&gt;();
+}</code></pre>
+<p>The page passes its data in and connects each output to one of its own methods:</p>
+<pre><code>&lt;app-downloads-list
+  [files]="section.files"
+  [isLoading]="section.isLoading"
+  [error]="section.error"
+  [deletingFilename]="section.deletingFilename"
+  (refresh)="refreshDownloadSection(section)"
+  (download)="downloadFile(section, $event)"
+  (delete)="deleteFile(section, $event)"&gt;
+&lt;/app-downloads-list&gt;</code></pre>
+<p>When the user clicks delete, the component only emits the filename. The page asks for confirmation, calls the API and updates the list it passes back in:</p>
+<pre><code>async deleteFile(section: DownloadSection, filename: string): Promise&lt;void&gt; {
+  const confirmed = await this.confirmationService.confirm({
+    title: 'Confirm Deletion',
+    message: `Delete ${filename}? This cannot be undone.`,
+    confirmLabel: 'Delete',
+  });
+  if (!confirmed) return;
+  section.deletingFilename = filename;
+  this.apiService.deleteFile(section.folder, filename).subscribe({
+    next: () =&gt; {
+      section.files = section.files.filter(file =&gt; file.name !== filename);
+      section.deletingFilename = '';
+    },
+    error: () =&gt; {
+      this.errorDialogService.show('Failed to delete file. Please try again.');
+      section.deletingFilename = '';
+    },
+  });
+}</code></pre>
+</section>
+
+<section id="dialogs">
+<h2>Dialogs</h2>
+<p>Both dialogs are drawn once by <code>AppComponent</code>. Any page opens them through a service, which puts the dialog's content into its <code>dialog$</code>; the shell shows the dialog while <code>dialog$</code> has a value.</p>
+<div class="code-pair">
+<div>
+<h4>A page asks for confirmation</h4>
+<pre><code>const confirmed = await this.confirmationService.confirm({
+  message: `Delete ${filename}? This cannot be undone.`,
+});</code></pre>
+<p><code>confirm()</code> returns a promise that resolves to <code>true</code> or <code>false</code> when the user clicks a button.</p>
+</div>
+<div>
+<h4>A page reports an error</h4>
+<pre><code>this.errorDialogService.show(
+  'Failed to delete file. Please try again.',
+);</code></pre>
+<p>The dialog stays until the user dismisses it.</p>
+</div>
+</div>
+<p>The shell connects the dialogs' buttons back to the services:</p>
+<pre><code>&lt;app-confirm-dialog
+  *ngIf="confirmationService.dialog$ | async as dialog"
+  [dialog]="dialog"
+  (confirmed)="confirmationService.resolve(true)"
+  (cancelled)="confirmationService.resolve(false)"&gt;
+&lt;/app-confirm-dialog&gt;
+
+&lt;app-error-dialog
+  *ngIf="errorDialogService.dialog$ | async as dialog"
+  [dialog]="dialog"
+  (dismissed)="errorDialogService.dismiss()"&gt;
+&lt;/app-error-dialog&gt;</code></pre>
 </section>
 
 </main>

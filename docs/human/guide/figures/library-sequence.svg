@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1140" height="516" viewBox="0 0 1140 516" role="img" aria-labelledby="title desc">
+<title id="title">Library request sequence</title>
+<desc id="desc">Add-character example of a library edit. LibraryDetailComponent calls ApiService.addCharacter, which posts to /library/{series_id}/characters. The route loads the series through the repository, which reads the series files, appends the character, saves the series back, and answers success with the whole updated series, which replaces the page&#x27;s copy.</desc>
+<style>
+  .bg { fill: #ffffff; }
+  text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: 13px; fill: #1c2330; }
+  .code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 11px; }
+  .sub { font-size: 11px; fill: #5b6475; }
+  .node rect { stroke-width: 1.5; }
+  .fe rect { fill: #efe9fa; stroke: #6a4bb3; }
+  .route rect { fill: #e6effa; stroke: #2f6fb3; }
+  .sync rect { fill: #f8eedd; stroke: #8a5a14; }
+  .db rect { fill: #e4f4ec; stroke: #2c8a5a; }
+  .lifeline { stroke: #c3c9d3; stroke-width: 1.2; stroke-dasharray: 4 4; }
+  .edge { fill: none; stroke: #5b6475; stroke-width: 1.6; }
+  .edge.reply { stroke: #2f6fb3; stroke-dasharray: 6 5; }
+  .arrowhead { fill: #5b6475; }
+  .arrowhead.reply { fill: #2f6fb3; }
+  .frame rect { fill: none; stroke: #8a93a3; stroke-width: 1.2; }
+  .frame .tag { fill: #f0f2f5; stroke: #8a93a3; stroke-width: 1.2; }
+  .frame text { font-size: 11px; font-weight: 700; fill: #5b6475; }
+  .legend text { font-size: 10px; fill: #5b6475; }
+  .legend rect { stroke-width: 1.2; }
+  @media (prefers-color-scheme: dark) {
+    .bg { fill: #1a1f27; }
+    text { fill: #e6e9ef; }
+    .sub, .frame text, .legend text { fill: #9aa3b2; }
+    .fe rect { fill: #2a2340; stroke: #b9a2f5; }
+    .route rect { fill: #1b2a3d; stroke: #7db3ef; }
+    .sync rect { fill: #342816; stroke: #e7b56a; }
+    .db rect { fill: #183126; stroke: #6fd3a0; }
+    .lifeline { stroke: #3a4352; }
+    .edge { stroke: #9aa3b2; }
+    .edge.reply { stroke: #7db3ef; }
+    .arrowhead { fill: #9aa3b2; }
+    .arrowhead.reply { fill: #7db3ef; }
+    .frame rect { stroke: #6b7486; }
+    .frame .tag { fill: #222833; stroke: #6b7486; }
+  }
+</style>
+<rect class="bg" width="1140" height="516" rx="10"/>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker>
+  <marker id="arrow-reply" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead reply" d="M0,0 L10,5 L0,10 z"/></marker>
+</defs>
+
+<!-- Layers -->
+<g class="node fe"><rect x="38" y="20" width="200" height="50" rx="7"/><text x="138" y="41" text-anchor="middle">LibraryDetailComponent<tspan class="sub" x="138" dy="17">pages/library</tspan></text></g>
+<g class="node fe"><rect x="254" y="20" width="200" height="50" rx="7"/><text x="354" y="41" text-anchor="middle">ApiService<tspan class="sub" x="354" dy="17">services/api.service.ts</tspan></text></g>
+<g class="node route"><rect x="470" y="20" width="200" height="50" rx="7"/><text x="570" y="41" text-anchor="middle">FastAPI route<tspan class="sub" x="570" dy="17">routes/library.py</tspan></text></g>
+<g class="node sync"><rect x="686" y="20" width="200" height="50" rx="7"/><text x="786" y="41" text-anchor="middle">Repository<tspan class="sub" x="786" dy="17">library/repository.py</tspan></text></g>
+<g class="node db"><rect x="902" y="20" width="200" height="50" rx="7"/><text x="1002" y="41" text-anchor="middle">Series files<tspan class="sub" x="1002" dy="17">files/library/&lt;series_id&gt;/</tspan></text></g>
+<line class="lifeline" x1="138" y1="70" x2="138" y2="466"/>
+<line class="lifeline" x1="354" y1="70" x2="354" y2="466"/>
+<line class="lifeline" x1="570" y1="70" x2="570" y2="466"/>
+<line class="lifeline" x1="786" y1="70" x2="786" y2="466"/>
+<line class="lifeline" x1="1002" y1="70" x2="1002" y2="466"/>
+
+<path class="edge" d="M138,118 H353" marker-end="url(#arrow)"/>
+<text class="code" x="246" y="111" text-anchor="middle">addCharacter(seriesId, data)</text>
+<path class="edge" d="M354,156 H569" marker-end="url(#arrow)"/>
+<text class="code" x="462" y="149" text-anchor="middle">POST /library/{series_id}/characters</text>
+<path class="edge" d="M570,194 H785" marker-end="url(#arrow)"/>
+<text class="code" x="678" y="187" text-anchor="middle">load_series(series_id)</text>
+<path class="edge" d="M786,232 H1001" marker-end="url(#arrow)"/>
+<text class="code" x="894" y="225" text-anchor="middle">read series · characters · glossary .json</text>
+<path class="edge reply" d="M786,270 H571" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="678" y="263" text-anchor="middle">series dict, or 404 if missing</text>
+<path class="edge" d="M570,308 H785" marker-end="url(#arrow)"/>
+<text class="code" x="678" y="301" text-anchor="middle">save_series(series)</text>
+<text class="sub" x="678" y="323" text-anchor="middle">after appending the character</text>
+<path class="edge" d="M786,360 H1001" marker-end="url(#arrow)"/>
+<text class="code" x="894" y="353" text-anchor="middle">write the three .json files</text>
+<path class="edge reply" d="M570,398 H355" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="462" y="391" text-anchor="middle">success · whole Series</text>
+<path class="edge reply" d="M354,436 H139" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="246" y="429" text-anchor="middle">this.series = response.data</text>
+
+<!-- Legend -->
+<g class="legend" aria-hidden="true">
+  <path class="edge" d="M30,494 H54" marker-end="url(#arrow)"/><text x="60" y="497">call</text>
+  <path class="edge reply" d="M100,494 H124" marker-end="url(#arrow-reply)"/><text x="130" y="497">response</text>
+  <g class="node fe"><rect x="200" y="488" width="14" height="12" rx="2"/></g><text x="220" y="497">frontend</text>
+  <g class="node route"><rect x="292" y="488" width="14" height="12" rx="2"/></g><text x="312" y="497">API route</text>
+  <g class="node sync"><rect x="390" y="488" width="14" height="12" rx="2"/></g><text x="410" y="497">backend logic</text>
+  <g class="node db"><rect x="512" y="488" width="14" height="12" rx="2"/></g><text x="532" y="497">model or storage</text>
+</g>
+</svg>

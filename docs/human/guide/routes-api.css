@@ -1,72 +1,3 @@
-.api-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  overflow: hidden;
-  margin: 18px 0 28px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-.api-summary div {
-  background: var(--surface);
-  padding: 14px 16px;
-}
-
-.api-summary strong {
-  display: block;
-  font-size: 1.35rem;
-  line-height: 1.2;
-}
-
-.api-summary span {
-  color: var(--text-muted);
-  font-size: 0.86rem;
-}
-
-.contract {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
-  margin: 14px 0;
-}
-
-.contract > div,
-.shape {
-  min-width: 0;
-  padding: 14px 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-.contract h3,
-.shape h3 {
-  margin: 0 0 8px;
-  font-size: 0.96rem;
-}
-
-.contract pre,
-.shape pre,
-.endpoint pre {
-  margin: 0;
-  padding: 10px 12px;
-  overflow-x: auto;
-  background: var(--code-bg);
-  border-radius: 6px;
-  font-family: var(--mono);
-  font-size: 0.8rem;
-  line-height: 1.5;
-}
-
-.contract pre code,
-.shape pre code,
-.endpoint pre code {
-  padding: 0;
-  background: transparent;
-}
-
 .swimlane {
   margin: 18px 0;
   overflow-x: auto;
@@ -82,103 +13,26 @@
   min-width: 1040px;
 }
 
-
-.endpoint-list {
-  display: grid;
-  gap: 10px;
-  margin: 16px 0;
-}
-
-.endpoint {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--route);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 14px 16px;
-}
-
-.endpoint.task { border-left-color: var(--sync); }
-.endpoint.file { border-left-color: var(--db); }
-
-.endpoint-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 7px;
-  margin-bottom: 7px;
-}
-
 .method {
-  min-width: 4.25rem;
+  display: inline-block;
+  min-width: 3.6rem;
   color: var(--surface);
   background: var(--route);
   border-radius: 4px;
-  padding: 2px 7px;
+  padding: 1px 6px;
   font-family: var(--mono);
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 750;
   text-align: center;
 }
+
+.table-wrap td:first-child { white-space: nowrap; }
 
 .method.post { background: var(--db); }
 .method.patch { background: var(--sync); }
 .method.delete { background: var(--accent); }
 
-.endpoint-path {
-  font-family: var(--mono);
-  font-size: 0.94rem;
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-
-.endpoint > p { margin: 5px 0; }
-
-.io {
-  display: grid;
-  gap: 10px;
-  margin: 10px 0 0;
-}
-
-.io-panel { min-width: 0; }
-
-.io-panel h4 {
-  margin: 0 0 4px;
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.endpoint pre a { color: inherit; text-decoration: underline; }
-
-.schema-list {
-  display: grid;
-  gap: 10px;
-}
-
-.schema-list .shape { margin: 0; }
-
-.route-index {
-  columns: 2;
-  column-gap: 28px;
-  padding-left: 1.2rem;
-}
-
-.route-index li {
-  break-inside: avoid;
-  margin-bottom: 4px;
-}
-
-@media (max-width: 720px) {
-  .api-summary,
-  .contract { grid-template-columns: 1fr; }
-  .route-index { columns: 1; }
-}
-
 @media print {
   .swimlane { overflow: visible; }
   .swimlane-svg { min-width: 0; }
-  .endpoint { break-inside: avoid; box-shadow: none; }
 }

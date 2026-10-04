@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="520" viewBox="0 0 1000 520" role="img" aria-labelledby="title desc">
+<title id="title">Frontend shell structure</title>
+<desc id="desc">AppComponent contains the navbar, a router outlet that shows one of six pages (Home, Settings, Library, LibraryDetail, Transcribe, Translate), the confirmation dialog, the error dialog and the progress overlay. ConfirmationService and ErrorDialogService drive the two dialogs through dialog$. StateService drives the progress overlay through getActiveWorkflow() and the navbar through llmReady$ and audioReady$.</desc>
+<style>
+  .bg { fill: #ffffff; }
+  text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: 13px; fill: #1c2330; }
+  .code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 11px; }
+  .sub { font-size: 11px; fill: #5b6475; }
+  .node rect, .node polygon { stroke-width: 1.5; }
+  .fe rect, .fe polygon { fill: #efe9fa; stroke: #6a4bb3; }
+  .route rect, .route polygon { fill: #e6effa; stroke: #2f6fb3; }
+  .sync rect, .sync polygon { fill: #f8eedd; stroke: #8a5a14; }
+  .db rect, .db polygon { fill: #e4f4ec; stroke: #2c8a5a; }
+  .lifeline { stroke: #c3c9d3; stroke-width: 1.2; stroke-dasharray: 4 4; }
+  .edge { fill: none; stroke: #5b6475; stroke-width: 1.6; }
+  .edge.reply { stroke: #2f6fb3; stroke-dasharray: 6 5; }
+  .arrowhead { fill: #5b6475; }
+  .arrowhead.reply { fill: #2f6fb3; }
+  .frame rect { fill: none; stroke: #8a93a3; stroke-width: 1.2; }
+  .frame .tag { fill: #f0f2f5; stroke: #8a93a3; stroke-width: 1.2; }
+  .frame text { font-size: 11px; font-weight: 700; fill: #5b6475; }
+  .legend text { font-size: 10px; fill: #5b6475; }
+  .legend rect { stroke-width: 1.2; }
+  @media (prefers-color-scheme: dark) {
+    .bg { fill: #1a1f27; }
+    text { fill: #e6e9ef; }
+    .sub, .frame text, .legend text { fill: #9aa3b2; }
+    .fe rect, .fe polygon { fill: #2a2340; stroke: #b9a2f5; }
+    .route rect, .route polygon { fill: #1b2a3d; stroke: #7db3ef; }
+    .sync rect, .sync polygon { fill: #342816; stroke: #e7b56a; }
+    .db rect, .db polygon { fill: #183126; stroke: #6fd3a0; }
+    .lifeline { stroke: #3a4352; }
+    .edge { stroke: #9aa3b2; }
+    .edge.reply { stroke: #7db3ef; }
+    .arrowhead { fill: #9aa3b2; }
+    .arrowhead.reply { fill: #7db3ef; }
+    .frame rect { stroke: #6b7486; }
+    .frame .tag { fill: #222833; stroke: #6b7486; }
+  }
+  .plain rect, .plain polygon { fill: #f0f2f5; stroke: #8a93a3; }
+  @media (prefers-color-scheme: dark) { .plain rect, .plain polygon { fill: #222833; stroke: #6b7486; } }
+</style>
+<rect class="bg" width="1000" height="520" rx="10"/>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<g class="frame"><rect x="30" y="20" width="940" height="330" rx="6"/><path class="tag" d="M30,20 H222 V38 L212,46 H30 Z"/><text x="40" y="37">AppComponent (app-root)</text></g>
+<g class="node fe"><rect x="50" y="60" width="900" height="40" rx="7"/><text x="500" y="85" text-anchor="middle">NavbarComponent</text></g>
+<g class="frame"><rect x="50" y="120" width="900" height="120" rx="6"/><path class="tag" d="M50,120 H290 V138 L280,146 H50 Z"/><text x="60" y="137">router-outlet · one page at a time</text></g>
+<g class="node route"><rect x="62" y="160" width="138" height="58" rx="7"/><text x="131" y="186" text-anchor="middle">Home<tspan class="sub" x="131" dy="16">/</tspan></text></g>
+<g class="node route"><rect x="212" y="160" width="138" height="58" rx="7"/><text x="281" y="186" text-anchor="middle">Settings<tspan class="sub" x="281" dy="16">/settings</tspan></text></g>
+<g class="node route"><rect x="362" y="160" width="138" height="58" rx="7"/><text x="431" y="186" text-anchor="middle">Library<tspan class="sub" x="431" dy="16">/library</tspan></text></g>
+<g class="node route"><rect x="512" y="160" width="138" height="58" rx="7"/><text x="581" y="186" text-anchor="middle">LibraryDetail<tspan class="sub" x="581" dy="16">/library/:seriesId</tspan></text></g>
+<g class="node route"><rect x="662" y="160" width="138" height="58" rx="7"/><text x="731" y="186" text-anchor="middle">Transcribe<tspan class="sub" x="731" dy="16">/transcribe</tspan></text></g>
+<g class="node route"><rect x="812" y="160" width="138" height="58" rx="7"/><text x="881" y="186" text-anchor="middle">Translate<tspan class="sub" x="881" dy="16">/translate</tspan></text></g>
+<g class="node fe"><rect x="50" y="260" width="280" height="56" rx="7"/><text x="190" y="285" text-anchor="middle">ConfirmDialogComponent<tspan class="sub" x="190" dy="16">shown while dialog$ has a value</tspan></text></g>
+<g class="node fe"><rect x="360" y="260" width="280" height="56" rx="7"/><text x="500" y="285" text-anchor="middle">ErrorDialogComponent<tspan class="sub" x="500" dy="16">shown while dialog$ has a value</tspan></text></g>
+<g class="node fe"><rect x="670" y="260" width="280" height="56" rx="7"/><text x="810" y="285" text-anchor="middle">Progress overlay<tspan class="sub" x="810" dy="16">shown while a workflow is processing</tspan></text></g>
+<g class="node sync"><rect x="50" y="400" width="280" height="50" rx="7"/><text x="190" y="430" text-anchor="middle">ConfirmationService</text></g>
+<g class="node sync"><rect x="360" y="400" width="280" height="50" rx="7"/><text x="500" y="430" text-anchor="middle">ErrorDialogService</text></g>
+<g class="node sync"><rect x="670" y="400" width="280" height="50" rx="7"/><text x="810" y="430" text-anchor="middle">StateService</text></g>
+<path class="edge" d="M190,400 V317" marker-end="url(#arrow)"/>
+<text class="sub" x="198" y="376" text-anchor="start">dialog$</text>
+<path class="edge" d="M500,400 V317" marker-end="url(#arrow)"/>
+<text class="sub" x="508" y="376" text-anchor="start">dialog$</text>
+<path class="edge" d="M810,400 V317" marker-end="url(#arrow)"/>
+<text class="sub" x="818" y="376" text-anchor="start">getActiveWorkflow()</text>
+<path class="edge" d="M950,425 H992 V80 H951" marker-end="url(#arrow)"/>
+<text class="sub" x="982" y="240" text-anchor="middle" transform="rotate(-90 982 240)">llmReady$ · audioReady$</text>
+<g class="legend" aria-hidden="true"><g class="node fe"><rect x="30" y="484" width="14" height="12" rx="2"/></g><text x="50" y="493">part of the shell</text><g class="node route"><rect x="178" y="484" width="14" height="12" rx="2"/></g><text x="198" y="493">routed page</text><g class="node sync"><rect x="290" y="484" width="14" height="12" rx="2"/></g><text x="310" y="493">shared service</text></g>
+<g class="legend" aria-hidden="true"><path class="edge" d="M470,490 H494" marker-end="url(#arrow)"/><text x="500" y="493">observable the shell reads</text></g>
+</svg>

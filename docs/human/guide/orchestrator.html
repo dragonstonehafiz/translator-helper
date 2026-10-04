@@ -1,0 +1,358 @@
+<!doctype html>
+
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Orchestrator | Translator Helper</title><link rel="stylesheet" href="../human-docs.css"><script src="../human-docs.js" defer></script>
+</head>
+
+<body>
+<nav class="site-nav" aria-label="Human documentation">
+<div class="site-nav-inner"><a class="site-nav-brand" href="../index.html">Translator Helper <span>docs</span></a><details class="nav-menu current"><summary>Documentation</summary>
+<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="models.html">Models</a><a href="routes-api.html">Routes and API</a><a href="orchestrator.html" aria-current="page">Orchestrator</a><a href="file-translation.html">File translation and review</a><a href="frontend.html">Frontend architecture</a><a href="storage.html">Files and storage</a>
+</div></details>
+</div>
+</nav>
+<div class="page">
+<aside class="toc" aria-label="On this page">
+<h2>On this page</h2>
+<ol>
+<li><a href="#runner">Running a workflow</a></li>
+<li><a href="#data">Task data</a></li>
+<li><a href="#tasks">Tasks</a></li>
+<li><a href="#workflows">Workflows</a></li>
+<li><a href="#orchestrator">The orchestrator</a></li>
+<li><a href="#tracking">Progress and logging</a></li>
+</ol>
+</aside>
+<main>
+<header class="hero">
+<h1>Orchestrator</h1>
+<p>A workflow is the whole operation a user starts, such as translating a file. It runs an ordered list of tasks, each taking one typed input and returning one typed output.</p>
+<div class="meta-line"><span>Current implementation &middot; 4 October 2026</span></div>
+</header>
+
+<section id="runner">
+<h2>Running a workflow</h2>
+<p>File translation, from the route call to the saved file:</p>
+<figure class="diagram">
+<img src="figures/workflow-run.svg" alt="A FastAPI route calls start_translate_file, which passes TranslationData and the task list to TaskOrchestrator.run. On the background worker the orchestrator runs TaskPrepareTranslationBatches, TaskSelectLibraryContext and TaskTranslateBatches in order, each output becoming the next input, then finish saves the file and cleanup deletes the upload. Tasks report progress to TaskStateHandler, which also receives the final result or error. run() returns straight away so the start route answers processing, and the result reaches the frontend later through GET /task-results/{workflow}, which reads TaskStateHandler." style="display:block;width:100%;max-width:800px;height:auto;margin:0 auto">
+</figure>
+</section>
+
+<section id="data">
+<h2>Task data</h2>
+<p>Everything passed between tasks is a <code>TaskData</code> dataclass. Each workflow defines its own subclasses in <code>orchestrator/task_data/</code>, and fields have no defaults, so a missing value fails when the object is built.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Function</th><th scope="col">What it does</th></tr>
+</thead>
+<tbody>
+<tr><td><code>extend(data, Target, **extra)</code></td><td>Builds a new <code>Target</code> from every field of <code>data</code> plus the new fields. Used when a task adds information.</td></tr>
+<tr><td><code>dataclasses.replace(data, **changes)</code></td><td>Returns a copy of the same type with some fields changed. Used when a task only updates information.</td></tr>
+<tr><td><code>run_label()</code></td><td>Returns the name used for the run's log folder, usually the uploaded filename.</td></tr>
+</tbody>
+</table>
+</div>
+<p>When a task adds information, its output type is a subclass of its input type with the new fields, so later tasks still have everything the earlier ones had. Batch planning in file translation:</p>
+<div class="code-pair">
+<div>
+<h4>The data classes</h4>
+<pre><code>@dataclass(kw_only=True)
+class TranslationData(TaskData):
+    original_filename: str
+    subtitles: pysubs2.SSAFile
+    input_lang: str
+    output_lang: str
+    batch_size: int
+    context: dict[str, str]
+    series: SeriesSnapshot | None
+    library_context: LibraryContext | None
+
+
+@dataclass(kw_only=True)
+class PlannedTranslationData(TranslationData):
+    batches: list[TranslationBatch]</code></pre>
+</div>
+<div>
+<h4>The task that turns one into the other</h4>
+<pre><code>class TaskPrepareTranslationBatches(
+    BaseTask[TranslationData, PlannedTranslationData]
+):
+    input_type = TranslationData
+    output_type = PlannedTranslationData
+
+    def run_task(self, report_progress, write_log):
+        data = self.get_data()  # TranslationData
+        batches = ...           # planned with the LLM
+        # every TranslationData field, plus batches
+        return extend(data, PlannedTranslationData,
+                      batches=batches)</code></pre>
+</div>
+</div>
+
+<h3>Validation</h3>
+<p>The orchestrator checks the type of the data on both sides of every task, so a task can never receive or hand on the wrong data:</p>
+<pre><code>if not isinstance(data, task.input_type):
+    raise TypeError(f"{task.task_type} expects {task.input_type.__name__}, got {type(data).__name__}.")
+task.set_data(data)
+output = task.run_task(report_progress=…, write_log=…)
+if not isinstance(output, task.output_type):
+    raise TypeError(f"{task.task_type} must return {task.output_type.__name__}, got {type(output).__name__}.")</code></pre>
+<p>The workflow's <code>finish()</code> must also return <code>TaskData</code>. Any of these errors fails the workflow.</p>
+</section>
+
+<section id="tasks">
+<h2>Tasks</h2>
+<p>Every task subclasses <code>BaseTask[InputT, OutputT]</code>.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Member</th><th scope="col">What it does</th></tr>
+</thead>
+<tbody>
+<tr><td><code>input_type</code>, <code>output_type</code></td><td>The <code>TaskData</code> classes the task accepts and returns.</td></tr>
+<tr><td><code>set_data(data)</code>, <code>get_data()</code></td><td>The orchestrator supplies the input; the task reads it.</td></tr>
+<tr><td><code>run_task(report_progress, write_log)</code></td><td>Does the work and returns the output, or raises.</td></tr>
+<tr><td><code>task_type</code></td><td>The class name, shown as the workflow's active task.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="tabs">
+<div class="tab-panel" data-tab="TaskTranslateLine">
+<p><strong>Input</strong> <code>TranslateLineData</code>: <code>text</code>, <code>context</code>, <code>input_lang</code>, <code>output_lang</code>.<br><strong>Output</strong> <code>TextOutputData</code>: <code>text</code>.</p>
+<pre><code>class TaskTranslateLine(BaseTask[TranslateLineData, TextOutputData]):
+    input_type = TranslateLineData
+    output_type = TextOutputData
+
+    def run_task(self, report_progress, write_log) -&gt; TextOutputData:
+        data = self.get_data()
+        model_manager = ModelManager.get_instance()
+        llm = model_manager.acquire_llm()
+        try:
+            report_progress(0, 1, "Translating the entered text", 0.0)
+            translated_text = llm.infer(
+                prompt=data.text,
+                system_prompt=generate_translate_sub_prompt(
+                    context=data.context, input_lang=data.input_lang, target_lang=data.output_lang,
+                ),
+            )
+        finally:
+            model_manager.release_llm()
+        report_progress(1, 1, "Translation complete", 0.0)
+        return TextOutputData(text=translated_text)</code></pre>
+</div>
+<div class="tab-panel" data-tab="TaskTranscribeClip">
+<p><strong>Input</strong> <code>TranscribeClipData</code>: <code>audio_path</code>, <code>language</code>.<br><strong>Output</strong> <code>TextOutputData</code>: <code>text</code>.</p>
+<pre><code>class TaskTranscribeClip(BaseTask[TranscribeClipData, TextOutputData]):
+    input_type = TranscribeClipData
+    output_type = TextOutputData
+
+    def run_task(self, report_progress, write_log) -&gt; TextOutputData:
+        data = self.get_data()
+        model_manager = ModelManager.get_instance()
+        audio = model_manager.acquire_audio()
+        try:
+            report_progress(0, 1, "Transcribing the selected audio clip", 0.0)
+            transcript = audio.transcribe_line(str(data.audio_path), data.language)
+        finally:
+            model_manager.release_audio()
+        report_progress(1, 1, "Transcription complete", 0.0)
+        return TextOutputData(text=transcript)</code></pre>
+</div>
+</div>
+<div class="note">
+<p>Tasks don't save files, delete uploads or record their own status. They return data or raise; the workflow's <code>finish()</code> saves output and the orchestrator records the result or error.</p>
+</div>
+</section>
+
+<section id="workflows">
+<h2>Workflows</h2>
+<p>A workflow is a start function in <code>orchestrator/workflows/</code>. It builds the first <code>TaskData</code> and the task list, then passes both to the orchestrator with a <code>finish</code> step that turns the last output into the result and a <code>cleanup</code> step for temp files.</p>
+<pre><code>def start_transcribe_file(audio_path: Path, original_filename: str, language: str) -&gt; None:
+    data = TranscribeFileData(audio_path=audio_path, original_filename=original_filename, language=language)
+    TaskOrchestrator.get_instance().run(
+        WORKFLOW, [TaskTranscribeFile()], data, finish=_finish, cleanup=remove_files(audio_path),
+    )
+
+
+def _finish(data: TaskData) -&gt; FileOutputData:
+    filename = transcribed_filename(data.original_filename, data.language)
+    return FileOutputData(output_path=save_subtitles(data.subtitles, "transcribed", filename))</code></pre>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Workflow</th><th scope="col">Tasks in order</th><th scope="col">Output</th></tr>
+</thead>
+<tbody>
+<tr><td><code>translate_line</code></td><td>TaskTranslateLine</td><td><code>TextOutputData</code></td></tr>
+<tr><td><code>translate_file</code></td><td>TaskPrepareTranslationBatches &rarr; TaskSelectLibraryContext &rarr; TaskTranslateBatches</td><td><code>FileOutputData</code> (<code>translated/</code>)</td></tr>
+<tr><td><code>review_file</code></td><td>TaskPrepareReviewBatches &rarr; TaskSelectLibraryContext &rarr; TaskReviewTranslatedBatches &rarr; TaskRetranslateReviewedLines</td><td><code>ReviewFileOutputData</code> (<code>reviewed/</code>)</td></tr>
+<tr><td><code>update_library</code></td><td>TaskExtractLibraryFindings &rarr; TaskClassifyLibraryFindings &rarr; TaskGenerateSearchQueries &rarr; TaskWebSearch &rarr; TaskGenerateLibraryProposals &rarr; TaskDeduplicateCharacterUpdates</td><td><code>ProposalOutputData</code></td></tr>
+<tr><td><code>transcribe_clip</code></td><td>TaskTranscribeClip</td><td><code>TextOutputData</code></td></tr>
+<tr><td><code>transcribe_file</code></td><td>TaskTranscribeFile</td><td><code>FileOutputData</code> (<code>transcribed/</code>)</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section id="orchestrator">
+<h2>The orchestrator</h2>
+<p><code>TaskOrchestrator</code> is a single shared object that runs workflows one at a time on its own background thread, so routes can answer straight away while the work continues.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Function</th><th scope="col">What it does</th></tr>
+</thead>
+<tbody>
+<tr><td><code>run(workflow, tasks, data, finish, cleanup)</code></td><td>Accepts a workflow and returns at once, or raises if another one is running.</td></tr>
+<tr><td><code>get_running_state()</code></td><td>Returns the running workflow's state, or <code>None</code>.</td></tr>
+<tr><td><code>get_state_handler()</code></td><td>Returns the state store read by <code>/task-results</code>.</td></tr>
+<tr><td><code>shutdown()</code></td><td>Refuses new workflows and waits for the running one to finish.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="code-pair">
+<div>
+<h4>Loading a workflow: <code>run()</code></h4>
+<pre><code>def run(self, workflow, tasks, data, *, finish, cleanup):
+    with self._lock:
+        if self._running is not None:
+            raise RuntimeError("Another task is already running.")
+        self._running = workflow
+        self._state.start_workflow(workflow)
+        # returns now; _execute runs on the worker thread
+        self._future = self._executor.submit(
+            self._execute, workflow, tasks, data, finish, cleanup)</code></pre>
+</div>
+<div>
+<h4>Running the tasks: <code>_execute()</code></h4>
+<pre><code>def _execute(self, workflow, tasks, data, finish, cleanup):
+    try:
+        current = data
+        for task in tasks:
+            # each output is the next task's input
+            current = self._run_task(workflow, task, current, run_log)
+        result = finish(current)
+    except Exception as exc:
+        error = exc
+    finally:
+        cleanup()
+    if error is not None:
+        self._state.fail(workflow, str(error))
+    else:
+        self._state.complete(workflow, result)</code></pre>
+</div>
+</div>
+<p><code>_run_task()</code> is the type check shown under <a href="#data">Validation</a>. The data passed through each workflow:</p>
+<div class="tabs">
+<div class="tab-panel" data-tab="translate_file">
+<div class="flow" aria-label="translate_file data flow">
+<div class="flow-step route"><strong>Translation<wbr>Data</strong><small>Built by <code>start_translate_file()</code>.</small></div>
+<div class="flow-arrow" aria-hidden="true"></div>
+<div class="flow-step sync"><strong>Task<wbr>Prepare<wbr>Translation<wbr>Batches</strong><small>Returns <code>PlannedTranslationData</code> via <code>extend()</code>.</small></div>
+<div class="flow-arrow" aria-hidden="true"></div>
+<div class="flow-step sync"><strong>Task<wbr>Select<wbr>Library<wbr>Context</strong><small>Returns <code>PlannedTranslationData</code> via <code>replace()</code>.</small></div>
+<div class="flow-arrow" aria-hidden="true"></div>
+<div class="flow-step sync"><strong>Task<wbr>Translate<wbr>Batches</strong><small>Returns <code>TranslatedSubtitleData</code>.</small></div>
+<div class="flow-arrow" aria-hidden="true"></div>
+<div class="flow-step db"><strong>finish()</strong><small>Saves the file, returns <code>FileOutputData</code>.</small></div>
+</div>
+</div>
+<div class="tab-panel" data-tab="review_file">
+<div class="flow" aria-label="review_file data flow">
+<div class="flow-step route"><strong>Review<wbr>Data</strong><small>Built by <code>start_review_file()</code>.</small></div>
+<div class="flow-arrow" aria-hidden="true"></div>
+<div class="flow-step sync"><strong>Task<wbr>Prepare<wbr>Review<wbr>Batches</strong><small>Returns <code>PlannedReviewData</code> via <code>extend()</code>.</small></div>
+<div class="flow-arrow" aria-hidden="true"></div>
+<div class="flow-step sync"><strong>Task<wbr>Select<wbr>Library<wbr>Context</strong><small>Returns <code>PlannedReviewData</code> via <code>replace()</code>.</small></div>
+<div class="flow-arrow" aria-hidden="true"></div>
+<div class="flow-step sync"><strong>Task<wbr>Review<wbr>Translated<wbr>Batches</strong><small>Returns <code>ReviewedData</code> via <code>extend()</code>.</small></div>
+<div class="flow-arrow" aria-hidden="true"></div>
+<div class="flow-step sync"><strong>Task<wbr>Retranslate<wbr>Reviewed<wbr>Lines</strong><small>Returns <code>CorrectedSubtitleData</code>.</small></div>
+<div class="flow-arrow" aria-hidden="true"></div>
+<div class="flow-step db"><strong>finish()</strong><small>Saves the file, returns <code>ReviewFileOutputData</code>.</small></div>
+</div>
+</div>
+</div>
+<p><code>TaskSelectLibraryContext</code> is shared: it is created with the data type it runs on, so in review the extra fields such as the translated subtitles pass through untouched.</p>
+</section>
+
+<section id="tracking">
+<h2>Progress and logging</h2>
+<p>A task never touches the state record or the log folder directly. <code>run_task()</code> receives two callbacks, and the orchestrator decides where their output goes.</p>
+<h3>1. The orchestrator passes in the callbacks</h3>
+<pre><code># TaskOrchestrator._run_task()
+self._state.start_stage(workflow, task.task_type)
+...
+output = task.run_task(
+    # fills in the workflow name, stores the rest
+    report_progress=partial(
+        self._state.report_progress, workflow),
+    # writes one JSON file into this run's folder
+    write_log=run_log.write,
+)</code></pre>
+<h3>2. The task calls them while it runs</h3>
+<pre><code># TaskPrepareTranslationBatches.run_task()
+report_progress(
+    0, 1, f"Planning semantic translation batches for "
+          f"{total_lines} subtitle lines", 0.0)
+planned = plan_batches(llm, indexed_lines, ...)
+write_log("01-plan-translation-batches.json", {
+    "task_type": self.task_type,
+    **log_header,
+    "batch_count": len(planned),
+    "batches": [batch.to_log() for batch in planned],
+})
+report_progress(
+    1, 1, f"Planned {len(planned)} semantic batches", 0.0)</code></pre>
+
+<h3>3. Each call updates its own output</h3>
+<p>The two callbacks are independent: one updates the state record, the other writes a file.</p>
+<div class="code-pair">
+<div>
+<h4><code>report_progress()</code> updates the state record</h4>
+<pre><code># TaskStateHandler record (read by /task-results)
+{
+  "workflow": "translate_file",
+  "status": "processing",
+  # set by start_stage() before the task runs
+  "active_task": "TaskPrepareTranslationBatches",
+  # the rest come from report_progress()
+  "progress": [1, 1],
+  "message": "Planned 4 semantic batches",
+  "eta_seconds": 0.0,
+  "result": null,
+  "error": null
+}</code></pre>
+</div>
+<div>
+<h4><code>write_log()</code> writes into the run folder</h4>
+<pre><code>files/logs/translate_file/
+  20261004-111433-episode01.ja.ass/
+    01-plan-translation-batches.json
+    02-split-oversized-batches.json
+
+# 01-plan-translation-batches.json
+{
+  "task_type": "TaskPrepareTranslationBatches",
+  "original_filename": "episode01.ja.ass",
+  "batch_size": 20,
+  "total_lines": 181,
+  "batch_count": 4,
+  "batches": [
+    {"start_index": 1, "end_index": 57, …},
+    …
+  ]
+}</code></pre>
+</div>
+</div>
+<p>The folder name comes from the run's start time and the data's <code>run_label()</code>. It is only created on the first <code>write_log()</code> call, so runs that write nothing, such as line translation, leave no folder.</p>
+<p>Separately, the orchestrator writes one line to <code>files/logs/translator-helper.log</code> whenever a task starts, finishes or fails:</p>
+<pre><code>[2026-10-04 06:12:01] [INFO] [translator-helper] workflow=translate_file task=TaskTranslateBatches STARTED
+[2026-10-04 06:14:27] [INFO] [translator-helper] workflow=translate_file task=TaskTranslateBatches FINISHED elapsed=146.212s log_dir=…</code></pre>
+</section>
+
+</main>
+</div>
+</body>
+</html>

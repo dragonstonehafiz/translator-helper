@@ -1,0 +1,260 @@
+<!doctype html>
+
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Models | Translator Helper</title><link rel="stylesheet" href="../human-docs.css"><script src="../human-docs.js" defer></script>
+</head>
+
+<body>
+<nav class="site-nav" aria-label="Human documentation">
+<div class="site-nav-inner"><a class="site-nav-brand" href="../index.html">Translator Helper <span>docs</span></a><details class="nav-menu current"><summary>Documentation</summary>
+<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="models.html" aria-current="page">Models</a><a href="routes-api.html">Routes and API</a><a href="orchestrator.html">Orchestrator</a><a href="file-translation.html">File translation and review</a><a href="frontend.html">Frontend architecture</a><a href="storage.html">Files and storage</a>
+</div></details>
+</div>
+</nav>
+<div class="page">
+<aside class="toc" aria-label="On this page">
+<h2>On this page
+</h2>
+<ol>
+<li><a href="#manager">Model manager</a>
+</li>
+<li><a href="#config">Configuration</a>
+</li>
+<li><a href="#models">Audio, LLM and search</a>
+</li>
+<li><a href="#folders">Backend structure</a>
+</li>
+
+</ol>
+</aside>
+<main>
+<header class="hero">
+<h1>Models
+</h1>
+<p>How ModelManager holds the LLM, audio and search clients, how provider settings are saved and loaded, and what each model exposes.
+</p>
+<div class="meta-line"><span>Current implementation &middot; 4 October 2026</span>
+</div>
+</header>
+<section id="manager">
+<h2>Model manager
+</h2>
+<figure class="diagram">
+<svg viewBox="0 0 760 462" role="img" aria-labelledby="mm-title mm-desc">
+<title id="mm-title">ModelManager slots and providers</title>
+<desc id="mm-desc">ModelManager holds one LLMInterface, one AudioModelInterface and one SearchTavily client. LLMInterface is implemented by DeepSeek (default, highlighted), Claude, ChatGPT and llama.cpp. AudioModelInterface is implemented by WhisperX (default, highlighted) and Whisper. Tavily has no interface.</desc>
+<defs><marker id="mm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+
+<g class="node sync"><rect x="280" y="20" width="200" height="50" rx="7"/><text class="title" x="380" y="51" text-anchor="middle">ModelManager</text></g>
+
+<path class="edge" d="M380,70 L380,105 L140,105 L140,138" marker-end="url(#mm-arrow)"/>
+<path class="edge" d="M380,70 L380,138" marker-end="url(#mm-arrow)"/>
+<path class="edge" d="M380,105 L620,105 L620,138" marker-end="url(#mm-arrow)"/>
+
+<g class="node route"><rect x="40" y="140" width="200" height="50" rx="7"/><text class="title" x="140" y="170" text-anchor="middle">LLMInterface</text></g>
+<g class="node route"><rect x="280" y="140" width="200" height="50" rx="7"/><text class="title" x="380" y="170" text-anchor="middle">AudioModelInterface</text></g>
+<g class="node db"><rect x="520" y="140" width="200" height="50" rx="7"/><text class="title" x="620" y="170" text-anchor="middle">SearchTavily</text></g>
+
+<path class="edge dashed" d="M60,190 L60,399"/>
+<path class="edge dashed" d="M60,239 L80,239 M60,289 L80,289 M60,339 L80,339 M60,389 L80,389"/>
+<g class="node fe"><rect x="80" y="220" width="160" height="38" rx="6"/><text x="160" y="244" text-anchor="middle">LLMDeepSeek</text></g>
+<g class="node"><rect x="80" y="270" width="160" height="38" rx="6"/><text x="160" y="294" text-anchor="middle">LLMClaude</text></g>
+<g class="node"><rect x="80" y="320" width="160" height="38" rx="6"/><text x="160" y="344" text-anchor="middle">LLMChatGPT</text></g>
+<g class="node"><rect x="80" y="370" width="160" height="38" rx="6"/><text x="160" y="394" text-anchor="middle">LLMLlamaCpp</text></g>
+
+<path class="edge dashed" d="M300,190 L300,289"/>
+<path class="edge dashed" d="M300,239 L320,239 M300,289 L320,289"/>
+<g class="node fe"><rect x="320" y="220" width="160" height="38" rx="6"/><text x="400" y="244" text-anchor="middle">AudioWhisperX</text></g>
+<g class="node"><rect x="320" y="270" width="160" height="38" rx="6"/><text x="400" y="294" text-anchor="middle">AudioWhisper</text></g>
+
+<!-- Legend -->
+<g aria-hidden="true" style="font-size:10px">
+  <path class="edge" d="M40,446 H62" marker-end="url(#mm-arrow)"/>
+  <text class="edge-label" x="70" y="449" style="font-size:10px">slot in ModelManager</text>
+  <path class="edge dashed" d="M180,446 H202"/>
+  <text class="edge-label" x="210" y="449" style="font-size:10px">implements interface</text>
+  <g class="node fe"><rect x="320" y="440" width="14" height="12" rx="2"/></g>
+  <text class="edge-label" x="340" y="449" style="font-size:10px">default provider</text>
+</g>
+</svg>
+</figure>
+<p><code>ModelManager</code> is a single shared object holding one LLM client, one audio client and one search client. Tasks see each slot only through its interface, so they call the same methods whichever provider is plugged in.
+</p>
+<p>When a model is loaded, the manager creates the client if the slot is empty, applies and saves any submitted settings, then initializes it. For each slot it stores whether the model is loading, which task is using it, and the last loading error shown on the Settings page.
+</p>
+<h3>Changing the provider</h3>
+<p>Each slot's provider class is set at the top of <code>backend/models/manager.py</code>. To switch, uncomment the provider's import, assign it to the slot and restart the backend:
+</p>
+<pre><code>from llm.claude import LLMClaude
+
+LLM_PROVIDER: Callable[[], LLMInterface] = LLMClaude
+AUDIO_PROVIDER: Callable[[], AudioModelInterface] = AudioWhisperX
+SEARCH_PROVIDER: Callable[[], SearchTavily] = SearchTavily</code></pre>
+</section>
+<section id="config">
+<h2>Configuration
+</h2>
+<p>Each provider defines its settings as a <code>ModelConfig</code> dataclass, with one <code>setting()</code> per field giving the label, option type and default:
+</p>
+<pre><code>@dataclass
+class DeepSeekConfig(ModelConfig):
+    CONFIG_FILE: ClassVar[str] = "llm_deepseek.json"
+    PROVIDER: ClassVar[str] = "llm_deepseek"
+    TITLE: ClassVar[str] = "DeepSeek"
+
+    model_name: ConfigField[str] = setting("Model", DropdownOption((
+        Choice("deepseek-v4-flash", "deepseek-v4-flash"),
+        Choice("deepseek-v4-pro", "deepseek-v4-pro"),
+    )), "deepseek-v4-flash", required=True)
+    api_key: ConfigField[str] = setting("API Key", TextOption(password=True, placeholder="sk-..."), "", required=True)
+    temperature: ConfigField[float] = setting("Temperature", NumberOption(min=0, max=2, step=0.1), 0.5)</code></pre>
+<ul>
+<li><strong>Loading:</strong> the provider's constructor calls <code>load()</code>, which reads <code>backend/files/config/&lt;CONFIG_FILE&gt;</code>. If the file is missing, it is created with the defaults.</li>
+<li><strong>Saving:</strong> when the Settings page loads a model, the submitted values are validated and written back to the same file. If any value is invalid, nothing changes.</li>
+<li><strong>Settings form:</strong> the Settings page builds its form from these fields. Password values are never sent to the browser.</li>
+</ul>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Option type</th><th scope="col">Settings control</th></tr>
+</thead>
+<tbody>
+<tr><td><code>TextOption</code></td><td>Text input, or a password input with <code>password=True</code></td></tr>
+<tr><td><code>NumberOption</code></td><td>Decimal number with optional <code>min</code>, <code>max</code> and <code>step</code></td></tr>
+<tr><td><code>IntegerOption</code></td><td>Whole number with optional <code>min</code> and <code>max</code></td></tr>
+<tr><td><code>BooleanOption</code></td><td>Toggle</td></tr>
+<tr><td><code>DropdownOption</code></td><td>Fixed list of choices, or a function that lists them when the form is built</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="models">
+<h2>Audio, LLM and search
+</h2>
+<h3 id="llm">LLM</h3>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Provider</th><th scope="col">Models</th><th scope="col">Default model</th></tr>
+</thead>
+<tbody>
+<tr><td>DeepSeek <span class="tag muted">default</span></td><td>deepseek-v4-flash, deepseek-v4-pro</td><td>deepseek-v4-flash</td></tr>
+<tr><td>Claude</td><td>Claude Haiku 4.5, Sonnet 4.6, Opus 4.6</td><td>Claude Sonnet 4.6</td></tr>
+<tr><td>ChatGPT</td><td>gpt-4.1-mini, gpt-4.1, gpt-5.1, gpt-4o, o4-mini</td><td>gpt-4o</td></tr>
+<tr><td>llama.cpp</td><td>Any <code>.gguf</code> file in <code>backend/model-files/</code></td><td>None; a file must be chosen</td></tr>
+</tbody>
+</table>
+</div>
+<h4><code>infer()</code></h4>
+<p>Sends one request to the LLM and waits for the full reply.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col"></th><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Description</th></tr>
+</thead>
+<tbody>
+<tr><td><span class="tag route">input</span></td><td><code>prompt</code></td><td><code>str</code></td><td>The user message.</td></tr>
+<tr><td><span class="tag route">input</span></td><td><code>system_prompt</code></td><td><code>str | None</code></td><td>Optional system message sent before the prompt. Default <code>None</code>.</td></tr>
+<tr><td><span class="tag route">input</span></td><td><code>temperature</code></td><td><code>float | None</code></td><td>Overrides the saved temperature for this call only. Default <code>None</code> uses the saved value.</td></tr>
+<tr><td><span class="tag route">input</span></td><td><code>max_tokens</code></td><td><code>int | None</code></td><td>Caps the reply length for this call only. Default <code>None</code> means no cap.</td></tr>
+<tr><td><span class="tag db">output</span></td><td></td><td><code>str</code></td><td>The model's reply text.</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="audio">Audio</h3>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Provider</th><th scope="col">Models</th><th scope="col">Default model</th></tr>
+</thead>
+<tbody>
+<tr><td>WhisperX <span class="tag muted">default</span></td><td>tiny, base, small, medium, large-v2, turbo</td><td>medium</td></tr>
+<tr><td>Whisper</td><td>tiny, base, small, medium, large, turbo</td><td>medium</td></tr>
+</tbody>
+</table>
+</div>
+<h4><code>transcribe_line()</code></h4>
+<p>Transcribes a short clip into one line of text.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col"></th><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Description</th></tr>
+</thead>
+<tbody>
+<tr><td><span class="tag route">input</span></td><td><code>audio_path</code></td><td><code>str</code></td><td>Path to the audio clip.</td></tr>
+<tr><td><span class="tag route">input</span></td><td><code>language</code></td><td><code>str</code></td><td>Language code of the speech, such as <code>ja</code>.</td></tr>
+<tr><td><span class="tag db">output</span></td><td></td><td><code>str</code></td><td>The transcribed text.</td></tr>
+</tbody>
+</table>
+</div>
+<h4><code>transcribe_file()</code></h4>
+<p>Transcribes a whole audio file into timed subtitles. It does not save them.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col"></th><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Description</th></tr>
+</thead>
+<tbody>
+<tr><td><span class="tag route">input</span></td><td><code>audio_path</code></td><td><code>str</code></td><td>Path to the audio file.</td></tr>
+<tr><td><span class="tag route">input</span></td><td><code>language</code></td><td><code>str</code></td><td>Language code of the speech, such as <code>ja</code>.</td></tr>
+<tr><td><span class="tag db">output</span></td><td></td><td><code>pysubs2.SSAFile</code></td><td>Subtitle lines with start and end times.</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="search">Search</h3>
+<p>Tavily is the only search provider and has no interface. Its only setting is the API key.
+</p>
+<h4><code>search()</code></h4>
+<p>Runs one Tavily web search.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col"></th><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Description</th></tr>
+</thead>
+<tbody>
+<tr><td><span class="tag route">input</span></td><td><code>query</code></td><td><code>str</code></td><td>The search text.</td></tr>
+<tr><td><span class="tag route">input</span></td><td><code>max_results</code></td><td><code>int</code></td><td>Maximum number of results to request. Default <code>5</code>.</td></tr>
+<tr><td><span class="tag db">output</span></td><td></td><td><code>list[str]</code></td><td>The text snippet from each result; empty results are skipped.</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="folders">
+<h2>Backend structure
+</h2>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Location</th><th scope="col">Role</th><th scope="col">Start reading</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>server.py</td><td>Creates the FastAPI app, installs CORS and exception handlers, and starts model loading through the lifespan hook.</td><td><code>backend/server.py</code></td>
+</tr>
+<tr><td>routes/</td><td>HTTP boundary: parses requests, saves uploads and calls a workflow's start function.</td><td><code>backend/routes/__init__.py</code></td>
+</tr>
+<tr><td>models/</td><td>ModelManager, the ModelState enum and the shared ModelConfig settings classes.</td><td><code>backend/models/manager.py</code></td>
+</tr>
+<tr><td>llm/</td><td>LLM contract next to its provider implementations.</td><td><code>backend/llm/interface.py</code></td>
+</tr>
+<tr><td>audio/</td><td>Audio contract, provider implementations and torch device discovery.</td><td><code>backend/audio/interface.py</code></td>
+</tr>
+<tr><td>search/</td><td>Tavily search client.</td><td><code>backend/search/tavily.py</code></td>
+</tr>
+<tr><td>library/</td><td>Series library persistence; raises its own errors instead of HTTP errors.</td><td><code>backend/library/repository.py</code></td>
+</tr>
+<tr><td>orchestrator/</td><td>Typed task data, BaseTask, the workflow runner and its state store, workflow start functions, and the tasks.</td><td><code>backend/orchestrator/task_orchestrator.py</code></td>
+</tr>
+<tr><td>prompts/</td><td>Functions that build system-prompt text; task code builds the corresponding user message.</td><td><code>backend/prompts/translate_file.py</code></td>
+</tr>
+<tr><td>utils/</td><td>Response envelopes, subtitle helpers, logging and runtime paths. Importing it does not load torch.</td><td><code>backend/utils/config.py</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+
+</main>
+</div>
+</body>
+</html>

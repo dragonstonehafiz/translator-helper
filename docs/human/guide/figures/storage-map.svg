@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="570" viewBox="0 0 760 570" role="img" aria-labelledby="title desc">
+<title id="title">Backend storage folders</title>
+<desc id="desc">backend/files/ holds config/ with one JSON file per model provider, written by the Settings page when a model loads; library/ with one folder per series holding series.json, characters.json and glossary.json, written by library edits; outputs/ with translated/, reviewed/ and transcribed/ subtitles from finished jobs; and logs/ with translator-helper.log and one folder of JSON diagnostics per run. backend/model-files/ holds llama.cpp .gguf models added by hand.</desc>
+<style>
+  .bg { fill: #ffffff; }
+  text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: 13px; fill: #1c2330; }
+  .code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 11px; }
+  .sub { font-size: 11px; fill: #5b6475; }
+  .node rect, .node polygon { stroke-width: 1.5; }
+  .fe rect, .fe polygon { fill: #efe9fa; stroke: #6a4bb3; }
+  .route rect, .route polygon { fill: #e6effa; stroke: #2f6fb3; }
+  .sync rect, .sync polygon { fill: #f8eedd; stroke: #8a5a14; }
+  .db rect, .db polygon { fill: #e4f4ec; stroke: #2c8a5a; }
+  .lifeline { stroke: #c3c9d3; stroke-width: 1.2; stroke-dasharray: 4 4; }
+  .edge { fill: none; stroke: #5b6475; stroke-width: 1.6; }
+  .edge.reply { stroke: #2f6fb3; stroke-dasharray: 6 5; }
+  .arrowhead { fill: #5b6475; }
+  .arrowhead.reply { fill: #2f6fb3; }
+  .frame rect { fill: none; stroke: #8a93a3; stroke-width: 1.2; }
+  .frame .tag { fill: #f0f2f5; stroke: #8a93a3; stroke-width: 1.2; }
+  .frame text { font-size: 11px; font-weight: 700; fill: #5b6475; }
+  .legend text { font-size: 10px; fill: #5b6475; }
+  .legend rect { stroke-width: 1.2; }
+  @media (prefers-color-scheme: dark) {
+    .bg { fill: #1a1f27; }
+    text { fill: #e6e9ef; }
+    .sub, .frame text, .legend text { fill: #9aa3b2; }
+    .fe rect, .fe polygon { fill: #2a2340; stroke: #b9a2f5; }
+    .route rect, .route polygon { fill: #1b2a3d; stroke: #7db3ef; }
+    .sync rect, .sync polygon { fill: #342816; stroke: #e7b56a; }
+    .db rect, .db polygon { fill: #183126; stroke: #6fd3a0; }
+    .lifeline { stroke: #3a4352; }
+    .edge { stroke: #9aa3b2; }
+    .edge.reply { stroke: #7db3ef; }
+    .arrowhead { fill: #9aa3b2; }
+    .arrowhead.reply { fill: #7db3ef; }
+    .frame rect { stroke: #6b7486; }
+    .frame .tag { fill: #222833; stroke: #6b7486; }
+  }
+  .plain rect, .plain polygon { fill: #f0f2f5; stroke: #8a93a3; }
+  @media (prefers-color-scheme: dark) { .plain rect, .plain polygon { fill: #222833; stroke: #6b7486; } }
+</style>
+<rect class="bg" width="760" height="570" rx="10"/>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<g class="node plain"><rect x="30" y="20" width="90" height="28" rx="5"/><text class="code" x="42" y="38" style="font-size:12px">backend/</text></g>
+<g class="node plain"><rect x="70" y="60" width="90" height="28" rx="5"/><text class="code" x="82" y="78" style="font-size:12px">files/</text></g>
+<path class="edge" d="M44,48 V74.0 H70" style="stroke-width:1.2"/>
+<g class="node fe"><rect x="110" y="100" width="90" height="28" rx="5"/><text class="code" x="122" y="118" style="font-size:12px">config/</text></g>
+<text class="sub" x="214" y="118">one &lt;provider&gt;.json per model provider</text>
+<path class="edge" d="M84,88 V114.0 H110" style="stroke-width:1.2"/>
+<g class="node route"><rect x="110" y="140" width="90" height="28" rx="5"/><text class="code" x="122" y="158" style="font-size:12px">library/</text></g>
+<path class="edge" d="M84,88 V154.0 H110" style="stroke-width:1.2"/>
+<g class="node route"><rect x="150" y="180" width="120" height="28" rx="5"/><text class="code" x="162" y="198" style="font-size:12px">&lt;series_id&gt;/</text></g>
+<text class="sub" x="284" y="198">series.json · characters.json · glossary.json</text>
+<path class="edge" d="M124,168 V194.0 H150" style="stroke-width:1.2"/>
+<g class="node sync"><rect x="110" y="220" width="90" height="28" rx="5"/><text class="code" x="122" y="238" style="font-size:12px">outputs/</text></g>
+<path class="edge" d="M84,88 V234.0 H110" style="stroke-width:1.2"/>
+<g class="node sync"><rect x="150" y="260" width="112" height="28" rx="5"/><text class="code" x="162" y="278" style="font-size:12px">translated/</text></g>
+<text class="sub" x="276" y="278">translated subtitles</text>
+<path class="edge" d="M124,248 V274.0 H150" style="stroke-width:1.2"/>
+<g class="node sync"><rect x="150" y="300" width="96" height="28" rx="5"/><text class="code" x="162" y="318" style="font-size:12px">reviewed/</text></g>
+<text class="sub" x="260" y="318">corrected subtitles</text>
+<path class="edge" d="M124,248 V314.0 H150" style="stroke-width:1.2"/>
+<g class="node sync"><rect x="150" y="340" width="120" height="28" rx="5"/><text class="code" x="162" y="358" style="font-size:12px">transcribed/</text></g>
+<text class="sub" x="284" y="358">transcribed subtitles</text>
+<path class="edge" d="M124,248 V354.0 H150" style="stroke-width:1.2"/>
+<g class="node db"><rect x="110" y="380" width="90" height="28" rx="5"/><text class="code" x="122" y="398" style="font-size:12px">logs/</text></g>
+<path class="edge" d="M84,88 V394.0 H110" style="stroke-width:1.2"/>
+<g class="node db"><rect x="150" y="420" width="192" height="28" rx="5"/><text class="code" x="162" y="438" style="font-size:12px">translator-helper.log</text></g>
+<text class="sub" x="356" y="438">one line per backend event</text>
+<path class="edge" d="M124,408 V434.0 H150" style="stroke-width:1.2"/>
+<g class="node db"><rect x="150" y="460" width="264" height="28" rx="5"/><text class="code" x="162" y="478" style="font-size:12px">&lt;workflow&gt;/&lt;timestamp&gt;-&lt;file&gt;/</text></g>
+<text class="sub" x="428" y="478">JSON diagnostics for one run</text>
+<path class="edge" d="M124,408 V474.0 H150" style="stroke-width:1.2"/>
+<g class="node plain"><rect x="70" y="500" width="120" height="28" rx="5"/><text class="code" x="82" y="518" style="font-size:12px">model-files/</text></g>
+<text class="sub" x="204" y="518">llama.cpp .gguf models, added by hand</text>
+<path class="edge" d="M44,48 V514.0 H70" style="stroke-width:1.2"/>
+<g class="legend" aria-hidden="true"><g class="node fe"><rect x="30" y="542" width="14" height="12" rx="2"/></g><text x="50" y="551">Settings page, when a model loads</text><g class="node route"><rect x="274" y="542" width="14" height="12" rx="2"/></g><text x="294" y="551">library edits</text><g class="node sync"><rect x="398" y="542" width="14" height="12" rx="2"/></g><text x="418" y="551">finished jobs</text><g class="node db"><rect x="522" y="542" width="14" height="12" rx="2"/></g><text x="542" y="551">logging</text><g class="node plain"><rect x="610" y="542" width="14" height="12" rx="2"/></g><text x="630" y="551">not written by the app</text></g>
+</svg>

@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1140" height="860" viewBox="0 0 1140 860" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="1154" viewBox="0 0 1240 1154" role="img" aria-labelledby="title desc">
 <title id="title">Background job request sequence</title>
-<desc id="desc">Sequence diagram, time running downwards, shared by every background job. The page posts to the job's start endpoint; the orchestrator accepts the workflow and the route immediately answers processing with the workflow ID. The page polls task results every second while the tasks record progress. File-producing jobs save their output file. The orchestrator marks the workflow complete or failed; the next poll returns complete with the result, or error. File-producing jobs then list and download the file through the file-management routes.</desc>
+<desc id="desc">Translate-file example of a background job. TranslateComponent calls ApiService.translateFile, which posts to /translate/translate-file. The route calls start_translate_file, which hands the tasks to TaskOrchestrator.run and the route answers processing. StateService then polls /task-results/translate_file every second while the orchestrator runs each task on its worker, tasks call the LLM, and the workflow&#x27;s finish step saves the output file. When the poll returns complete, the page lists and downloads the file.</desc>
 <style>
   .bg { fill: #ffffff; }
   text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: 13px; fill: #1c2330; }
@@ -12,7 +12,6 @@
   .sync rect { fill: #f8eedd; stroke: #8a5a14; }
   .db rect { fill: #e4f4ec; stroke: #2c8a5a; }
   .lifeline { stroke: #c3c9d3; stroke-width: 1.2; stroke-dasharray: 4 4; }
-  .active { fill: #f8eedd; stroke: #8a5a14; stroke-width: 1.2; }
   .edge { fill: none; stroke: #5b6475; stroke-width: 1.6; }
   .edge.reply { stroke: #2f6fb3; stroke-dasharray: 6 5; }
   .arrowhead { fill: #5b6475; }
@@ -20,13 +19,15 @@
   .frame rect { fill: none; stroke: #8a93a3; stroke-width: 1.2; }
   .frame .tag { fill: #f0f2f5; stroke: #8a93a3; stroke-width: 1.2; }
   .frame text { font-size: 11px; font-weight: 700; fill: #5b6475; }
+  .legend text { font-size: 10px; fill: #5b6475; }
+  .legend rect { stroke-width: 1.2; }
   @media (prefers-color-scheme: dark) {
     .bg { fill: #1a1f27; }
     text { fill: #e6e9ef; }
-    .sub, .frame text { fill: #9aa3b2; }
+    .sub, .frame text, .legend text { fill: #9aa3b2; }
     .fe rect { fill: #2a2340; stroke: #b9a2f5; }
     .route rect { fill: #1b2a3d; stroke: #7db3ef; }
-    .sync rect, .active { fill: #342816; stroke: #e7b56a; }
+    .sync rect { fill: #342816; stroke: #e7b56a; }
     .db rect { fill: #183126; stroke: #6fd3a0; }
     .lifeline { stroke: #3a4352; }
     .edge { stroke: #9aa3b2; }
@@ -37,92 +38,86 @@
     .frame .tag { fill: #222833; stroke: #6b7486; }
   }
 </style>
-<rect class="bg" width="1140" height="860" rx="10"/>
+<rect class="bg" width="1240" height="1154" rx="10"/>
 <defs>
   <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker>
   <marker id="arrow-reply" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead reply" d="M0,0 L10,5 L0,10 z"/></marker>
 </defs>
 
-<!-- Participants -->
-<g class="node fe"><rect x="30" y="20" width="160" height="50" rx="7"/><text x="110" y="41" text-anchor="middle">Page<tspan class="sub" x="110" dy="17">via ApiService</tspan></text></g>
-<g class="node route"><rect x="300" y="20" width="160" height="50" rx="7"/><text x="380" y="41" text-anchor="middle">FastAPI routes<tspan class="sub" x="380" dy="17">start · task-results · files</tspan></text></g>
-<g class="node sync"><rect x="520" y="20" width="160" height="50" rx="7"/><text x="600" y="41" text-anchor="middle">Workflow tasks<tspan class="sub" x="600" dy="17">orchestrator worker</tspan></text></g>
-<g class="node db"><rect x="725" y="20" width="190" height="50" rx="7"/><text x="820" y="41" text-anchor="middle">Task state<tspan class="sub" x="820" dy="17">TaskStateHandler</tspan></text></g>
-<g class="node db"><rect x="960" y="20" width="160" height="50" rx="7"/><text x="1040" y="41" text-anchor="middle">Output files<tspan class="sub" x="1040" dy="17">files/outputs/&lt;folder&gt;/</tspan></text></g>
+<!-- Layers -->
+<g class="node fe"><rect x="38" y="20" width="132" height="50" rx="7"/><text x="104" y="41" text-anchor="middle">TranslateComponent<tspan class="sub" x="104" dy="17">pages/translate</tspan></text></g>
+<g class="node fe"><rect x="186" y="20" width="132" height="50" rx="7"/><text x="251" y="41" text-anchor="middle">StateService<tspan class="sub" x="251" dy="17">services/state.service.ts</tspan></text></g>
+<g class="node fe"><rect x="333" y="20" width="132" height="50" rx="7"/><text x="399" y="41" text-anchor="middle">ApiService<tspan class="sub" x="399" dy="17">services/api.service.ts</tspan></text></g>
+<g class="node route"><rect x="480" y="20" width="132" height="50" rx="7"/><text x="546" y="41" text-anchor="middle">FastAPI route<tspan class="sub" x="546" dy="17">routes/</tspan></text></g>
+<g class="node sync"><rect x="628" y="20" width="132" height="50" rx="7"/><text x="694" y="41" text-anchor="middle">Workflow<tspan class="sub" x="694" dy="17">translate_file.py</tspan></text></g>
+<g class="node sync"><rect x="776" y="20" width="132" height="50" rx="7"/><text x="841" y="41" text-anchor="middle">TaskOrchestrator<tspan class="sub" x="841" dy="17">task_orchestrator.py</tspan></text></g>
+<g class="node sync"><rect x="923" y="20" width="132" height="50" rx="7"/><text x="989" y="41" text-anchor="middle">Tasks<tspan class="sub" x="989" dy="17">translate_file/</tspan></text></g>
+<g class="node db"><rect x="1070" y="20" width="132" height="50" rx="7"/><text x="1136" y="41" text-anchor="middle">LLM<tspan class="sub" x="1136" dy="17">LLMInterface</tspan></text></g>
+<line class="lifeline" x1="104" y1="70" x2="104" y2="1104"/>
+<line class="lifeline" x1="251" y1="70" x2="251" y2="1104"/>
+<line class="lifeline" x1="399" y1="70" x2="399" y2="1104"/>
+<line class="lifeline" x1="546" y1="70" x2="546" y2="1104"/>
+<line class="lifeline" x1="694" y1="70" x2="694" y2="1104"/>
+<line class="lifeline" x1="841" y1="70" x2="841" y2="1104"/>
+<line class="lifeline" x1="989" y1="70" x2="989" y2="1104"/>
+<line class="lifeline" x1="1136" y1="70" x2="1136" y2="1104"/>
 
-<line class="lifeline" x1="110" y1="70" x2="110" y2="800"/>
-<line class="lifeline" x1="380" y1="70" x2="380" y2="800"/>
-<line class="lifeline" x1="600" y1="70" x2="600" y2="800"/>
-<line class="lifeline" x1="820" y1="70" x2="820" y2="800"/>
-<line class="lifeline" x1="1040" y1="70" x2="1040" y2="800"/>
-
-<!-- Chain runs from scheduling until it records the outcome -->
-<rect class="active" x="594" y="160" width="12" height="380" rx="2"/>
-
-<!-- 1. Start -->
-<path class="edge" d="M110,110 H379" marker-end="url(#arrow)"/>
-<text class="code" x="245" y="102" text-anchor="middle">POST &lt;start endpoint&gt;</text>
-<text class="sub" x="245" y="126" text-anchor="middle">form fields · uploaded file</text>
-
-<path class="edge" d="M380,160 H593" marker-end="url(#arrow)"/>
-<text class="sub" x="487" y="152" text-anchor="middle">schedule the workflow</text>
-
-<path class="edge reply" d="M380,200 H111" marker-end="url(#arrow-reply)"/>
-<text class="sub" x="245" y="192" text-anchor="middle">processing · workflow (returns immediately)</text>
-
-<path class="edge" d="M606,250 H819" marker-end="url(#arrow)"/>
-<text class="sub" x="712" y="242" text-anchor="middle">progress for each stage</text>
-
-<!-- 2. Poll loop -->
-<g class="frame">
-  <rect x="40" y="280" width="830" height="140" rx="6"/>
-  <path class="tag" d="M40,280 H250 V298 L240,306 H40 Z"/>
-  <text x="50" y="297">loop · every 1 s while processing</text>
-</g>
-<path class="edge" d="M110,330 H379" marker-end="url(#arrow)"/>
-<text class="code" x="245" y="322" text-anchor="middle">GET /task-results/{workflow}</text>
-<path class="edge" d="M380,360 H819" marker-end="url(#arrow)"/>
-<text class="sub" x="712" y="352" text-anchor="middle">read record and progress</text>
-<path class="edge reply" d="M380,400 H111" marker-end="url(#arrow-reply)"/>
-<text class="sub" x="245" y="392" text-anchor="middle">processing · progress</text>
-
-<!-- 3. Chain finishes -->
-<g class="frame">
-  <rect x="580" y="440" width="540" height="56" rx="6"/>
-  <path class="tag" d="M580,440 H800 V458 L790,466 H580 Z"/>
-  <text x="590" y="457">only for jobs that produce a file</text>
-</g>
-<path class="edge" d="M606,480 H1039" marker-end="url(#arrow)"/>
-<text class="sub" x="880" y="472" text-anchor="middle">save output file</text>
-<path class="edge" d="M606,535 H819" marker-end="url(#arrow)"/>
-<text class="sub" x="712" y="527" text-anchor="middle">record result or error</text>
-
-<!-- 4. Final poll -->
-<path class="edge" d="M110,590 H379" marker-end="url(#arrow)"/>
-<text class="code" x="245" y="582" text-anchor="middle">GET /task-results/{workflow}</text>
-<path class="edge reply" d="M380,630 H111" marker-end="url(#arrow-reply)"/>
-<text class="sub" x="245" y="622" text-anchor="middle">complete · result, or error · message</text>
-
-<!-- 5. Fetch the file -->
-<g class="frame">
-  <rect x="40" y="660" width="1080" height="130" rx="6"/>
-  <path class="tag" d="M40,660 H260 V678 L250,686 H40 Z"/>
-  <text x="50" y="677">only for jobs that produce a file</text>
-</g>
-<path class="edge" d="M110,710 H379" marker-end="url(#arrow)"/>
-<text class="code" x="245" y="702" text-anchor="middle">GET /file-management/list, /download</text>
-<path class="edge" d="M380,740 H1039" marker-end="url(#arrow)"/>
-<text class="sub" x="710" y="732" text-anchor="middle">read folder or file</text>
-<path class="edge reply" d="M380,775 H111" marker-end="url(#arrow-reply)"/>
-<text class="sub" x="245" y="767" text-anchor="middle">file list · file blob</text>
+<path class="edge" d="M104,118 H398" marker-end="url(#arrow)"/>
+<text class="code" x="251" y="111" text-anchor="middle">translateFile(file, seriesId, …)</text>
+<path class="edge" d="M399,156 H545" marker-end="url(#arrow)"/>
+<text class="code" x="472" y="149" text-anchor="middle">POST /translate/translate-file</text>
+<path class="edge" d="M546,194 H693" marker-end="url(#arrow)"/>
+<text class="code" x="620" y="187" text-anchor="middle">start_translate_file(…)</text>
+<path class="edge" d="M694,232 H840" marker-end="url(#arrow)"/>
+<text class="code" x="768" y="225" text-anchor="middle">run(workflow, tasks, data)</text>
+<path class="edge reply" d="M546,270 H400" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="472" y="263" text-anchor="middle">processing · {workflow}</text>
+<path class="edge reply" d="M399,308 H105" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="251" y="301" text-anchor="middle">processing</text>
+<path class="edge" d="M104,346 H250" marker-end="url(#arrow)"/>
+<text class="code" x="178" y="339" text-anchor="middle">trackWorkflow(&quot;translate_file&quot;)</text>
+<path class="edge" d="M841,424 H988" marker-end="url(#arrow)"/>
+<text class="code" x="915" y="417" text-anchor="middle">run_task() for each task</text>
+<path class="edge" d="M989,462 H1135" marker-end="url(#arrow)"/>
+<text class="code" x="1062" y="455" text-anchor="middle">infer(prompt, system_prompt)</text>
+<path class="edge reply" d="M1136,500 H990" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="1062" y="493" text-anchor="middle">reply text</text>
+<path class="edge reply" d="M989,538 H842" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="915" y="531" text-anchor="middle">task output data</text>
+<path class="edge" d="M841,576 H695" marker-end="url(#arrow)"/>
+<text class="code" x="768" y="569" text-anchor="middle">_finish(data)</text>
+<text class="sub" x="768" y="591" text-anchor="middle">saves files/outputs/translated/…</text>
+<g class="frame"><rect x="626" y="372" width="578" height="230" rx="6"/><path class="tag" d="M626,372 H759 V390 L749,398 H626 Z"/><text x="636" y="389">background worker</text></g>
+<path class="edge" d="M251,674 H398" marker-end="url(#arrow)"/>
+<text class="code" x="325" y="667" text-anchor="middle">getWorkflowResult(workflow)</text>
+<path class="edge" d="M399,712 H545" marker-end="url(#arrow)"/>
+<text class="code" x="472" y="705" text-anchor="middle">GET /task-results/translate_file</text>
+<path class="edge" d="M546,750 H840" marker-end="url(#arrow)"/>
+<text class="code" x="694" y="743" text-anchor="middle">get_state_handler().get(workflow)</text>
+<path class="edge reply" d="M546,788 H400" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="472" y="781" text-anchor="middle">processing · progress, then complete · result</text>
+<path class="edge reply" d="M399,826 H252" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="325" y="819" text-anchor="middle">workflow state</text>
+<path class="edge reply" d="M251,864 H105" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="178" y="857" text-anchor="middle">progress bar · result</text>
+<g class="frame"><rect x="184" y="622" width="726" height="254" rx="6"/><path class="tag" d="M184,622 H506 V640 L496,648 H184 Z"/><text x="194" y="639">loop · every 1 s until status is not processing</text></g>
+<path class="edge" d="M104,948 H398" marker-end="url(#arrow)"/>
+<text class="code" x="251" y="941" text-anchor="middle">listFiles(&quot;translated&quot;) · getFileBlob()</text>
+<path class="edge" d="M399,986 H545" marker-end="url(#arrow)"/>
+<text class="code" x="472" y="979" text-anchor="middle">GET /file-management/list · /download</text>
+<path class="edge reply" d="M546,1024 H400" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="472" y="1017" text-anchor="middle">success · files, or raw file bytes</text>
+<path class="edge reply" d="M399,1062 H105" marker-end="url(#arrow-reply)"/>
+<text class="sub" x="251" y="1055" text-anchor="middle">file list · download</text>
+<g class="frame"><rect x="36" y="896" width="578" height="178" rx="6"/><path class="tag" d="M36,896 H270 V914 L260,922 H36 Z"/><text x="46" y="913">only for jobs that produce a file</text></g>
 
 <!-- Legend -->
-<g aria-hidden="true">
-  <path class="edge" d="M30,836 H70" marker-end="url(#arrow)"/>
-  <text class="sub" x="82" y="840">request or call</text>
-  <path class="edge reply" d="M210,836 H250" marker-end="url(#arrow-reply)"/>
-  <text class="sub" x="262" y="840">response</text>
-  <rect class="active" x="360" y="828" width="12" height="16" rx="2"/>
-  <text class="sub" x="382" y="840">workflow running</text>
+<g class="legend" aria-hidden="true">
+  <path class="edge" d="M30,1132 H54" marker-end="url(#arrow)"/><text x="60" y="1135">call</text>
+  <path class="edge reply" d="M100,1132 H124" marker-end="url(#arrow-reply)"/><text x="130" y="1135">response</text>
+  <g class="node fe"><rect x="200" y="1126" width="14" height="12" rx="2"/></g><text x="220" y="1135">frontend</text>
+  <g class="node route"><rect x="292" y="1126" width="14" height="12" rx="2"/></g><text x="312" y="1135">API route</text>
+  <g class="node sync"><rect x="390" y="1126" width="14" height="12" rx="2"/></g><text x="410" y="1135">backend logic</text>
+  <g class="node db"><rect x="512" y="1126" width="14" height="12" rx="2"/></g><text x="532" y="1135">model or storage</text>
 </g>
 </svg>

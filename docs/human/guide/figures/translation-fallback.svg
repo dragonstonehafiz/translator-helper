@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="830" height="632" viewBox="0 0 830 632" role="img" aria-labelledby="title desc">
+<title id="title">Handling a bad translated batch</title>
+<desc id="desc">The batch is sent to the model. If the request fails with a rate limit, the app waits 1.5 seconds and sends it again, up to 3 attempts. If the reply has one line for every line sent, each line is written into its subtitle. Otherwise, if this is the batch&#x27;s first failure, it is split in half and each half is sent the same way; halves are not split again. If a half also fails, each of its lines is translated on its own.</desc>
+<style>
+  .bg { fill: #ffffff; }
+  text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: 13px; fill: #1c2330; }
+  .code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 11px; }
+  .sub { font-size: 11px; fill: #5b6475; }
+  .node rect, .node polygon { stroke-width: 1.5; }
+  .fe rect, .fe polygon { fill: #efe9fa; stroke: #6a4bb3; }
+  .route rect, .route polygon { fill: #e6effa; stroke: #2f6fb3; }
+  .sync rect, .sync polygon { fill: #f8eedd; stroke: #8a5a14; }
+  .db rect, .db polygon { fill: #e4f4ec; stroke: #2c8a5a; }
+  .lifeline { stroke: #c3c9d3; stroke-width: 1.2; stroke-dasharray: 4 4; }
+  .edge { fill: none; stroke: #5b6475; stroke-width: 1.6; }
+  .edge.reply { stroke: #2f6fb3; stroke-dasharray: 6 5; }
+  .arrowhead { fill: #5b6475; }
+  .arrowhead.reply { fill: #2f6fb3; }
+  .frame rect { fill: none; stroke: #8a93a3; stroke-width: 1.2; }
+  .frame .tag { fill: #f0f2f5; stroke: #8a93a3; stroke-width: 1.2; }
+  .frame text { font-size: 11px; font-weight: 700; fill: #5b6475; }
+  .legend text { font-size: 10px; fill: #5b6475; }
+  .legend rect { stroke-width: 1.2; }
+  @media (prefers-color-scheme: dark) {
+    .bg { fill: #1a1f27; }
+    text { fill: #e6e9ef; }
+    .sub, .frame text, .legend text { fill: #9aa3b2; }
+    .fe rect, .fe polygon { fill: #2a2340; stroke: #b9a2f5; }
+    .route rect, .route polygon { fill: #1b2a3d; stroke: #7db3ef; }
+    .sync rect, .sync polygon { fill: #342816; stroke: #e7b56a; }
+    .db rect, .db polygon { fill: #183126; stroke: #6fd3a0; }
+    .lifeline { stroke: #3a4352; }
+    .edge { stroke: #9aa3b2; }
+    .edge.reply { stroke: #7db3ef; }
+    .arrowhead { fill: #9aa3b2; }
+    .arrowhead.reply { fill: #7db3ef; }
+    .frame rect { stroke: #6b7486; }
+    .frame .tag { fill: #222833; stroke: #6b7486; }
+  }
+  .plain rect, .plain polygon { fill: #f0f2f5; stroke: #8a93a3; }
+  @media (prefers-color-scheme: dark) { .plain rect, .plain polygon { fill: #222833; stroke: #6b7486; } }
+</style>
+<rect class="bg" width="830" height="632" rx="10"/>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<g class="node sync"><rect x="120" y="20" width="260" height="50" rx="7"/><text x="250" y="50" text-anchor="middle">Send the batch to the model</text></g>
+<path class="edge" d="M250,70 V99" marker-end="url(#arrow)"/>
+<g class="node plain"><polygon points="250,100.0 380.0,150 250,200.0 120.0,150"/><text text-anchor="middle"><tspan x="250" y="146">Request failed with</tspan><tspan x="250" y="162">a rate limit?</tspan></text></g>
+<path class="edge" d="M250,200 V239" marker-end="url(#arrow)"/>
+<g class="node plain"><polygon points="250,240.0 380.0,290 250,340.0 120.0,290"/><text text-anchor="middle"><tspan x="250" y="286">One line back for</tspan><tspan x="250" y="302">every line sent?</tspan></text></g>
+<path class="edge" d="M250,340 V379" marker-end="url(#arrow)"/>
+<g class="node plain"><polygon points="250,380.0 380.0,430 250,480.0 120.0,430"/><text text-anchor="middle"><tspan x="250" y="426">First failure</tspan><tspan x="250" y="442">for this batch?</tspan></text></g>
+<path class="edge" d="M250,480 V519" marker-end="url(#arrow)"/>
+<g class="node sync"><rect x="120" y="520" width="260" height="56" rx="7"/><text x="250" y="545" text-anchor="middle">Translate each line on its own<tspan class="sub" x="250" dy="16">one request per line</tspan></text></g>
+<path class="edge" d="M380,150 H519" marker-end="url(#arrow)"/>
+<text class="sub" x="390" y="142" text-anchor="start">yes</text>
+<g class="node plain"><rect x="520" y="125" width="250" height="50" rx="7"/><text x="645" y="147" text-anchor="middle">Wait 1.5 s and send again<tspan class="sub" x="645" dy="16">3 attempts in total</tspan></text></g>
+<path class="edge" d="M645,125 V45 H381" marker-end="url(#arrow)"/>
+<path class="edge" d="M380,290 H519" marker-end="url(#arrow)"/>
+<text class="sub" x="390" y="282" text-anchor="start">yes</text>
+<g class="node db"><rect x="520" y="265" width="250" height="50" rx="7"/><text x="645" y="295" text-anchor="middle">Write each line into its subtitle</text></g>
+<path class="edge" d="M380,430 H519" marker-end="url(#arrow)"/>
+<text class="sub" x="390" y="422" text-anchor="start">yes</text>
+<g class="node plain"><rect x="520" y="400" width="250" height="60" rx="7"/><text x="645" y="427" text-anchor="middle">Split the batch in half<tspan class="sub" x="645" dy="16">send each half the same way</tspan></text></g>
+<path class="edge" d="M770,430 H800 V30 H381" marker-end="url(#arrow)"/>
+<text class="sub" x="258" y="228" text-anchor="start">no</text>
+<text class="sub" x="258" y="368" text-anchor="start">no</text>
+<text class="sub" x="258" y="508" text-anchor="start">no</text>
+<g class="legend" aria-hidden="true"><g class="node sync"><rect x="30" y="606" width="14" height="12" rx="2"/></g><text x="50" y="615">sends to the model</text><g class="node plain"><rect x="184" y="606" width="14" height="12" rx="2"/></g><text x="204" y="615">check or retry by the app</text><g class="node db"><rect x="380" y="606" width="14" height="12" rx="2"/></g><text x="400" y="615">batch done</text></g>
+</svg>

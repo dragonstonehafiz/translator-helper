@@ -7,7 +7,7 @@
 <body>
 <nav class="site-nav" aria-label="Human documentation">
 <div class="site-nav-inner"><a class="site-nav-brand" href="../index.html">Translator Helper <span>docs</span></a><details class="nav-menu current"><summary>Documentation</summary>
-<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="backend.html">Backend and models</a><a href="routes-api.html" aria-current="page">Routes and API</a><a href="tasks.html">Orchestrator and task chains</a><a href="requests.html">Translation request flow</a><a href="frontend.html">Frontend architecture</a><a href="storage.html">Files and storage</a>
+<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="models.html">Models</a><a href="routes-api.html" aria-current="page">Routes and API</a><a href="orchestrator.html">Orchestrator</a><a href="file-translation.html">File translation and review</a><a href="frontend.html">Frontend architecture</a><a href="storage.html">Files and storage</a>
 </div></details>
 </div>
 </nav>
@@ -15,102 +15,124 @@
 <aside class="toc" aria-label="On this page">
 <h2>On this page</h2>
 <ol>
-<li><a href="#contract">Response contract</a></li>
-<li><a href="#swimlane">Background job sequence</a></li>
-<li><a href="#shell">Application shell</a></li>
-<li><a href="#settings">Settings page</a></li>
-<li><a href="#translate">Translate page</a></li>
-<li><a href="#transcribe">Transcribe page</a></li>
-<li><a href="#library">Library pages</a></li>
-<li><a href="#shared">Shared task and file APIs</a></li>
-<li><a href="#schemas">Data shapes</a></li>
-<li><a href="#generated">Generated routes</a></li>
+<li><a href="#envelope">Response envelope</a></li>
+<li><a href="#settings">Settings and status</a></li>
+<li><a href="#jobs">Background jobs</a></li>
+<li><a href="#files">Output files</a></li>
+<li><a href="#library">Library</a></li>
 </ol>
 </aside>
 <main>
 <header class="hero">
 <h1>Routes and API</h1>
-<p>Every backend endpoint, organized by the frontend page that uses it, with request inputs and returned data.</p>
+<p>Every backend route, the frontend code that calls it, what it calls in the backend, and what it returns.</p>
 <div class="meta-line"><span>Current implementation &middot; 4 October 2026</span></div>
 </header>
 
-<div class="api-summary" aria-label="API summary">
-<div><strong>28</strong><span>application endpoints</span></div>
-<div><strong>6</strong><span>frontend workflow groups</span></div>
-<div><strong>1</strong><span>JSON response envelope</span></div>
-</div>
-
-<section id="contract">
-<h2>Response contract</h2>
-<p>All JSON endpoints return the same outer object. Payload fields belong under <code>data</code>. The file download endpoint is the only application route that returns a raw body instead.</p>
-<div class="contract">
-<div>
-<h3>Normal JSON response</h3>
+<section id="envelope">
+<h2>Response envelope</h2>
+<p>Every JSON route returns the same outer object. The examples further down show only <code>status</code> and <code>data</code>.</p>
 <pre><code>{
-  "status": "success | processing | complete | idle | error | loading",
-  "message": null,
-  "data": {}
-}</code></pre>
-</div>
-<div>
-<h3>Validation error · HTTP 422</h3>
-<pre><code>{
-  "status": "error",
-  "message": "Invalid request data.",
-  "data": { "details": [] }
-}</code></pre>
-</div>
-</div>
-<div class="note">
-<p>Several precondition failures—such as a model not being loaded or another task already running—use HTTP 200 with <code>status: "error"</code>. Callers must inspect both the HTTP result and the envelope status.</p>
-</div>
-</section>
-
-<section id="swimlane">
-<h2>How a background job runs</h2>
-<p>Every background job follows this sequence, with time running downwards: translate line, translate file, review, transcribe line, transcribe file and library update. The page sections below list each job's start endpoint. Jobs that produce a file also use the file-management routes. Direct requests such as library edits are a single request and response.</p>
-<figure class="swimlane">
-<img class="swimlane-svg" src="figures/background-job-sequence.svg" alt="Sequence shared by background jobs: post to the start endpoint, receive processing, poll task results every second until complete or error, then list and download any output file">
-</figure>
-</section>
-
-<section id="shell">
-<h2>Application shell and home</h2>
-<p>The home page has no page-specific backend call. The persistent application shell checks readiness and shows global task state.</p>
-<div class="endpoint-list">
-<article class="endpoint">
-<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/utils/server-variables</span></div>
-<p>Each client's current non-password settings, readiness and last loading error. A list is empty until its client exists.</p>
-<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
   "status": "success",
   "message": null,
+  "data": { … }
+}</code></pre>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col"><code>status</code></th><th scope="col">Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td><code>success</code></td><td>The request finished.</td></tr>
+<tr><td><code>processing</code></td><td>A background job was started, or is still running.</td></tr>
+<tr><td><code>complete</code></td><td>A background job finished; <code>data.result</code> holds its result.</td></tr>
+<tr><td><code>idle</code></td><td>The background job has not run since the server started.</td></tr>
+<tr><td><code>error</code></td><td><code>message</code> holds the reason.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="note">
+<p>Rejected requests, such as a model not being loaded or another job already running, return HTTP 200 with <code>status: "error"</code>. Bad request data returns HTTP 422, an unknown series 404, and an unexpected failure 500, all in the same envelope.</p>
+</div>
+</section>
+
+<section id="settings">
+<h2>Settings and status</h2>
+<p>These routes go straight to <code>ModelManager</code> and answer when the work is done.</p>
+<figure class="swimlane">
+<img class="swimlane-svg" src="figures/settings-sequence.svg" alt="Settings sequence: SettingsComponent calls ApiService, which calls routes/utils.py. The schema route reads each provider's config. The load route calls ModelManager.load_llm_model, which saves the settings to the config file and initializes the client. Every second the page reads server variables and running status from ModelManager.">
+</figure>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Route</th><th scope="col">Called by</th><th scope="col">Backend call</th><th scope="col">Response</th></tr>
+</thead>
+<tbody>
+<tr><td><span class="method">GET</span> <code>/utils/settings-schema</code></td><td>SettingsComponent · <code>getSettingsSchema()</code></td><td><code>client.config.to_frontend()</code> for each client</td><td>success · schema</td></tr>
+<tr><td><span class="method post">POST</span> <code>/utils/load-llm-model</code></td><td>SettingsComponent · <code>loadLlmModel()</code></td><td><code>ModelManager.load_llm_model(settings)</code></td><td>success · null</td></tr>
+<tr><td><span class="method post">POST</span> <code>/utils/load-audio-model</code></td><td>SettingsComponent · <code>loadAudioModel()</code></td><td><code>ModelManager.load_audio_model(settings)</code></td><td>success · null</td></tr>
+<tr><td><span class="method post">POST</span> <code>/utils/load-search-model</code></td><td>SettingsComponent · <code>loadSearchModel()</code></td><td><code>ModelManager.load_search_model(settings)</code></td><td>success · null</td></tr>
+<tr><td><span class="method">GET</span> <code>/utils/server-variables</code></td><td>AppComponent, SettingsComponent · <code>getServerVariables()</code></td><td>Each client's config, <code>is_*_ready()</code>, <code>*_loading_error</code></td><td>success · status</td></tr>
+<tr><td><span class="method">GET</span> <code>/utils/running</code></td><td>SettingsComponent · <code>checkRunning()</code></td><td><code>TaskOrchestrator.get_running_state()</code>, ModelManager flags</td><td>success · flags</td></tr>
+<tr><td><span class="method post">POST</span> <code>/utils/get-subtitle-file-info</code></td><td>Not called by the frontend</td><td><code>analyze_subtitle_file()</code></td><td>success · counts</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Requests</h3>
+<p>The three load routes take the same JSON body. Settings left out keep their saved values; a blank password keeps the stored key. <code>provider</code> is required but ignored.</p>
+<pre><code>{"provider": "llm", "settings": {"model_name": "deepseek-v4-flash", "temperature": 0.5}}</code></pre>
+<p><code>get-subtitle-file-info</code> takes a multipart <code>file</code> (<code>.ass</code> or <code>.srt</code>).</p>
+
+<h3>Responses</h3>
+<div class="tabs">
+<div class="tab-panel" id="res-schema" data-tab="Settings schema">
+<p>One entry per client, or <code>null</code> if the client could not be created. Password fields never include the key; <code>is_set</code> says whether one is saved.</p>
+<pre><code>{
+  "status": "success",
   "data": {
-    "audio": [
-      {"key": "model_name", "label": "Model", "value": "medium"},
-      {"key": "device", "label": "Device", "value": "cpu"},
-      {"key": "compute_type", "label": "Compute Type", "value": "float32"},
-      {"key": "batch_size", "label": "Batch Size", "value": 16}
-    ],
-    "llm": [
-      {"key": "model_name", "label": "Model", "value": "deepseek-v4-flash"},
-      {"key": "temperature", "label": "Temperature", "value": 0.5}
-    ],
+    "llm": {
+      "provider": "llm_deepseek",
+      "title": "DeepSeek",
+      "fields": [
+        {
+          "key": "model_name", "label": "Model", "type": "select",
+          "value": "deepseek-v4-flash", "default": "deepseek-v4-flash", "required": true,
+          "options": [{"label": "deepseek-v4-flash", "value": "deepseek-v4-flash"}, …]
+        },
+        {"key": "api_key", "label": "API Key", "type": "password", "value": "", "is_set": true, …},
+        …
+      ]
+    },
+    "audio": { … },
+    "search": { … }
+  }
+}</code></pre>
+</div>
+<div class="tab-panel" id="res-load" data-tab="Load model">
+<pre><code>{"status": "success", "message": "LLM loaded", "data": null}</code></pre>
+<pre><code>{"status": "error", "message": "Temperature: must be at most 2", "data": null}</code></pre>
+</div>
+<div class="tab-panel" id="res-vars" data-tab="Server variables">
+<p>Password settings are left out of the value lists.</p>
+<pre><code>{
+  "status": "success",
+  "data": {
+    "llm": [{"key": "model_name", "label": "Model", "value": "deepseek-v4-flash"}, …],
+    "audio": [{"key": "model_name", "label": "Model", "value": "medium"}, …],
     "search": [],
     "llm_ready": true,
     "audio_ready": true,
-    "search_ready": true,
+    "search_ready": false,
     "llm_loading_error": null,
     "audio_loading_error": null,
-    "search_loading_error": null
+    "search_loading_error": "Tavily API key is required."
   }
-}</code></pre></div></div>
-</article>
-<article class="endpoint">
-<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/utils/running</span></div>
-<p><code>workflow</code> and <code>active_task</code> are null when nothing is running. A <code>running_*</code> flag is true while a task holds that model.</p>
-<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
+}</code></pre>
+</div>
+<div class="tab-panel" id="res-running" data-tab="Running">
+<pre><code>{
   "status": "success",
-  "message": null,
   "data": {
     "running": true,
     "workflow": "translate_file",
@@ -122,496 +144,66 @@
     "loading_audio_model": false,
     "loading_search_model": false
   }
-}</code></pre></div></div>
-</article>
+}</code></pre>
+</div>
+<div class="tab-panel" id="res-info" data-tab="Subtitle file info">
+<pre><code>{"status": "success", "data": {"total_lines": "312", "character_count": "9840", "average_character_count": "31.54"}}</code></pre>
+</div>
 </div>
 </section>
 
-<section id="settings">
-<h2>Settings page</h2>
-<p>Settings renders each client's fields from its schema, shows runtime state, and saves settings then initializes each model.</p>
-<div class="endpoint-list">
-<article class="endpoint">
-<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/utils/settings-schema</span></div>
-<p>One schema per client, or <code>null</code> if the client could not be created. <code>audio</code> has the same shape, with <code>model_name</code>, <code>device</code>, <code>compute_type</code> and <code>batch_size</code>. Password fields never include the stored key; <code>is_set</code> says whether one is saved.</p>
-<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": null,
-  "data": {
-    "audio": {"provider": "audio_whisperx", "title": "WhisperX", "fields": ["…"]},
-    "llm": {
-      "provider": "llm_deepseek",
-      "title": "DeepSeek",
-      "fields": [
-        {
-          "key": "model_name",
-          "label": "Model",
-          "type": "select",
-          "value": "deepseek-v4-flash",
-          "default": "deepseek-v4-flash",
-          "required": true,
-          "options": [
-            {"label": "deepseek-v4-flash", "value": "deepseek-v4-flash"},
-            {"label": "deepseek-v4-pro", "value": "deepseek-v4-pro"}
-          ]
-        },
-        {
-          "key": "api_key",
-          "label": "API Key",
-          "type": "password",
-          "value": "",
-          "default": "",
-          "required": true,
-          "is_set": true,
-          "placeholder": "sk-..."
-        },
-        {
-          "key": "temperature",
-          "label": "Temperature",
-          "type": "number",
-          "value": 0.5,
-          "default": 0.5,
-          "required": false,
-          "min": 0,
-          "max": 2,
-          "step": 0.1
-        }
-      ]
-    },
-    "search": {
-      "provider": "search_tavily",
-      "title": "Tavily Web Search",
-      "fields": [
-        {
-          "key": "api_key",
-          "label": "API Key",
-          "type": "password",
-          "value": "",
-          "default": "",
-          "required": true,
-          "is_set": false,
-          "placeholder": "tvly-..."
-        }
-      ]
-    }
-  }
-}</code></pre></div></div>
-</article>
-<article class="endpoint">
-<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/utils/load-audio-model</span></div>
-<p>Omitted keys keep their saved values; leave a password blank to keep the stored key. Settings are saved before the model initializes, so they survive a failed load.</p>
-<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
-  "provider": "audio",
-  "settings": {"model_name": "medium", "device": "cuda:0", "compute_type": "float16", "batch_size": 16}
-}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": "Audio model loaded",
-  "data": null
-}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
-  "status": "error",
-  "message": "Audio model is in use. Wait for the current task to finish.",
-  "data": null
-}</code></pre></div></div>
-</article>
-<article class="endpoint">
-<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/utils/load-llm-model</span></div>
-<p>Omitted keys keep their saved values; leave a password blank to keep the stored key. Settings are saved before the model initializes, so they survive a failed load.</p>
-<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
-  "provider": "llm",
-  "settings": {"model_name": "deepseek-v4-flash", "temperature": 0.5}
-}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": "LLM loaded",
-  "data": null
-}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
-  "status": "error",
-  "message": "Temperature: must be at most 2",
-  "data": null
-}</code></pre></div></div>
-</article>
-<article class="endpoint">
-<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/utils/load-search-model</span></div>
-<p>Omitted keys keep their saved values; leave a password blank to keep the stored key. Settings are saved before the model initializes, so they survive a failed load.</p>
-<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
-  "provider": "search",
-  "settings": {"api_key": "tvly-..."}
-}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": "Search model loaded",
-  "data": null
-}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
-  "status": "error",
-  "message": "Search model is already loading.",
-  "data": null
-}</code></pre></div></div>
-</article>
+<section id="jobs">
+<h2>Background jobs</h2>
+<p>A start route checks that nothing else is running and the model is loaded, then calls the workflow's start function and answers <code>processing</code> straight away. The job runs on the orchestrator's worker. <code>StateService</code> polls <code>/task-results/{workflow}</code> every second until the status is no longer <code>processing</code>. The diagram follows a file translation; the other jobs take the same path.</p>
+<figure class="swimlane">
+<img class="swimlane-svg" src="figures/background-job-sequence.svg" alt="Background job sequence for translate file: TranslateComponent calls ApiService.translateFile, the route calls start_translate_file, which calls TaskOrchestrator.run, and the route answers processing. On the background worker the orchestrator runs each task, tasks call LLM infer, and _finish saves the output file. StateService polls task results every second until complete, then the page lists and downloads the file.">
+</figure>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Route</th><th scope="col">Called by</th><th scope="col">Workflow start</th><th scope="col">Model</th><th scope="col">Final result</th></tr>
+</thead>
+<tbody>
+<tr><td><span class="method post">POST</span> <code>/translate/translate-line</code></td><td>TranslateComponent · <code>translateLine()</code></td><td><code>start_translate_line()</code></td><td>LLM</td><td>text</td></tr>
+<tr><td><span class="method post">POST</span> <code>/translate/translate-file</code></td><td>TranslateComponent · <code>translateFile()</code></td><td><code>start_translate_file()</code></td><td>LLM</td><td>file in <code>translated</code></td></tr>
+<tr><td><span class="method post">POST</span> <code>/translate/review-translated-file</code></td><td>TranslateComponent · <code>reviewTranslatedFile()</code></td><td><code>start_review_file()</code></td><td>LLM</td><td>file in <code>reviewed</code></td></tr>
+<tr><td><span class="method post">POST</span> <code>/transcribe/transcribe-line</code></td><td>TranscribeComponent · <code>transcribeAudio()</code></td><td><code>start_transcribe_clip()</code></td><td>Audio</td><td>text</td></tr>
+<tr><td><span class="method post">POST</span> <code>/transcribe/transcribe-file</code></td><td>TranscribeComponent · <code>transcribeFile()</code></td><td><code>start_transcribe_file()</code></td><td>Audio</td><td>file in <code>transcribed</code></td></tr>
+<tr><td><span class="method post">POST</span> <code>/library/{series_id}/update</code></td><td>LibraryDetailComponent · <code>startLibraryUpdate()</code></td><td><code>start_update_library()</code></td><td>LLM, search</td><td>proposals</td></tr>
+<tr><td><span class="method">GET</span> <code>/task-results/{workflow}</code></td><td>StateService · <code>getWorkflowResult()</code></td><td>Reads <code>TaskStateHandler</code></td><td>None</td><td>job state</td></tr>
+</tbody>
+</table>
 </div>
-<div class="note"><p><code>provider</code> is required by the request model but ignored by the handlers.</p></div>
-</section>
+<p>The tasks each workflow runs are listed in <a href="orchestrator.html#workflows">Orchestrator</a>.</p>
 
-<section id="translate">
-<h2>Translate page</h2>
-<p>One-line translation, whole-file translation and review of a translated file. The page also loads series choices, checks subtitle statistics and lists generated files.</p>
-<div class="endpoint-list">
-<article class="endpoint">
-<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/library/</span></div>
-<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": null,
-  "data": {
-    "series": [
-      {
-        "id": "my-show",
-        "name": "My Show",
-        "input_lang": "ja",
-        "output_lang": "en",
-        "character_count": 12,
-        "glossary_count": 30
-      }
-    ]
-  }
-}</code></pre></div></div>
-</article>
-<article class="endpoint">
-<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/utils/get-subtitle-file-info</span></div>
-<div class="io"><div class="io-panel"><h4>Request · multipart</h4><pre><code>file  episode01.ass         // required, .ass or .srt</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": null,
-  "data": {"total_lines": "312", "character_count": "9840", "average_character_count": "31.54"}
-}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
-  "status": "error",
-  "message": "Only .ass or .srt files are supported for this endpoint",
-  "data": null
-}</code></pre></div></div>
-</article>
-<article class="endpoint task">
-<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/translate/translate-line</span></div>
-<div class="io"><div class="io-panel"><h4>Request · multipart</h4><pre><code>text         こんにちは            // required
-context      "{}"                  // JSON string
-input_lang   "ja"                  // default
-output_lang  "en"                  // default</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
-  "status": "processing",
-  "message": "Translation started",
-  "data": {"workflow": "translate_line"}
-}</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
-  "status": "complete",
-  "message": null,
-  "data": {
-    "workflow": "translate_line",
-    "active_task": null,
-    "progress": [1, 1],
-    "message": "Translation complete",
-    "eta_seconds": 0.0,
-    "result": {"text": "Hello"}
-  }
-}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
-  "status": "error",
-  "message": "Translation is already running",
-  "data": null
-}</code></pre></div></div>
-</article>
-<article class="endpoint task">
-<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/translate/translate-file</span></div>
-<p>Writes <code>files/outputs/translated/&lt;base&gt;.&lt;output_lang&gt;.&lt;ext&gt;</code>.</p>
-<div class="io"><div class="io-panel"><h4>Request · multipart</h4><pre><code>file         episode01.ass         // required
-input_lang   "ja"                  // default
-output_lang  "en"                  // default
-batch_size   3                     // default
-series_id    "my-show"             // optional</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
-  "status": "processing",
-  "message": "Translation started",
-  "data": {"workflow": "translate_file"}
-}</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
-  "status": "complete",
-  "message": null,
-  "data": {
-    "workflow": "translate_file",
-    "active_task": null,
-    "progress": [312, 312],
-    "message": "Batch 40/40 complete",
-    "eta_seconds": 0.0,
-    "result": {"output_filename": "episode01.en.ass", "folder": "translated"}
-  }
-}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
-  "status": "error",
-  "message": "Translation is already running",
-  "data": null
-}</code></pre></div></div>
-</article>
-<article class="endpoint task">
-<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/translate/review-translated-file</span></div>
-<p>Writes the corrected file under <code>files/outputs/reviewed/</code>.</p>
-<div class="io"><div class="io-panel"><h4>Request · multipart</h4><pre><code>file             episode01.ass         // required, original
-translated_file  episode01.en.ass      // required
-input_lang       "ja"                  // default
-output_lang      "en"                  // default
-batch_size       50                    // default
-series_id        "my-show"             // optional</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
-  "status": "processing",
-  "message": "Translation review started",
-  "data": {"workflow": "review_file"}
-}</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
-  "status": "complete",
-  "message": null,
-  "data": {
-    "workflow": "review_file",
-    "active_task": null,
-    "progress": [14, 14],
-    "message": "Retranslated line 14/14",
-    "eta_seconds": 0.0,
-    "result": {"output_filename": "episode01.en.corrected.ass", "folder": "reviewed", "corrected_count": 14}
-  }
-}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
-  "status": "error",
-  "message": "Translation review is already running",
-  "data": null
-}</code></pre></div></div>
-</article>
+<h3>Requests</h3>
+<p>All start routes take multipart form data.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Route</th><th scope="col">Fields</th></tr>
+</thead>
+<tbody>
+<tr><td><code>translate-line</code></td><td><code>text</code>, <code>context</code> (JSON string, default <code>{}</code>), <code>input_lang</code> (default <code>ja</code>), <code>output_lang</code> (default <code>en</code>)</td></tr>
+<tr><td><code>translate-file</code></td><td><code>file</code>, <code>input_lang</code>, <code>output_lang</code>, <code>batch_size</code> (default 3), <code>series_id</code> (optional)</td></tr>
+<tr><td><code>review-translated-file</code></td><td><code>file</code> (original), <code>translated_file</code>, <code>input_lang</code>, <code>output_lang</code>, <code>batch_size</code> (default 50), <code>series_id</code> (optional)</td></tr>
+<tr><td><code>transcribe-line</code>, <code>transcribe-file</code></td><td><code>file</code> (audio), <code>language</code></td></tr>
+<tr><td><code>update</code></td><td><code>file</code> (subtitles)</td></tr>
+</tbody>
+</table>
 </div>
-<div class="note"><p>An unknown <code>series_id</code> is ignored by translation and review; the chain runs without library context.</p></div>
-</section>
+<p>An unknown <code>series_id</code> on translate or review runs without library context.</p>
 
-<section id="transcribe">
-<h2>Transcribe page</h2>
-<p>Transcribe sends audio to the loaded audio model. A line task returns text; a file task writes an ASS subtitle.</p>
-<div class="endpoint-list">
-<article class="endpoint task">
-<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/transcribe/transcribe-line</span></div>
-<div class="io"><div class="io-panel"><h4>Request · multipart</h4><pre><code>file      clip.wav              // required
-language  "ja"                  // required</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
-  "status": "processing",
-  "message": "Transcription started",
-  "data": {"workflow": "transcribe_clip"}
-}</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
-  "status": "complete",
-  "message": null,
-  "data": {
-    "workflow": "transcribe_clip",
-    "active_task": null,
-    "progress": [1, 1],
-    "message": "Transcription complete",
-    "eta_seconds": 0.0,
-    "result": {"text": "こんにちは"}
-  }
-}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
-  "status": "error",
-  "message": "Transcription is already running",
-  "data": null
-}</code></pre></div></div>
-</article>
-<article class="endpoint task">
-<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/transcribe/transcribe-file</span></div>
-<p>Writes <code>files/outputs/transcribed/&lt;base&gt;.&lt;language&gt;.ass</code>.</p>
-<div class="io"><div class="io-panel"><h4>Request · multipart</h4><pre><code>file      episode01.wav         // required
-language  "ja"                  // required</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
-  "status": "processing",
-  "message": "File transcription started",
-  "data": {"workflow": "transcribe_file"}
-}</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
-  "status": "complete",
-  "message": null,
-  "data": {
-    "workflow": "transcribe_file",
-    "active_task": null,
-    "progress": [1, 1],
-    "message": "Transcribed 412 subtitle lines",
-    "eta_seconds": 0.0,
-    "result": {"output_filename": "episode01.ja.ass", "folder": "transcribed"}
-  }
-}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
-  "status": "error",
-  "message": "Transcription is already running",
-  "data": null
-}</code></pre></div></div>
-</article>
+<h3>Responses</h3>
+<div class="tabs">
+<div class="tab-panel" id="res-start" data-tab="Start route">
+<pre><code>{"status": "processing", "message": "Translation started", "data": {"workflow": "translate_file"}}</code></pre>
+<pre><code>{"status": "error", "message": "LLM not loaded", "data": null}</code></pre>
 </div>
-</section>
-
-<section id="library">
-<h2>Library pages</h2>
-<p>The library index lists, creates and deletes series. The detail page edits metadata, characters and glossary terms, and can scan a subtitle file for proposed additions.</p>
-<h3>Library index</h3>
-<div class="endpoint-list">
-<article class="endpoint">
-<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/library/</span></div>
-<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": null,
-  "data": {
-    "series": [
-      {
-        "id": "my-show",
-        "name": "My Show",
-        "input_lang": "ja",
-        "output_lang": "en",
-        "character_count": 12,
-        "glossary_count": 30
-      }
-    ]
-  }
-}</code></pre></div></div>
-</article>
-<article class="endpoint">
-<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/library/</span></div>
-<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
-  "name": "My Show",
-  "input_lang": "ja",
-  "output_lang": "en",
-  "notes": ""
-}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": null,
-  "data": <a href="#shape-series">Series</a>
-}</code></pre></div></div>
-</article>
-<article class="endpoint">
-<div class="endpoint-head"><span class="method delete">DELETE</span><span class="endpoint-path">/library/{series_id}</span></div>
-<p>Deletes the series folder and everything in it.</p>
-<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": null,
-  "data": null
-}</code></pre></div><div class="io-panel"><h4>Error · HTTP 200</h4><pre><code>{
-  "status": "error",
-  "message": "Series 'my-show' not found",
-  "data": null
-}</code></pre></div></div>
-</article>
-</div>
-<h3>Series detail</h3>
-<div class="endpoint-list">
-<article class="endpoint">
-<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/library/{series_id}</span></div>
-<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": null,
-  "data": <a href="#shape-series">Series</a>
-}</code></pre></div><div class="io-panel"><h4>Error · HTTP 404</h4><pre><code>{
-  "status": "error",
-  "message": "Series 'my-show' not found",
-  "data": null
-}</code></pre></div></div>
-</article>
-<article class="endpoint">
-<div class="endpoint-head"><span class="method patch">PATCH</span><span class="endpoint-path">/library/{series_id}</span></div>
-<p>Send only the fields to change: <code>name</code>, <code>input_lang</code>, <code>output_lang</code>, <code>notes</code>.</p>
-<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
-  "notes": "Set in Tokyo."
-}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": null,
-  "data": <a href="#shape-series">Series</a>
-}</code></pre></div></div>
-</article>
-<article class="endpoint">
-<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/library/{series_id}/characters</span></div>
-<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
-  "name": "Aoi",
-  "aliases": ["Aoi-chan"],
-  "personality": ["Cheerful"],
-  "relationships": {"Ren": ["Childhood friend."]},
-  "history": []
-}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": null,
-  "data": <a href="#shape-series">Series</a>
-}</code></pre></div></div>
-</article>
-<article class="endpoint">
-<div class="endpoint-head"><span class="method patch">PATCH</span><span class="endpoint-path">/library/{series_id}/characters/{character_id}</span></div>
-<p>Send only the fields to change.</p>
-<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
-  "history": ["Moved to Tokyo in episode 3."]
-}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": null,
-  "data": <a href="#shape-series">Series</a>
-}</code></pre></div><div class="io-panel"><h4>Error · HTTP 200</h4><pre><code>{
-  "status": "error",
-  "message": "Character 'aoi' not found",
-  "data": null
-}</code></pre></div></div>
-</article>
-<article class="endpoint">
-<div class="endpoint-head"><span class="method delete">DELETE</span><span class="endpoint-path">/library/{series_id}/characters/{character_id}</span></div>
-<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": null,
-  "data": <a href="#shape-series">Series</a>
-}</code></pre></div></div>
-</article>
-<article class="endpoint">
-<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/library/{series_id}/glossary</span></div>
-<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
-  "term": "先輩",
-  "translation": "senpai",
-  "notes": "Keep untranslated."
-}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": null,
-  "data": <a href="#shape-series">Series</a>
-}</code></pre></div></div>
-</article>
-<article class="endpoint">
-<div class="endpoint-head"><span class="method patch">PATCH</span><span class="endpoint-path">/library/{series_id}/glossary/{term_id}</span></div>
-<p>Send only the fields to change.</p>
-<div class="io"><div class="io-panel"><h4>Request · JSON</h4><pre><code>{
-  "translation": "upperclassman"
-}</code></pre></div><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": null,
-  "data": <a href="#shape-series">Series</a>
-}</code></pre></div><div class="io-panel"><h4>Error · HTTP 200</h4><pre><code>{
-  "status": "error",
-  "message": "Glossary term 'senpai' not found",
-  "data": null
-}</code></pre></div></div>
-</article>
-<article class="endpoint">
-<div class="endpoint-head"><span class="method delete">DELETE</span><span class="endpoint-path">/library/{series_id}/glossary/{term_id}</span></div>
-<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
-  "status": "success",
-  "message": null,
-  "data": <a href="#shape-series">Series</a>
-}</code></pre></div></div>
-</article>
-<article class="endpoint task">
-<div class="endpoint-head"><span class="method post">POST</span><span class="endpoint-path">/library/{series_id}/update</span></div>
-<p>Completes only after the last stage has deduplicated the proposals.</p>
-<div class="io"><div class="io-panel"><h4>Request · multipart</h4><pre><code>file  episode01.ass         // required</code></pre></div><div class="io-panel"><h4>Start response</h4><pre><code>{
+<div class="tab-panel" id="res-poll" data-tab="Task results while running">
+<p><code>progress</code> is <code>[current, total]</code> for the active task.</p>
+<pre><code>{
   "status": "processing",
-  "message": "Library update started",
-  "data": {"workflow": "update_library"}
-}</code></pre></div><div class="io-panel"><h4>Final poll</h4><pre><code>{
-  "status": "complete",
-  "message": null,
-  "data": {
-    "workflow": "update_library",
-    "active_task": null,
-    "progress": [3, 3],
-    "message": "Kept 4/6 updated_characters proposals",
-    "eta_seconds": 0.0,
-    "result": {"proposals": <a href="#shape-proposals">LibraryProposals</a>}
-  }
-}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
-  "status": "error",
-  "message": "A task is already running",
-  "data": null
-}</code></pre></div></div>
-</article>
-</div>
-</section>
-
-<section id="shared">
-<h2>Shared task and file APIs</h2>
-<p>Translate, Transcribe and Library Detail poll task results. Translate and Transcribe also list, download and delete generated files.</p>
-<div class="endpoint-list">
-<article class="endpoint task">
-<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/task-results/{workflow}</span></div>
-<p>One snapshot of the workflow's state. <code>progress</code> is <code>[current, total]</code> for the active task. On error, the envelope <code>message</code> is the error and the data keeps the failed task and its last progress. A workflow that has not run since the server started is <code>idle</code>. Any other ID returns HTTP 400.</p>
-<div class="io"><div class="io-panel"><h4>Processing</h4><pre><code>{
-  "status": "processing",
-  "message": null,
   "data": {
     "workflow": "translate_file",
     "active_task": "TaskTranslateBatches",
@@ -620,138 +212,152 @@ language  "ja"                  // required</code></pre></div><div class="io-pan
     "eta_seconds": 84.0,
     "result": null
   }
-}</code></pre></div><div class="io-panel"><h4>Complete</h4><pre><code>{
-  "status": "complete",
-  "message": null,
-  "data": {
-    "workflow": "translate_file",
-    "active_task": null,
-    "progress": [312, 312],
-    "message": "Batch 40/40 complete",
-    "eta_seconds": 0.0,
-    "result": {"output_filename": "episode01.en.ass", "folder": "translated"}
+}</code></pre>
+<p>When finished, <code>status</code> is <code>complete</code> and <code>result</code> is filled in. If the job failed, <code>status</code> is <code>error</code>, the envelope <code>message</code> is the error, and <code>data</code> keeps the failed task. A job that has not run yet returns <code>{"status": "idle", "data": {"workflow": "transcribe_file"}}</code>.</p>
+</div>
+<div class="tab-panel" id="res-text" data-tab="Result: text">
+<p>Translate line and transcribe line.</p>
+<pre><code>"result": {"text": "Hello"}</code></pre>
+</div>
+<div class="tab-panel" id="res-file" data-tab="Result: output file">
+<p>Translate file, review and transcribe file. Review also returns <code>corrected_count</code>.</p>
+<pre><code>"result": {"output_filename": "episode01.en.ass", "folder": "translated"}</code></pre>
+<pre><code>"result": {"output_filename": "episode01.en.corrected.ass", "folder": "reviewed", "corrected_count": 14}</code></pre>
+</div>
+<div class="tab-panel" id="res-proposals" data-tab="Result: library proposals">
+<p><code>updated_characters[].field</code> is <code>personality</code>, <code>relationships</code> or <code>history</code>; <code>character</code> is only present for relationships.</p>
+<pre><code>"result": {
+  "proposals": {
+    "new_characters": [
+      {"name": "Ren", "aliases": [], "personality": ["Quiet"], "relationships": {"Aoi": ["Childhood friend."]}, "history": []},
+      …
+    ],
+    "updated_characters": [
+      {"id": "aoi", "field": "relationships", "character": "Ren", "append": "Rivals on stage."},
+      …
+    ],
+    "new_glossary": [{"term": "文化祭", "translation": "school festival", "notes": ""}, …],
+    "updated_glossary": [{"id": "senpai", "field": "notes", "value": "Keep untranslated in dialogue."}, …]
   }
-}</code></pre></div><div class="io-panel"><h4>Error</h4><pre><code>{
-  "status": "error",
-  "message": "LLM is not loaded.",
-  "data": {
-    "workflow": "translate_file",
-    "active_task": "TaskPrepareTranslationBatches",
-    "progress": [0, 0],
-    "message": "",
-    "eta_seconds": 0.0,
-    "result": null
-  }
-}</code></pre></div><div class="io-panel"><h4>Idle</h4><pre><code>{
-  "status": "idle",
-  "message": null,
-  "data": {"workflow": "transcribe_file"}
-}</code></pre></div></div>
-</article>
-<article class="endpoint file">
-<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/file-management/list?folder=translated</span></div>
-<p>Newest first.</p>
-<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
+}</code></pre>
+</div>
+</div>
+</section>
+
+<section id="files">
+<h2>Output files</h2>
+<p>File jobs save to <code>backend/files/outputs/&lt;folder&gt;/</code>, where the folder is <code>translated</code>, <code>reviewed</code> or <code>transcribed</code>. These routes read that folder directly.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Route</th><th scope="col">Called by</th><th scope="col">Response</th></tr>
+</thead>
+<tbody>
+<tr><td><span class="method">GET</span> <code>/file-management/list?folder=</code></td><td>Translate, TranscribeComponent · <code>listFiles()</code></td><td>success · files, newest first</td></tr>
+<tr><td><span class="method">GET</span> <code>/file-management/download?folder=&amp;filename=</code></td><td>Translate, TranscribeComponent · <code>getFileBlob()</code></td><td>Raw file bytes, not JSON</td></tr>
+<tr><td><span class="method delete">DELETE</span> <code>/file-management?folder=&amp;filename=</code></td><td>Translate, TranscribeComponent · <code>deleteFile()</code></td><td>success · null</td></tr>
+</tbody>
+</table>
+</div>
+<p>A missing file returns HTTP 404 with <code>"message": "File not found"</code>.</p>
+<h4 id="res-files">File list</h4>
+<pre><code>{
   "status": "success",
-  "message": null,
   "data": {
     "files": [
       {"name": "episode02.en.ass", "size": 51877, "modified": "2026-10-04T06:12:45.120384"},
       {"name": "episode01.en.ass", "size": 48213, "modified": "2026-10-03T21:40:02.551907"}
     ]
   }
-}</code></pre></div></div>
-</article>
-<article class="endpoint file">
-<div class="endpoint-head"><span class="method">GET</span><span class="endpoint-path">/file-management/download?folder=translated&amp;filename=episode01.en.ass</span></div>
-<p>Returns the raw file, not a JSON envelope.</p>
-<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>HTTP/1.1 200 OK
-Content-Type: application/octet-stream
-Content-Disposition: attachment; filename="episode01.en.ass"
+}</code></pre>
+</section>
 
-&lt;file bytes&gt;</code></pre></div><div class="io-panel"><h4>Error · HTTP 404</h4><pre><code>{
-  "status": "error",
-  "message": "File not found",
-  "data": null
-}</code></pre></div></div>
-</article>
-<article class="endpoint file">
-<div class="endpoint-head"><span class="method delete">DELETE</span><span class="endpoint-path">/file-management?folder=translated&amp;filename=episode01.en.ass</span></div>
-<div class="io"><div class="io-panel"><h4>Response</h4><pre><code>{
+<section id="library">
+<h2>Library</h2>
+<p>Library edits load the series, change it and save it back in the same request. Every edit route returns the whole updated series, which replaces the page's copy. The diagram follows adding a character.</p>
+<figure class="swimlane">
+<img class="swimlane-svg" src="figures/library-sequence.svg" alt="Library sequence for adding a character: LibraryDetailComponent calls ApiService.addCharacter, the route calls load_series, which reads the series JSON files, appends the character, calls save_series to write them back, and answers success with the whole series.">
+</figure>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Route</th><th scope="col">Called by</th><th scope="col">Backend call</th><th scope="col">Response</th></tr>
+</thead>
+<tbody>
+<tr><td><span class="method">GET</span> <code>/library/</code></td><td>LibraryComponent, TranslateComponent · <code>listSeries()</code></td><td><code>list_series_ids()</code>, <code>load_series()</code></td><td>success · summaries</td></tr>
+<tr><td><span class="method post">POST</span> <code>/library/</code></td><td>LibraryComponent · <code>createSeries()</code></td><td><code>unique_slug()</code>, <code>save_series()</code></td><td>success · Series</td></tr>
+<tr><td><span class="method delete">DELETE</span> <code>/library/{series_id}</code></td><td>LibraryComponent · <code>deleteSeries()</code></td><td>Deletes the series folder</td><td>success · null</td></tr>
+<tr><td><span class="method">GET</span> <code>/library/{series_id}</code></td><td>LibraryDetailComponent · <code>getSeries()</code></td><td><code>load_series()</code></td><td>success · Series</td></tr>
+<tr><td><span class="method patch">PATCH</span> <code>/library/{series_id}</code></td><td>LibraryDetailComponent · <code>updateSeries()</code></td><td><code>load_series()</code>, <code>save_series()</code></td><td>success · Series</td></tr>
+<tr><td><span class="method post">POST</span> <code>/library/{series_id}/characters</code></td><td>LibraryDetailComponent · <code>addCharacter()</code></td><td><code>load_series()</code>, <code>save_series()</code></td><td>success · Series</td></tr>
+<tr><td><span class="method patch">PATCH</span> <code>/library/{series_id}/characters/{character_id}</code></td><td>LibraryDetailComponent · <code>updateCharacter()</code></td><td><code>find_character()</code>, <code>save_series()</code></td><td>success · Series</td></tr>
+<tr><td><span class="method delete">DELETE</span> <code>/library/{series_id}/characters/{character_id}</code></td><td>LibraryDetailComponent · <code>deleteCharacter()</code></td><td><code>load_series()</code>, <code>save_series()</code></td><td>success · Series</td></tr>
+<tr><td><span class="method post">POST</span> <code>/library/{series_id}/glossary</code></td><td>LibraryDetailComponent · <code>addGlossaryTerm()</code></td><td><code>load_series()</code>, <code>save_series()</code></td><td>success · Series</td></tr>
+<tr><td><span class="method patch">PATCH</span> <code>/library/{series_id}/glossary/{term_id}</code></td><td>LibraryDetailComponent · <code>updateGlossaryTerm()</code></td><td><code>find_glossary_term()</code>, <code>save_series()</code></td><td>success · Series</td></tr>
+<tr><td><span class="method delete">DELETE</span> <code>/library/{series_id}/glossary/{term_id}</code></td><td>LibraryDetailComponent · <code>deleteGlossaryTerm()</code></td><td><code>load_series()</code>, <code>save_series()</code></td><td>success · Series</td></tr>
+</tbody>
+</table>
+</div>
+<p>The library update job is listed under <a href="#jobs">Background jobs</a>. Accepting a proposal calls the add and update routes above.</p>
+
+<h3>Requests</h3>
+<p>All edit routes take JSON. PATCH routes only change the fields that are sent.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Route</th><th scope="col">Fields</th></tr>
+</thead>
+<tbody>
+<tr><td>Series</td><td><code>name</code>, <code>input_lang</code> (default <code>ja</code>), <code>output_lang</code> (default <code>en</code>), <code>notes</code></td></tr>
+<tr><td>Character</td><td><code>name</code>, <code>aliases</code>, <code>personality</code>, <code>relationships</code>, <code>history</code></td></tr>
+<tr><td>Glossary term</td><td><code>term</code>, <code>translation</code>, <code>notes</code></td></tr>
+</tbody>
+</table>
+</div>
+<pre><code>{"name": "Aoi", "aliases": ["Aoi-chan"], "personality": ["Cheerful"], "relationships": {"Ren": ["Childhood friend."]}, "history": []}</code></pre>
+
+<h3>Responses</h3>
+<p>A missing series returns HTTP 404, except on DELETE. Deleting a missing series, or editing a missing character or glossary term, returns HTTP 200 with <code>status: "error"</code>.</p>
+<div class="tabs">
+<div class="tab-panel" id="res-series-list" data-tab="Series list">
+<pre><code>{
   "status": "success",
-  "message": null,
-  "data": null
-}</code></pre></div><div class="io-panel"><h4>Error · HTTP 404</h4><pre><code>{
-  "status": "error",
-  "message": "File not found",
-  "data": null
-}</code></pre></div></div>
-</article>
-</div>
-<p>Output folders are <code>translated</code>, <code>reviewed</code> and <code>transcribed</code>, under <code>backend/files/outputs/</code>. Folder names may only contain letters, digits, hyphens and underscores.</p>
-<h3>Workflow IDs</h3>
-<ul class="route-index">
-<li><code>translate_line</code></li>
-<li><code>translate_file</code></li>
-<li><code>review_file</code></li>
-<li><code>transcribe_clip</code></li>
-<li><code>transcribe_file</code></li>
-<li><code>update_library</code></li>
-</ul>
-</section>
-
-<section id="schemas">
-<h2>Returned data shapes</h2>
-<div class="schema-list">
-<article class="shape" id="shape-series">
-<h3>Series</h3>
-<pre><code>{
-  "id": "my-show",
-  "name": "My Show",
-  "input_lang": "ja",
-  "output_lang": "en",
-  "notes": "",
-  "characters": [
-    {
-      "id": "aoi",
-      "name": "Aoi",
-      "aliases": ["Aoi-chan"],
-      "personality": ["Cheerful"],
-      "relationships": {"Ren": ["Childhood friend."]},
-      "history": ["Moved to Tokyo in episode 3."]
-    }
-  ],
-  "glossary": [{"id": "senpai", "term": "先輩", "translation": "senpai", "notes": "Keep untranslated."}]
+  "data": {
+    "series": [
+      {"id": "my-show", "name": "My Show", "input_lang": "ja", "output_lang": "en", "character_count": 12, "glossary_count": 30},
+      …
+    ]
+  }
 }</code></pre>
-</article>
-<article class="shape" id="shape-proposals">
-<h3>Library proposals</h3>
-<pre><code>{
-  "new_characters": [
-    {
-      "name": "Ren",
-      "aliases": [],
-      "personality": ["Quiet"],
-      "relationships": {"Aoi": ["Childhood friend."]},
-      "history": []
-    }
-  ],
-  "updated_characters": [
-    {"id": "aoi", "field": "history", "append": "Joined the band in episode 4."},
-    {"id": "aoi", "field": "relationships", "character": "Ren", "append": "Rivals on stage."}
-  ],
-  "new_glossary": [{"term": "文化祭", "translation": "school festival", "notes": ""}],
-  "updated_glossary": [{"id": "senpai", "field": "notes", "value": "Keep untranslated in dialogue."}]
-}</code></pre>
-</article>
 </div>
-<p><code>updated_characters[].field</code> is <code>personality</code>, <code>relationships</code> or <code>history</code>; <code>character</code> is only present for relationships.</p>
-</section>
-
-<section id="generated">
-<h2>Generated FastAPI routes</h2>
-<p>FastAPI adds <code>GET /openapi.json</code>, <code>GET /docs</code>, <code>GET /docs/oauth2-redirect</code> and <code>GET /redoc</code>. These four routes are not part of the 28 application-endpoint count.</p>
-<p>Implementation sources: <code>backend/routes/</code>, <code>backend/utils/api_response.py</code>, task result writers under <code>backend/orchestrator/</code>, and <code>frontend/src/app/services/api.service.ts</code>.</p>
+<div class="tab-panel" id="res-series" data-tab="Series">
+<pre><code>{
+  "status": "success",
+  "data": {
+    "id": "my-show",
+    "name": "My Show",
+    "input_lang": "ja",
+    "output_lang": "en",
+    "notes": "Set in Tokyo.",
+    "characters": [
+      {
+        "id": "aoi",
+        "name": "Aoi",
+        "aliases": ["Aoi-chan"],
+        "personality": ["Cheerful", …],
+        "relationships": {"Ren": ["Childhood friend.", …]},
+        "history": ["Moved to Tokyo in episode 3.", …]
+      },
+      …
+    ],
+    "glossary": [
+      {"id": "senpai", "term": "先輩", "translation": "senpai", "notes": "Keep untranslated."},
+      …
+    ]
+  }
+}</code></pre>
+</div>
+</div>
 </section>
 </main>
 </div>

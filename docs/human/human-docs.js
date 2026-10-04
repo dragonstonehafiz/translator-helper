@@ -16,3 +16,29 @@ document.addEventListener('keydown', event => {
   if (event.key !== 'Escape') return
   menus.forEach(menu => { menu.open = false })
 })
+
+// Tabs: build a tab strip from each .tabs block's .tab-panel[data-tab] children and show one panel at a time.
+document.querySelectorAll('.tabs').forEach(tabs => {
+  const panels = [...tabs.querySelectorAll(':scope > .tab-panel')]
+  const list = document.createElement('div')
+  list.className = 'tab-list'
+  list.setAttribute('role', 'tablist')
+
+  const select = index => {
+    panels.forEach((panel, i) => { panel.hidden = i !== index })
+    list.querySelectorAll('button').forEach((button, i) => button.setAttribute('aria-selected', String(i === index)))
+  }
+
+  panels.forEach((panel, index) => {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.setAttribute('role', 'tab')
+    button.textContent = panel.dataset.tab
+    button.addEventListener('click', () => select(index))
+    list.appendChild(button)
+    panel.setAttribute('role', 'tabpanel')
+  })
+
+  tabs.prepend(list)
+  select(0)
+})
