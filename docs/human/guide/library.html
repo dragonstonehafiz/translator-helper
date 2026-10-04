@@ -1,0 +1,294 @@
+<!doctype html>
+
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Series library | Translator Helper</title><link rel="stylesheet" href="../human-docs.css"><script src="../human-docs.js" defer></script>
+</head>
+
+<body>
+<nav class="site-nav" aria-label="Human documentation">
+<div class="site-nav-inner"><a class="site-nav-brand" href="../index.html">Translator Helper <span>docs</span></a><details class="nav-menu current"><summary>Documentation</summary>
+<div class="nav-menu-list"><a href="overview.html">Overview</a><a href="models.html">Models</a><a href="routes-api.html">Routes and API</a><a href="orchestrator.html">Orchestrator</a><a href="file-translation.html">File translation and review</a><a href="library.html" aria-current="page">Series library</a><a href="frontend.html">Frontend architecture</a><a href="storage.html">Files and storage</a>
+</div></details>
+</div>
+</nav>
+<div class="page">
+<aside class="toc" aria-label="On this page">
+<h2>On this page</h2>
+<ol>
+<li><a href="#contents">What the library contains</a></li>
+<li><a href="#building">Building the library</a></li>
+<li><a href="#repeats">How repeated data is recognised</a></li>
+<li><a href="#translation">What translation uses</a></li>
+</ol>
+</aside>
+<main>
+<header class="hero">
+<h1>Series library</h1>
+<p>What the library stores for each series, how it is filled from subtitle files, and what translation takes from it.</p>
+<div class="meta-line"><span>Current implementation &middot; 4 October 2026</span></div>
+</header>
+
+<section id="contents">
+<h2>What the library contains</h2>
+<p>Each series has its own characters and glossary, so the model can keep names, relationships and recurring terms consistent across episodes.</p>
+<div class="tabs">
+<div class="tab-panel" data-tab="series.json">
+<pre><code>{
+  "id": "gakuen-idolmaster",
+  "name": "Gakuen Idolmaster",
+  "input_lang": "ja",
+  "output_lang": "en",
+  "notes": "Gakuen Idolmaster (学園アイドルマスター, Gakuen Aidorumasutā; lit. 'Academy Idolmaster') is …"
+}</code></pre>
+</div>
+<div class="tab-panel" data-tab="characters.json">
+<pre><code>[
+  {
+    "id": "lilja-katsuragi",
+    "name": "Lilja Katsuragi",
+    "aliases": ["葛城リーリヤ", "リーリヤ", "Lilja Katsuragi"],
+    "personality": [
+      "Shy and quiet in new situations.",
+      "Insecure about her lack of singing and dancing experience.",
+      …
+    ],
+    "relationships": {
+      "Sumika Shiun": ["Childhood friend who is very close and protective of her.", …],
+      "Misuzu Hataya": [ … ],
+      …
+    },
+    "history": [
+      "Has no prior experience in singing or dancing.",
+      "Is half-Swedish.",
+      …
+    ]
+  },
+  …
+]</code></pre>
+</div>
+<div class="tab-panel" data-tab="glossary.json">
+<pre><code>[
+  {
+    "id": "初星学園",
+    "term": "初星学園",
+    "translation": "Hatsuboshi Academy",
+    "notes": "The idol training school where the story takes place; the primary setting of Gakuen Idolmaster. …"
+  },
+  {
+    "id": "プロデューサー科",
+    "term": "プロデューサー科",
+    "translation": "Producer Department",
+    "notes": "The department at Hatsuboshi Academy where students train to become professional producers …"
+  },
+  …
+]</code></pre>
+</div>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Field</th><th scope="col">Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td><code>aliases</code></td><td>Other ways the character is written or called, including the source-language spelling.</td></tr>
+<tr><td><code>personality</code>, <code>history</code></td><td>Short facts, one per item.</td></tr>
+<tr><td><code>relationships</code></td><td>Facts about the character's relationship with another character, grouped under that character's name.</td></tr>
+<tr><td><code>term</code></td><td>The word as it appears in the source language.</td></tr>
+<tr><td><code>translation</code></td><td>How the term should be translated.</td></tr>
+<tr><td><code>notes</code></td><td>Guidance on using the translation.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Series are listed and created on the Library page. Each series page has tabs for its characters, its glossary and Update Library. Adding, editing or deleting an entry by hand saves immediately.</p>
+</section>
+
+<section id="building">
+<h2>Building the library</h2>
+<p>Update Library reads a subtitle file and suggests new characters, terms and facts. Nothing is saved until you accept a suggestion.</p>
+<figure class="diagram">
+<img src="figures/library-update.svg" alt="The Library Update tab sends a subtitle file and series. The job finds names, terms and events in the transcript, checks them against the library, writes web search queries for unknown names and terms, searches the web, proposes new and updated entries, and removes repeated character facts. The proposals appear as cards on the Library page. Accepting a card calls the library route, which saves the series files; rejecting it removes the card and saves nothing." style="display:block;width:100%;max-width:1010px;height:auto;margin:0 auto">
+</figure>
+<p>The update needs the LLM and web search to be loaded. The subtitle file chosen here is the same one selected on the Translate page.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Step</th><th scope="col">The model receives</th><th scope="col">It returns</th></tr>
+</thead>
+<tbody>
+<tr><td>1. Find names, terms, events</td><td>The whole transcript with speakers, and the names, aliases and terms already in the library</td><td>Every character name, series term and key event in the episode</td></tr>
+<tr><td>2. Check against library</td><td>The findings and the library's names and terms</td><td>Which names and terms are already known; events are passed on unchanged</td></tr>
+<tr><td>3. Write search queries</td><td>The unknown names and terms</td><td>One web search per item. Skipped when nothing is unknown.</td></tr>
+<tr><td>4. Search the web</td><td>Each query, sent to Tavily rather than the model</td><td>Up to five text snippets per query. Skipped when there are no queries.</td></tr>
+<tr><td>5. Propose additions</td><td>The transcript again, the existing characters and glossary, what is known, and the search snippets</td><td>New characters, new terms, facts to add to existing characters, and changes to existing terms</td></tr>
+<tr><td>6. Remove repeated facts</td><td>Each proposed character fact next to the facts already stored</td><td>Only the facts that are new</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Example</h3>
+<p>The Library Update for <em>Lilja Step 4</em>, where Lilja and Sumika compete in the winter H.I.F.:</p>
+<div class="tabs">
+<div class="tab-panel" data-tab="1. Findings">
+<pre><code>{
+  "characters": ["葛城リーリヤ", "プロデューサー", "紫雲清夏", "花海咲季", "十王星南",
+                 "雨夜燕", "白草四音", "月村手毬", "学園長"],
+  "terms": ["HIF", "NIA", "FINALE", "初星学園", "プリマステラ", "REVERSI",
+            "デュアルスキル", "エピソード・パワー", "セレクション", …],
+  "events": [
+    "葛城リーリヤとプロデューサーが冬のHIFに向けたミーティングを行い、これまでの歩みを振り返る。",
+    "葛城リーリヤが紫雲清夏とのユニット『REVERSI』を結成し、…",
+    …
+  ]
+}</code></pre>
+</div>
+<div class="tab-panel" data-tab="2. Known / unknown">
+<pre><code>{
+  "known": {
+    "characters": ["葛城リーリヤ", "プロデューサー", "紫雲清夏", "花海咲季",
+                   "十王星南", "白草四音", "月村手毬"],
+    "terms": ["HIF", "NIA", "FINALE", "初星学園", "プリマステラ", "REVERSI", …]
+  },
+  "unknown": {
+    "characters": ["雨夜燕", "学園長"],
+    "terms": ["デュアルスキル", "エピソード・パワー", "セレクション"],
+    "events": [ … ]
+  }
+}</code></pre>
+</div>
+<div class="tab-panel" data-tab="3–4. Search">
+<pre><code>[
+  {"subject": "雨夜燕", "query": "Gakuen Idolmaster 雨夜燕 Amaya Tsubame character personality history"},
+  {"subject": "エピソード・パワー", "query": "Gakuen Idolmaster エピソード・パワー episode power what is it explained"},
+  …
+]
+
+[
+  {"subject": "雨夜燕",
+   "results": ["Tsubame Amaya (雨夜燕, Amaya Tsubame) is a character from Gakuen iDOLM@STER, …", …]},
+  …
+]</code></pre>
+</div>
+<div class="tab-panel" data-tab="5. Proposals">
+<pre><code>{
+  "new_characters": [
+    {
+      "name": "Tsubame Amaya",
+      "aliases": ["雨夜燕", "Amaya Tsubame"],
+      "personality": ["Arrogant, believing she is the only one who can surpass Seina Jūō.", …],
+      "relationships": {"Seina Jūō": ["Sees Seina as a rival and aims to surpass her as Prima Stella."], …},
+      "history": ["Serves as the vice president of Hatsuboshi Academy's student council …", …]
+    },
+    …
+  ],
+  "updated_characters": [
+    {"id": "lilja-katsuragi", "field": "history",
+     "append": "She won the winter H.I.F. with REVERSI and was crowned the new Prima Stella, …"},
+    {"id": "lilja-katsuragi", "field": "relationships", "character": "Saki Hanami",
+     "append": "She viewed Saki as her master and defeated her in the selection, …"},
+    …
+  ],
+  "new_glossary": [
+    {"term": "エピソード・パワー", "translation": "Episode Power",
+     "notes": "A performance strategy coined by the Producer that uses the audience's familiarity …"},
+    …
+  ],
+  "updated_glossary": []
+}</code></pre>
+</div>
+</div>
+<p>This run proposed 2 new characters, 29 character facts and 3 new glossary terms.</p>
+
+<h3>Accepting and rejecting</h3>
+<p>Each proposal is shown as a card. Accepting saves it through the same routes as editing by hand:</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Proposal</th><th scope="col">Accept</th></tr>
+</thead>
+<tbody>
+<tr><td>New character</td><td>Adds the character.</td></tr>
+<tr><td>New glossary term</td><td>Adds the term.</td></tr>
+<tr><td>Character update</td><td>Adds the fact to the end of the field: personality, history, or the relationship with the named character.</td></tr>
+<tr><td>Glossary update</td><td>Replaces the field with the proposed value.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Rejecting removes the card without saving anything. Proposals that haven't been accepted are lost when the browser is refreshed.</p>
+</section>
+
+<section id="repeats">
+<h2>How repeated data is recognised</h2>
+<p>Repeats are caught in three places:</p>
+<ol>
+<li><strong>Checking against the library.</strong> A name counts as known if it matches a library name or alias, allowing for other spellings, romanisations, honorifics and partial names. Known names and terms are never searched for or proposed as new.</li>
+<li><strong>Proposing additions.</strong> The model sees every existing character and term and is told not to propose anything already recorded.</li>
+<li><strong>Removing repeated facts.</strong> Each proposed character fact is checked again against what is stored. Personality and history facts are compared per character. Relationship facts are compared with every stored fact about the same named character. The model keeps only facts that are new in substance, even if worded differently.</li>
+</ol>
+<p>The third check only covers facts for existing characters. New characters and glossary proposals are not checked again. If the check fails, the proposed facts are kept.</p>
+<p>From the same run, Sumika's history already included:</p>
+<pre><code>She formed the unit 'REVERSI' with Lilja and debuted their song 'Tokimeki Emotion' at the unit's formation live.
+She revealed to Lilja that her knee injury caused a lasting trauma that made her freeze up when dancing, …
+…</code></pre>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th scope="col">Proposed history fact</th><th scope="col">Result</th></tr>
+</thead>
+<tbody>
+<tr><td>She participated in the lesson streaming, opening up about her past with Lilja and helping build their unit's story.</td><td>Removed</td></tr>
+<tr><td>She overcame her lingering injury fears to perform at the winter H.I.F. and contributed to their group victory.</td><td>Kept</td></tr>
+<tr><td>After losing the Prima Stella title to Lilja, she celebrated her partner's success and decided to chase a new dream, staying friends and rivals.</td><td>Kept</td></tr>
+</tbody>
+</table>
+</div>
+<p>Across the run, 27 of the 29 proposed character facts were kept.</p>
+</section>
+
+<section id="translation">
+<h2>What translation uses</h2>
+<p>File translation and review use the library when a series is selected on the Translate page. Once per file, the model is shown the episode and the series' character names and glossary terms, and picks the ones that appear. Those entries are then sent in full with every translation request in the job.</p>
+<div class="code-pair">
+<div>
+<h4>The model chooses from</h4>
+<pre><code>Available characters (id: name):
+- lilja-katsuragi: Lilja Katsuragi
+- sumika-shiun: Sumika Shiun
+- temari-tsukimura: Temari Tsukimura
+- …
+- producer: Producer
+- …
+
+Available glossary terms (id: term):
+- 初星学園: 初星学園
+- アイドル科: アイドル科
+- …
+- hif: H.I.F.
+- プリマステラ: プリマステラ
+- reversi: REVERSI
+- …</code></pre>
+</div>
+<div>
+<h4>Every translation request receives</h4>
+<pre><code>- characters: Lilja Katsuragi
+  Aliases: 葛城リーリヤ, リーリヤ, Lilja Katsuragi
+  Personality: Shy and quiet in new situations.; …
+  History: Has no prior experience in singing …
+  Relationship with Sumika Shiun: Childhood friend …
+  …
+
+  Sumika Shiun
+  Aliases: 紫雲清夏, Shiun Sumika
+  …
+- glossary: H.I.F. → H.I.F. (Hatsuboshi Idol Festival) (…)
+  プリマステラ → Prima Stella (…)
+  REVERSI → REVERSI (…)
+  …</code></pre>
+</div>
+</div>
+<p>The choice is made from names and terms alone; aliases and facts are only added once an entry is chosen. Series notes are never sent. Translation doesn't add anything to the library.</p>
+</section>
+
+</main>
+</div>
+</body>
+</html>

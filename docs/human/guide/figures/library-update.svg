@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1010" height="542" viewBox="0 0 1010 542" role="img" aria-labelledby="title desc">
+<title id="title">Library update and approval</title>
+<desc id="desc">The Library Update tab sends a subtitle file and series. The job finds names, terms and events in the transcript, checks them against the library, writes web search queries for unknown names and terms, searches the web, proposes new and updated entries, and removes repeated character facts. The proposals appear as cards on the Library page. Accepting a card calls the library route, which saves the series files; rejecting it removes the card and saves nothing.</desc>
+<style>
+  .bg { fill: #ffffff; }
+  text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: 13px; fill: #1c2330; }
+  .code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 11px; }
+  .sub { font-size: 11px; fill: #5b6475; }
+  .node rect, .node polygon { stroke-width: 1.5; }
+  .fe rect, .fe polygon { fill: #efe9fa; stroke: #6a4bb3; }
+  .route rect, .route polygon { fill: #e6effa; stroke: #2f6fb3; }
+  .sync rect, .sync polygon { fill: #f8eedd; stroke: #8a5a14; }
+  .db rect, .db polygon { fill: #e4f4ec; stroke: #2c8a5a; }
+  .lifeline { stroke: #c3c9d3; stroke-width: 1.2; stroke-dasharray: 4 4; }
+  .edge { fill: none; stroke: #5b6475; stroke-width: 1.6; }
+  .edge.reply { stroke: #2f6fb3; stroke-dasharray: 6 5; }
+  .arrowhead { fill: #5b6475; }
+  .arrowhead.reply { fill: #2f6fb3; }
+  .frame rect { fill: none; stroke: #8a93a3; stroke-width: 1.2; }
+  .frame .tag { fill: #f0f2f5; stroke: #8a93a3; stroke-width: 1.2; }
+  .frame text { font-size: 11px; font-weight: 700; fill: #5b6475; }
+  .legend text { font-size: 10px; fill: #5b6475; }
+  .legend rect { stroke-width: 1.2; }
+  @media (prefers-color-scheme: dark) {
+    .bg { fill: #1a1f27; }
+    text { fill: #e6e9ef; }
+    .sub, .frame text, .legend text { fill: #9aa3b2; }
+    .fe rect, .fe polygon { fill: #2a2340; stroke: #b9a2f5; }
+    .route rect, .route polygon { fill: #1b2a3d; stroke: #7db3ef; }
+    .sync rect, .sync polygon { fill: #342816; stroke: #e7b56a; }
+    .db rect, .db polygon { fill: #183126; stroke: #6fd3a0; }
+    .lifeline { stroke: #3a4352; }
+    .edge { stroke: #9aa3b2; }
+    .edge.reply { stroke: #7db3ef; }
+    .arrowhead { fill: #9aa3b2; }
+    .arrowhead.reply { fill: #7db3ef; }
+    .frame rect { stroke: #6b7486; }
+    .frame .tag { fill: #222833; stroke: #6b7486; }
+  }
+  .plain rect, .plain polygon { fill: #f0f2f5; stroke: #8a93a3; }
+  @media (prefers-color-scheme: dark) { .plain rect, .plain polygon { fill: #222833; stroke: #6b7486; } }
+</style>
+<rect class="bg" width="1010" height="542" rx="10"/>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<g class="node fe"><rect x="40" y="50" width="210" height="62" rx="7"/><text x="145" y="78" text-anchor="middle">Update Library<tspan class="sub" x="145" dy="16">subtitle file + series</tspan></text></g>
+<g class="node sync"><rect x="290" y="50" width="210" height="62" rx="7"/><text x="395" y="78" text-anchor="middle">1. Find names, terms, events<tspan class="sub" x="395" dy="16">reads the transcript</tspan></text></g>
+<g class="node sync"><rect x="540" y="50" width="210" height="62" rx="7"/><text x="645" y="78" text-anchor="middle">2. Check against library<tspan class="sub" x="645" dy="16">splits known / unknown</tspan></text></g>
+<g class="node sync"><rect x="790" y="50" width="210" height="62" rx="7"/><text x="895" y="78" text-anchor="middle">3. Write search queries<tspan class="sub" x="895" dy="16">unknown names and terms</tspan></text></g>
+<g class="node route"><rect x="790" y="180" width="210" height="62" rx="7"/><text x="895" y="208" text-anchor="middle">4. Search the web<tspan class="sub" x="895" dy="16">Tavily snippets per query</tspan></text></g>
+<g class="node sync"><rect x="540" y="180" width="210" height="62" rx="7"/><text x="645" y="208" text-anchor="middle">5. Propose additions<tspan class="sub" x="645" dy="16">new and updated entries</tspan></text></g>
+<g class="node sync"><rect x="290" y="180" width="210" height="62" rx="7"/><text x="395" y="208" text-anchor="middle">6. Remove repeated facts<tspan class="sub" x="395" dy="16">character updates only</tspan></text></g>
+<g class="node fe"><rect x="40" y="180" width="210" height="62" rx="7"/><text x="145" y="208" text-anchor="middle">Proposal cards<tspan class="sub" x="145" dy="16">four lists on the page</tspan></text></g>
+<path class="edge" d="M250,81.0 H289" marker-end="url(#arrow)"/>
+<path class="edge" d="M500,81.0 H539" marker-end="url(#arrow)"/>
+<path class="edge" d="M750,81.0 H789" marker-end="url(#arrow)"/>
+<path class="edge" d="M895.0,112 V179" marker-end="url(#arrow)"/>
+<path class="edge" d="M790,211.0 H751" marker-end="url(#arrow)"/>
+<path class="edge" d="M540,211.0 H501" marker-end="url(#arrow)"/>
+<path class="edge" d="M290,211.0 H251" marker-end="url(#arrow)"/>
+<g class="node plain"><rect x="290" y="330" width="210" height="62" rx="7"/><text x="395" y="358" text-anchor="middle">Library route<tspan class="sub" x="395" dy="16">POST new · PATCH update</tspan></text></g>
+<g class="node db"><rect x="540" y="330" width="210" height="62" rx="7"/><text x="645" y="358" text-anchor="middle">Series files<tspan class="sub" x="645" dy="16">characters.json · glossary.json</tspan></text></g>
+<g class="node plain"><rect x="290" y="430" width="210" height="62" rx="7"/><text x="395" y="458" text-anchor="middle">Card removed<tspan class="sub" x="395" dy="16">nothing is saved</tspan></text></g>
+<path class="edge" d="M145.0,242 V361.0 H289" marker-end="url(#arrow)"/>
+<text class="sub" x="155.0" y="353.0" text-anchor="start">Accept</text>
+<path class="edge" d="M105.0,242 V461.0 H289" marker-end="url(#arrow)"/>
+<text class="sub" x="115.0" y="453.0" text-anchor="start">Reject</text>
+<path class="edge" d="M500,361.0 H539" marker-end="url(#arrow)"/>
+<g class="legend" aria-hidden="true"><g class="node fe"><rect x="30" y="516" width="14" height="12" rx="2"/></g><text x="50" y="525">Library page</text><g class="node sync"><rect x="148" y="516" width="14" height="12" rx="2"/></g><text x="168" y="525">uses the model</text><g class="node route"><rect x="278" y="516" width="14" height="12" rx="2"/></g><text x="298" y="525">uses web search</text><g class="node plain"><rect x="414" y="516" width="14" height="12" rx="2"/></g><text x="434" y="525">app only</text><g class="node db"><rect x="508" y="516" width="14" height="12" rx="2"/></g><text x="528" y="525">saved library</text></g>
+</svg>
